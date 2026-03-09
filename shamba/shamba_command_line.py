@@ -412,6 +412,9 @@ def main(n, arguments):
         tree_size_csv_path = os.path.join(configuration.INPUT_DIR, str(prefix + "_tree_size_data.csv"))
         tree_size_data = data_handler.read_and_validate_timeseries_by_header(file_path= tree_size_csv_path, permitted_vector_lengths=[i for i in range(5,N_YEARS+1)])
         vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
+        grouped_headers_errors = data_handler.validate_all_grouped_headers(vector_input_data)
+        if grouped_headers_errors:
+            raise ValueError(grouped_headers_errors)
         if arguments["use-api"] is False: # TODO: maybe move this one to where climate data is handled?
             climate_input_csv_path = os.path.join(configuration.INPUT_DIR, str(prefix + "_climate_cover_data.csv"))
             climate_input_data = data_handler.read_and_validate_timeseries_by_header(file_path = climate_input_csv_path, permitted_vector_lengths= [1] + [i*12 for i in range(1, N_YEARS+1)], target_vector_length=12*N_YEARS)
@@ -618,7 +621,7 @@ def main(n, arguments):
         if arguments["use-api"] is False:
             cols = list(climate_input_data.keys())
             data_to_save = np.column_stack([np.asarray(climate_input_data[k], dtype=float) for k in cols])
-            csv_handler.print_csv(file_out=os.path.join(configuration.OUTPUT_DIR, dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols) ## TODO: where to put this?
+            csv_handler.print_csv(file_out=os.path.join(configuration.OUTPUT_DIR, dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols) # TODO: where to put this?
 
     Climate.save(intervention_emissions.climate, plot_name + "_climate.csv")
 

@@ -25,54 +25,59 @@ REQUIRED_HEADER_DATATYPE = {
     "proj_cover": "binary",
     "fire_on_base": "binary",
     "fire_on_proj": "binary",
-    "fire_off_base": "binary",
+    "fire_off_base": "binary", # TODO: current code has fire_off as a bool, then applied every year
     "fire_off_proj": "binary",
 }
 
 ANCHOR_HEADER_DATATYPE_PATTERNS = {
-    r"^crop_(base|proj)_spp\d+$": "scalar integer",
-     r"^(base|proj)_species\d+$": "scalar integer",  ## TODO: this is different from current naming "species_base" "species1" etc
-     r"^(base|proj)_sf_qty$": "float", # only SF not LIT here, as only SF needs a matching _n proportion
+    r"^crop_(base|proj)_spp": "scalar integer",
+     r"^(base|proj)_species": "scalar integer",  # TODO: this is different from current naming "species_base" "species1" etc
+     r"^(base|proj)_sf_qty": "float", # only SF not LIT here, as only SF needs a matching _n proportion
 }
 
 CROP_HEADER_DATATYPE_PATTERNS = {
     # Crops (baseline & project), any index
-    r"^crop_(base|proj)_spp\d+$": "scalar integer",
-    r"^crop_(base|proj)_yd\d+$": "float",
-    r"^crop_(base|proj)_left\d+$": "proportion",}
+    r"^crop_(base|proj)_spp": "scalar integer",
+    r"^crop_(base|proj)_yd": "float",
+    r"^crop_(base|proj)_left": "proportion",}
 
-SPECIES_HEADER_DATATYPE_PATTERNS = { # TODO: this needs a specific check: what species numbers are contained in the data under headers {r"^(base|proj)_species\d+$"}, and also needs to match the species data in the related file
-    # Tree ages/diams: tree1 / sp2 / sp3 generalized ## TODO: this needs a new data input file: species index should be embedded in the header, and there may be more than 3 species, so will need to be in a different input file and validated separately
-    r"^(age|sp2_age|sp3_age)\d+$": "integer",
-    r"^(diam|sp2_diam|sp3_diam)\d+$": "float",
+SPECIES_HEADER_DATATYPE_PATTERNS = { # TODO: this needs a specific check: what species numbers are contained in the data under headers {r"^(base|proj)_species"}, and also needs to match the species data in the related file
+    # Tree ages/diams: tree1 / sp2 / sp3 generalized # TODO: this needs a new data input file: species index should be embedded in the header, and there may be more than 3 species, so will need to be in a different input file and validated separately
+    r"^(age|sp2_age|sp3_age)": "integer",
+    r"^(diam|sp2_diam|sp3_diam)": "float",
 }
 
 COHORT_HEADER_DATATYPE_PATTERNS = {
     # Cohort species, planting years & densities by cohort index
-    r"^(base|proj)_species\d+$": "scalar integer",  ## TODO: this is different from current naming "species_base" "species1" etc
-    r"^(base|proj)_plant_yr\d+$": "scalar integer", ## TODO: base doesn't currently have cohort-specific planting years, but may need to be added
-    r"^(base|proj)_plant_dens\d+$": "scalar integer", ## TODO: base doesn't currently have cohort-specific planting densities, but may need to be added
+    r"^(base|proj)_species": "scalar integer",  # TODO: this is different from current naming "species_base" "species1" etc
+    r"^(base|proj)_plant_yr": "scalar integer", # TODO: base doesn't currently have cohort-specific planting years, but may need to be added
+    r"^(base|proj)_plant_dens": "scalar integer", # TODO: base doesn't currently have cohort-specific planting densities, but may need to be added
 
     # Thinning percents by cohort index
-    r"^thin_(base|proj)_cohort\d+$": "proportion",
+    r"^thin_(base|proj)_cohort": "proportion",
 
     # Thinning fractions by pool, cohort index embedded
-    r"^thin_(base|proj)_(br|st)_cohort\d+$": "proportion",
+    r"^thin_(base|proj)_(br|st)_cohort": "proportion",
 
     # Mortality by cohort
-    r"^(base|proj)_mort_cohort\d+$": "proportion",
-    r"^mort_(base|proj)_(br|st)_cohort\d+$": "proportion",
+    r"^(base|proj)_mort_cohort": "proportion",
+    r"^mort_(base|proj)_(br|st)_cohort": "proportion",
 }
 
-LITTER_FERT_HEADER_DATATYPE_PATTERNS = {
-    # Litter & synthetic fertiliser
-    r"^(base|proj)_(lit|sf)_qty$": "float",
-    r"^(base|proj)_sf_n$": "proportion",
+FERT_HEADER_DATATYPE_PATTERNS = {
+    # Synthetic fertiliser
+    r"^(base|proj)_sf_qty": "float",
+    r"^(base|proj)_sf_n": "proportion",
     }
+
+LITTER_HEADER_DATATYPE_PATTERNS = {
+    # Litter
+    r"^(base|proj)_lit_qty": "float",
+}
 
 
 # Pattern-based types for optional headers (regex patterns as keys)
-HEADER_DATATYPE_OPT_PATTERNS = CROP_HEADER_DATATYPE_PATTERNS | SPECIES_HEADER_DATATYPE_PATTERNS | COHORT_HEADER_DATATYPE_PATTERNS | LITTER_FERT_HEADER_DATATYPE_PATTERNS
+HEADER_DATATYPE_OPT_PATTERNS = CROP_HEADER_DATATYPE_PATTERNS | SPECIES_HEADER_DATATYPE_PATTERNS | COHORT_HEADER_DATATYPE_PATTERNS | FERT_HEADER_DATATYPE_PATTERNS | LITTER_HEADER_DATATYPE_PATTERNS
 
 def get_header_type(header: str) -> Optional[str]:
     # Exact match first
@@ -80,7 +85,7 @@ def get_header_type(header: str) -> Optional[str]:
         return REQUIRED_HEADER_DATATYPE[header]
     # Pattern match
     for pattern, type_name in HEADER_DATATYPE_OPT_PATTERNS.items():
-        if re.match(pattern, header):
+        if re.match(pattern+r"(\d+)$", header):
             return type_name
     return None
 
@@ -144,7 +149,7 @@ def first_error_text(x):
                 return s
     return None
 
-def read_and_validate_timeseries_by_header(file_path: str, permitted_vector_lengths: list[int], target_vector_length: int = None) -> dict[str, np.ndarray]:
+def read_and_validate_timeseries_by_header(file_path: str, permitted_vector_lengths: list[int], target_vector_length: int | None = None) -> dict[str, np.ndarray]:
     """Reads a CSV file and returns a validated dictionary where each key is a header and the value is a 
         numpy array of the corresponding column data.
         The intended use is to read timeseries data from a CSV file where the first row contains 
@@ -219,20 +224,47 @@ def read_and_validate_timeseries_by_header(file_path: str, permitted_vector_leng
     return validated_data_dict
 
 
-def cohort_indices(headers, pattern):
+def group_indices(headers, pattern):
+    """
+    Find all integer indices N such that some header matches
+    `pattern + r"(\\d+)$"`. The base `pattern` may have other
+    capturing groups; always take the LAST capturing group as the index.
+    """
     return {
-        int(m.group(1))
+        int(m.group(m.lastindex))
         for h in headers
         if (m := re.match(pattern, h))
     }
 
-def validate_cohort_headers(headers, anchor_pattern, required_patterns):
+def validate_grouped_headers(headers, anchor_pattern, required_patterns):
+    """
+    For each index N where a header matches `anchor_pattern + r"(N)$"`,
+    require that for every pattern P in `required_patterns` there exists
+    some header matching `P + r"(N)$"`.
+    """
     errors = []
 
-    anchor_indexes = cohort_indices(headers, anchor_pattern)
+    anchor_indexes = group_indices(headers, anchor_pattern + r"(\d+)$")
     for i in anchor_indexes:
         for required_pattern in required_patterns:
-            h = f"{required_pattern}{i}"
-            if h not in headers:
-                errors.append(f"Header '{h}' is required because '{anchor_pattern}{i}' is present")
+            required_regex = required_pattern + rf"{i}$"
+            if not any(re.match(required_regex, h) for h in headers):
+                errors.append(
+                    f"Header matching '{required_regex}' is required "
+                    f"because a header matching '{anchor_pattern}{i}$' is present"
+                )
     return errors
+
+
+def validate_all_grouped_headers(data):
+    errors = []
+    for l in [CROP_HEADER_DATATYPE_PATTERNS,
+               # SPECIES_HEADER_DATATYPE_PATTERNS, TODO: need to fix these first
+               COHORT_HEADER_DATATYPE_PATTERNS,
+               FERT_HEADER_DATATYPE_PATTERNS,
+               LITTER_HEADER_DATATYPE_PATTERNS]:
+                patterns = list(l.keys())
+                errors.extend(validate_grouped_headers(list(data.keys()), anchor_pattern=patterns[0], required_patterns=patterns))
+    return errors
+
+
