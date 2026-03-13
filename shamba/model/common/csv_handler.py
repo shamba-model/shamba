@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-"""Module for io related functions in the SHAMBA program."""
+"""Module for csv related functions in the SHAMBA program."""
 
 import csv
 import logging as log

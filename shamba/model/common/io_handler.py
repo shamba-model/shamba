@@ -123,7 +123,6 @@ ________________________________________________________________________________
     arguments["source-directory"] = source_directory
 
     # Prompt for annual input data # TODO: this question is temporary, to preserve both pathways
-    arguments["annual-input-file-name"] = None
     split_input_data_presence = questionary.confirm(
         "Do you have split vector data saved in the source directory?", default=False
     ).ask()

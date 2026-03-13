@@ -43,8 +43,8 @@ CROP_HEADER_DATATYPE_PATTERNS = {
 
 SPECIES_HEADER_DATATYPE_PATTERNS = { # TODO: this needs a specific check: what species numbers are contained in the data under headers {r"^(base|proj)_species"}, and also needs to match the species data in the related file
     # Tree ages/diams: tree1 / sp2 / sp3 generalized # TODO: this needs a new data input file: species index should be embedded in the header, and there may be more than 3 species, so will need to be in a different input file and validated separately
-    r"^(age|sp2_age|sp3_age)": "integer",
-    r"^(diam|sp2_diam|sp3_diam)": "float",
+    r"^(age_sp)": "integer",
+    r"^(diam_sp)": "float",
 }
 
 COHORT_HEADER_DATATYPE_PATTERNS = {
@@ -250,7 +250,7 @@ def validate_grouped_headers(headers, anchor_pattern, required_patterns):
             required_regex = required_pattern + rf"{i}$"
             if not any(re.match(required_regex, h) for h in headers):
                 errors.append(
-                    f"Header matching '{required_regex}' is required "
+                    f"Header matching '{required_regex}' is required " # TODO: this prints the regex so not particularly specific or readable
                     f"because a header matching '{anchor_pattern}{i}$' is present"
                 )
     return errors
@@ -259,7 +259,7 @@ def validate_grouped_headers(headers, anchor_pattern, required_patterns):
 def validate_all_grouped_headers(data):
     errors = []
     for l in [CROP_HEADER_DATATYPE_PATTERNS,
-               # SPECIES_HEADER_DATATYPE_PATTERNS, TODO: need to fix these first
+               SPECIES_HEADER_DATATYPE_PATTERNS,
                COHORT_HEADER_DATATYPE_PATTERNS,
                FERT_HEADER_DATATYPE_PATTERNS,
                LITTER_HEADER_DATATYPE_PATTERNS]:
