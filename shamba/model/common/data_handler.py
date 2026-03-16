@@ -116,6 +116,7 @@ def build_field_specs(headers):
         t = get_header_type(h)
         if t is None:
             errors.append(f"Header '{h}' does not match any known type.")
+            continue
         field_specs[h] = make_field_for_type(t)
     if errors:
         error_message = "Errors found in data header specifications:\n" + "\n".join(errors)
@@ -267,10 +268,14 @@ def validate_all_grouped_headers(data):
                 errors.extend(validate_grouped_headers(list(data.keys()), anchor_pattern=patterns[0], required_patterns=patterns))
     return errors
 
-def expand_single_row_data_input(row_input_data, no_of_years):
+def expand_single_row_data_input(file_path):
         # identify scalar headers through their type in data_handler
         # also treat any header beginning with 'species' as scalar
-        # TODO: validate these outputs using the code above, use broadcast_to_length
+
+        row_input_data = read_and_validate_timeseries_by_header(file_path, permitted_vector_lengths=[1], target_vector_length=1)
+
+        no_of_years = "yrs_proj"
+
         scalar_input_headers = [
             h
             for h in list(row_input_data.keys())

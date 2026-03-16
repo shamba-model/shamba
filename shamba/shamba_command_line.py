@@ -454,7 +454,7 @@ def main(n, arguments):
 
     if arguments.get("input-file-name") is not None:
         # single-row input: split the flat dictionary into scalar, tree size and management data. This is not validated # TODO:
-        scalar_input_data, tree_size_data, mgmt_input_data, cover_data = data_handler.expand_single_row_data_input(csv_input_data, N_YEARS)
+        scalar_input_data, tree_size_data, mgmt_input_data, cover_data = data_handler.expand_single_row_data_input(file_path)
     # TODO: handle climate data here
 
     vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
