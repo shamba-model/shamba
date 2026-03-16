@@ -308,14 +308,13 @@ def setup_project_directory(project_name, arguments):
         "biomass_pool_params.csv",
     ]
 
-    if arguments["split-input-file-id"] is not None:
+    if arguments.get("split-input-file-id") is not None:
         prefix = arguments["split-input-file-id"] 
         files_to_copy.append(str(prefix + "_plot_data.csv"))
         files_to_copy.append(str(prefix + "_mgmt_data.csv"))
         files_to_copy.append(str(prefix + "_tree_size_data.csv"))
         if arguments["use-api"] is False:
             files_to_copy.append(str(prefix + "_climate_cover_data.csv"))
-        files_to_copy.append(arguments["input-file-name"]) # TODO: remove this if only allowing one or the other
     else:
         files_to_copy.append(arguments["input-file-name"])
 
@@ -401,23 +400,68 @@ def main(n, arguments):
         N_YEARS = int(csv_input_data["yrs_proj"])
        
 
-    if arguments["split-input-file-id"] is not None:
+    if arguments.get("split-input-file-id") is not None:
         prefix = arguments["split-input-file-id"]
-        scalar_input_csv_path = os.path.join(configuration.INPUT_DIR, str(prefix + "_plot_data.csv"))
-        scalar_input_data = data_handler.read_and_validate_timeseries_by_header(file_path = scalar_input_csv_path, permitted_vector_lengths=[1], target_vector_length=1)
-        N_YEARS = int(scalar_input_data["yrs_proj"])
-        st = int(scalar_input_data["analysis_no"])
-        mgmt_input_csv_path = os.path.join(configuration.INPUT_DIR, str(prefix + "_mgmt_data.csv"))
-        mgmt_input_data = data_handler.read_and_validate_timeseries_by_header(file_path = mgmt_input_csv_path, permitted_vector_lengths= [1, N_YEARS], target_vector_length=N_YEARS)
-        tree_size_csv_path = os.path.join(configuration.INPUT_DIR, str(prefix + "_tree_size_data.csv"))
-        tree_size_data = data_handler.read_and_validate_timeseries_by_header(file_path= tree_size_csv_path, permitted_vector_lengths=[i for i in range(5,N_YEARS+1)])
-        vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
-        grouped_headers_errors = data_handler.validate_all_grouped_headers(vector_input_data)
-        if grouped_headers_errors:
-            raise ValueError(grouped_headers_errors)
-        if arguments["use-api"] is False: # TODO: maybe move this one to where climate data is handled?
-            climate_input_csv_path = os.path.join(configuration.INPUT_DIR, str(prefix + "_climate_cover_data.csv"))
-            climate_input_data = data_handler.read_and_validate_timeseries_by_header(file_path = climate_input_csv_path, permitted_vector_lengths= [1] + [i*12 for i in range(1, N_YEARS+1)], target_vector_length=12*N_YEARS)
+        # Define configurations for each CSV read
+        csv_configs = [
+            {
+                "path": os.path.join(configuration.INPUT_DIR, f"{prefix}_plot_data.csv"),
+                "permitted_lengths": [1],
+                "target_length": 1,
+                "assign_to": "scalar_input_data"
+            },
+            {
+                "path": os.path.join(configuration.INPUT_DIR, f"{prefix}_mgmt_data.csv"),
+                "permitted_lengths": [1, N_YEARS],
+                "target_length": N_YEARS,
+                "assign_to": "mgmt_input_data"
+            },
+            {
+                "path": os.path.join(configuration.INPUT_DIR, f"{prefix}_tree_size_data.csv"),
+                "permitted_lengths": [i for i in range(5, N_YEARS + 1)],
+                "target_length": None,  # If not applicable
+                "assign_to": "tree_size_data"
+            },
+        ]
+
+        if arguments["use-api"] is False:
+            csv_configs.append(
+                { 
+                    "path": os.path.join(configuration.INPUT_DIR, str(prefix + "_climate_cover_data.csv")),
+                    "permitted_lengths": [1] + [i*12 for i in range(1, N_YEARS+1)],
+                    "target_length": 12*N_YEARS,
+                    "assign_to": "climate_input_data"
+                }
+            )
+
+        # Read and validate each CSV
+        data_store = {}
+        for config in csv_configs:
+            data = data_handler.read_and_validate_timeseries_by_header(
+                file_path=config["path"],
+                permitted_vector_lengths=config["permitted_lengths"],
+                target_vector_length=config["target_length"]
+            )
+            if config["assign_to"]:
+                data_store[config["assign_to"]] = data
+
+        # Unpack for use (or access directly from data_store)
+        scalar_input_data = data_store.get("scalar_input_data")
+        mgmt_input_data = data_store.get("mgmt_input_data")
+        tree_size_data = data_store.get("tree_size_data")
+        if arguments["use-api"] is False:
+            climate_input_data = data_store.get("climate_input_data")
+
+    if arguments.get("input-file-name") is not None:
+        # single-row input: split the flat dictionary into scalar, tree size and management data. This is not validated # TODO:
+        scalar_input_data, tree_size_data, mgmt_input_data, cover_data = data_handler.expand_single_row_data_input(csv_input_data, N_YEARS)
+    # TODO: handle climate data here
+
+    vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
+
+    grouped_headers_errors = data_handler.validate_all_grouped_headers(vector_input_data)
+    if grouped_headers_errors:
+        raise ValueError(grouped_headers_errors)
 
     allometric_keys = arguments["allometric-keys"]
 
@@ -593,35 +637,34 @@ def main(n, arguments):
 
     plot_name = dir + "\plot_" + str(n + st)
 
-    if arguments["split-input-file-id"] is not None:
-        datasets = [
-            ("plot", scalar_input_data),
-            ("mgmt", mgmt_input_data),
-            ("tree_size", tree_size_data),
-        ]
+    datasets = [
+        ("plot", scalar_input_data),
+        ("mgmt", mgmt_input_data),
+        ("tree_size", tree_size_data),
+    ]
 
-        for name, d in datasets:
-            cols = list(d.keys())
+    for name, d in datasets:
+        cols = list(d.keys())
 
-            arrays = [np.atleast_1d(np.asarray(d[k], dtype=float)) for k in cols]
+        arrays = [np.atleast_1d(np.asarray(d[k], dtype=float)) for k in cols]
 
-            # All columns must be the same length
-            target_len = max(a.size for a in arrays)
-            padded = []
-            for a in arrays:
-                if a.size < target_len:
-                    a = np.pad(a, (0, target_len - a.size), constant_values=np.nan)
-                padded.append(a)
+        # All columns must be the same length
+        target_len = max(a.size for a in arrays)
+        padded = []
+        for a in arrays:
+            if a.size < target_len:
+                a = np.pad(a, (0, target_len - a.size), constant_values=np.nan)
+            padded.append(a)
 
-            data_to_save = np.column_stack(padded)
+        data_to_save = np.column_stack(padded)
 
-            out_path = os.path.join(dir, f"validated_{name}_input_data_{st}.csv")
-            csv_handler.print_csv(file_out=out_path, array=data_to_save, col_names=cols)
+        out_path = os.path.join(dir, f"validated_{name}_input_data_{st}.csv")
+        csv_handler.print_csv(file_out=out_path, array=data_to_save, col_names=cols)
 
-        if arguments["use-api"] is False:
-            cols = list(climate_input_data.keys())
-            data_to_save = np.column_stack([np.asarray(climate_input_data[k], dtype=float) for k in cols])
-            csv_handler.print_csv(file_out=os.path.join(configuration.OUTPUT_DIR, dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols) # TODO: where to put this?
+    if arguments["use-api"] is False: # TODO: is this duplicated below?
+        cols = list(climate_input_data.keys())
+        data_to_save = np.column_stack([np.asarray(climate_input_data[k], dtype=float) for k in cols])
+        csv_handler.print_csv(file_out=os.path.join(configuration.OUTPUT_DIR, dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols) # TODO: where to put this?
 
     Climate.save(intervention_emissions.climate, plot_name + "_climate.csv")
 
