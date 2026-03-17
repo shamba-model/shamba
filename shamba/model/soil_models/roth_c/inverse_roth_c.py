@@ -22,7 +22,7 @@ def create(soil, climate, cover=np.ones(12)) -> InverseSoilModelData:
         cover: monthly soil cover vector
 
     """
-    roth_c = create_roth_c(soil, climate, cover)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years = 1)
 
     eq_C, input_C, x = solver(roth_c)
 

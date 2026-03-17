@@ -14,7 +14,7 @@ K_BASE = np.array([10.0, 0.3, 0.66, 0.02])
 
 
 # We probably do not need this `create` function
-def create(soil, climate, cover):
+def create(soil, climate, cover, no_of_years):
     """Creates rothc object.
 
     Args:
@@ -28,7 +28,7 @@ def create(soil, climate, cover):
         "soil_params": vars(soil),
         "climate": vars(climate),
         "cover": cover,
-        "k": get_rmf(climate=climate, cover=cover, soil=soil) * K_BASE,
+        "k": get_rmf(climate=climate, cover=cover, soil=soil, no_of_years=no_of_years) * K_BASE,
     }
 
     schema = SoilModelBaseSchema()
@@ -42,63 +42,81 @@ def create(soil, climate, cover):
 
 
 # Rate modifying-factor function - needed in forward and inverse
-def get_rmf(climate, cover, soil):
-    """Calculate the rate modifying factor b
-    based on climate and soil cover.
+def get_rmf(climate, cover, soil, no_of_years):
+    """Calculate the rate modifying factor for each year based on climate and soil cover.
+
+    Supports both single-pattern climate/cover (12 values, repeated for all years)
+    and multi-year climate/cover (12 * no_of_years values).
 
     Returns:
-        rmf: product of the all three RMFs (as a mean for the year)
-
+        rmf: array of shape (no_of_years,) — yearly mean of the combined RMF
     """
-
-    # Calculation of b (topsoil moisture deficit RMF)
-    # Deficit is difference between rain and evaporation (pet/0.75)
-    deficit = climate.rain - climate.evaporation
-    m = get_first_pos_def(deficit)
-    m, rain_always_exceeds_evaporation = get_first_neg_def(deficit, m)
-    b = np.ones(12)
-    if rain_always_exceeds_evaporation:
-        return b.mean()
-
-    # Rainfall < evap in month m, so
-    # tart calculating SMD from month before m
-    m -= 1
     cc = soil.clay
     d = soil.depth
-    max = -(20 + 1.3 * cc - 0.01 * (cc**2)) * (d / 23.0)
-    accumulator_tsmd = 0.0
-    tsmd = np.zeros(12)
+    rmf = np.zeros(no_of_years)
 
-    # Now define deficit as rain - pet
-    deficit = climate.rain - climate.evaporation * 0.75
+    multi_year_climate = len(climate.temperature) >= 12 * no_of_years
+    multi_year_cover = len(cover) >= 12 * no_of_years
 
-    # Loop through each month
-    for i in range(12):
-        accumulator_tsmd = get_acc_tsmd(accumulator_tsmd, deficit[m], cover[m], max)
-        if accumulator_tsmd >= 0.444 * max:
-            b[m] = 1
-        elif accumulator_tsmd >= max:
-            b[m] = 0.2 + 0.8 * (max - accumulator_tsmd) / ((1 - 0.444) * max)
+    for y in range(no_of_years):
+        # Slice the appropriate 12-month window, or use the single pattern.
+        if multi_year_climate:
+            temp = climate.temperature[y*12:(y+1)*12]
+            rain = climate.rain[y*12:(y+1)*12]
+            evap = climate.evaporation[y*12:(y+1)*12]
         else:
-            log.error("DEFICIT = %5.2f" % accumulator_tsmd)
-            sys.exit(1)
+            temp = climate.temperature
+            rain = climate.rain
+            evap = climate.evaporation
 
-        tsmd[m] = accumulator_tsmd
-        m += 1
-        if m > 11:
-            m = 0
+        cover_year = cover[y*12:(y+1)*12] if multi_year_cover else cover
 
-    # Temperature RMF (a)
-    a = np.zeros(12)
-    for i in np.where(climate.temperature > -5.0):
-        a[i] = 47.91 / (1.0 + np.exp(106.06 / (climate.temperature + 18.27)))
+        # Calculation of b (topsoil moisture deficit RMF)
+        # Deficit is difference between rain and evaporation (pet/0.75)
+        deficit = rain - evap
+        m = get_first_pos_def(deficit)
+        m, rain_always_exceeds_evaporation = get_first_neg_def(deficit, m)
+        b = np.ones(12)
+        if rain_always_exceeds_evaporation:
+            rmf[y] = b.mean()
+            continue
 
-    # Soil cover RMF (c)
-    c = np.ones(12)
-    for i in np.where(cover == 1)[0]:
-        c[i] = 0.6
+        # Rainfall < evap in month m, so start calculating SMD from month before m
+        m -= 1
 
-    return (a * b * c).mean()  # yearly average of total RMF
+        max_smd = -(20 + 1.3 * cc - 0.01 * (cc**2)) * (d / 23.0)
+        accumulator_tsmd = 0.0
+
+        # Now define deficit as rain - pet
+        deficit = rain - evap * 0.75
+
+        # Loop through each month
+        for i in range(12):
+            accumulator_tsmd = get_acc_tsmd(accumulator_tsmd, deficit[m], cover_year[m], max_smd)
+            if accumulator_tsmd >= 0.444 * max_smd:
+                b[m] = 1
+            elif accumulator_tsmd >= max_smd:
+                b[m] = 0.2 + 0.8 * (max_smd - accumulator_tsmd) / ((1 - 0.444) * max_smd)
+            else:
+                log.error("DEFICIT = %5.2f" % accumulator_tsmd)
+                sys.exit(1)
+
+            m += 1
+            if m > 11:
+                m = 0
+
+        # Temperature RMF (a)
+        a = np.zeros(12)
+        warm = temp > -5.0
+        a[warm] = 47.91 / (1.0 + np.exp(106.06 / (temp[warm] + 18.27)))
+
+        # Soil cover RMF (c)
+        c = np.ones(12)
+        c[cover_year == 1] = 0.6
+
+        rmf[y] = (a * b * c).mean()
+
+    return rmf
 
 
 # Helper methods for finding b (topsoil moisture RMF)

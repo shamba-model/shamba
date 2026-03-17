@@ -41,7 +41,7 @@ def create(
         solve_to_value: whether to solve to value (to Cy0) or by time
 
     """
-    roth_c = create_roth_c(soil, climate, cover)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years)
 
     SOC, inputs, Cy0Year = solver(
         roth_c, Ci, no_of_years, crop, tree, litter, fire, solve_to_value
@@ -116,7 +116,7 @@ def solver(
 
         # Solve the diffEQs to get pools for year i
         Ctemp = integrate.odeint(
-            dC_dt, C[i - 1], t, args=(x[i - 1], roth_c.k, inputs[i - 1].sum())
+            dC_dt, C[i - 1], t, args=(x[i - 1], roth_c.k[i-1], inputs[i - 1].sum())
         )
         C[i] = Ctemp[-1]  # carbon pools at end of year
 
