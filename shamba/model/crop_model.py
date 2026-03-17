@@ -159,20 +159,12 @@ def get_crop_data(
     input_data, no_of_years, prefix, index
 ) -> Tuple[CropModelData, CropParamsData]:
     spp = int(input_data[f"{prefix}_spp{index}"])
-    harvest_yield = np.zeros(no_of_years)
-    harvest_yield[
-        int(input_data[f"{prefix}_start{index}"]) : int(
-            input_data[f"{prefix}_end{index}"]
-        )
-    ] = float(input_data[f"{prefix}_yd{index}"])
-    harv_frac = float(input_data[f"{prefix}_left{index}"])
-
     crop_params = create_crop_params_from_species_index(spp)
     crop_model = create(
         crop_params=crop_params,
         no_of_years=no_of_years,
-        crop_yield=harvest_yield,
-        left_in_field=harv_frac,
+        crop_yield=input_data[f"{prefix}_yd{index}"],
+        left_in_field=input_data[f"{prefix}_left{index}"],
     )
 
     return crop_model, crop_params
