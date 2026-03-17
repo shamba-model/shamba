@@ -79,6 +79,19 @@ LITTER_HEADER_DATATYPE_PATTERNS = {
 # Pattern-based types for optional headers (regex patterns as keys)
 HEADER_DATATYPE_OPT_PATTERNS = CROP_HEADER_DATATYPE_PATTERNS | SPECIES_HEADER_DATATYPE_PATTERNS | COHORT_HEADER_DATATYPE_PATTERNS | FERT_HEADER_DATATYPE_PATTERNS | LITTER_HEADER_DATATYPE_PATTERNS
 
+# Explicit anchor -> required groupings for validate_all_grouped_headers.
+# Each entry is (anchor_pattern, [required_patterns]).
+# For each index N where a header matching anchor_pattern+N exists, all
+# required_patterns+N must also be present.
+GROUPED_HEADER_VALIDATIONS = [
+    # If fertiliser quantity is given for index N, nitrogen % is required.
+    (r"^(base|proj)_sf_qty", [r"^(base|proj)_sf_n"]),
+    # If a crop species is given for index N, yield and residue fraction are required.
+    (r"^crop_(base|proj)_spp", [r"^crop_(base|proj)_yd", r"^crop_(base|proj)_left"]),
+    # If a cohort species is given for index N, planting year and density are required.
+    (r"^(base|proj)_species", [r"^(base|proj)_plant_yr", r"^(base|proj)_plant_dens"]),
+]
+
 def get_header_type(header: str) -> Optional[str]:
     # Exact match first
     if header in REQUIRED_HEADER_DATATYPE:
@@ -259,161 +272,191 @@ def validate_grouped_headers(headers, anchor_pattern, required_patterns):
 
 def validate_all_grouped_headers(data):
     errors = []
-    for l in [CROP_HEADER_DATATYPE_PATTERNS,
-               SPECIES_HEADER_DATATYPE_PATTERNS,
-               COHORT_HEADER_DATATYPE_PATTERNS,
-               FERT_HEADER_DATATYPE_PATTERNS,
-               LITTER_HEADER_DATATYPE_PATTERNS]:
-                patterns = list(l.keys())
-                errors.extend(validate_grouped_headers(list(data.keys()), anchor_pattern=patterns[0], required_patterns=patterns))
+    for anchor_pattern, required_patterns in GROUPED_HEADER_VALIDATIONS:
+        errors.extend(
+            validate_grouped_headers(
+                list(data.keys()),
+                anchor_pattern=anchor_pattern,
+                required_patterns=required_patterns,
+            )
+        )
     return errors
 
-def expand_single_row_data_input(file_path):
-        # identify scalar headers through their type in data_handler
-        # also treat any header beginning with 'species' as scalar
+def _read_single_row_csv(file_path: str) -> dict[str, float]:
+    """Read a single-row legacy CSV without validating header names.
 
-        row_input_data = read_and_validate_timeseries_by_header(file_path, permitted_vector_lengths=[1], target_vector_length=1)
+    The legacy single-row format stores all parameters as scalar values
+    in a single data row. Header names use the old naming convention and
+    are not registered in the new-format type dicts; this reader bypasses
+    that validation so the expand function can translate them.
 
-        no_of_years = "yrs_proj"
+    Returns:
+        dict mapping each header string to its scalar float value.
+    """
+    headers = np.genfromtxt(file_path, delimiter=",", max_rows=1, dtype=str, encoding=None)
+    headers = np.char.strip(headers)
+    data = np.genfromtxt(file_path, delimiter=",", skip_header=1, dtype=float)
+    data = np.atleast_1d(data.flatten())
+    return {h: float(v) for h, v in zip(headers, data)}
 
-        scalar_input_headers = [
-            h
-            for h in list(row_input_data.keys())
-            if (
-                (get_header_type(h) and get_header_type(h).startswith("scalar"))
-                or re.match(r"^species(?:_base|\d*)$", h)
-                or re.match(r"base_plant_(?:yr|dens*)", h) # TODO: remove "or" when headers updated
-            )
-        ]
-        scalar_input_data = {}
-        for h in scalar_input_headers:
-            # pop (remove) the value from row_input_data; ignore missing keys
-            val = row_input_data.pop(h, None)
-            if val is not None:
-                try:
-                    scalar_input_data[h] = np.atleast_1d(np.asarray(val, dtype=float))
-                except Exception:
-                    # keep original if conversion fails
-                    scalar_input_data[h] = val
 
-        # --- tree size ---
-        tree_size_data = {}
-        age_base = ["age1", "age2", "age3", "age4", "age5", "age6"]
-        diam_base = ["diam1", "diam2", "diam3", "diam4", "diam5", "diam6"]
+def expand_single_row_data_input(file_path: str):
+    """Transform a legacy single-row CSV into the standardised four-dict output.
 
-        # determine which species are present in the scalar inputs
-        # species headers can be 'species_base' or 'species1', 'species2', etc. # TODO: fix this when strings updated in test files, check if match N_COHORTS
-        species_keys = [
-            h
-            for h in scalar_input_data.keys()
-            if re.match(r"^species(?:_base|\d*)$", h)
-        ]
-        sp_list = []
-        for k in species_keys:
+    The single-row format stores all parameters as scalar values and uses
+    interval/presence scalars to describe management schedules. This function
+    converts those scalars into annual vectors using the new header naming
+    convention, so downstream models receive the same shape regardless of
+    which input format was used.
+
+    Returns:
+        scalar_input_data   dict of scalar site/project parameters
+        tree_size_data      dict of variable-length age/diameter arrays per species
+        mgmt_input_data     dict of annual (no_of_years,) management vectors
+        cover_data          dict of monthly-annual (12 * no_of_years,) cover vectors
+    """
+    raw = _read_single_row_csv(file_path)
+
+    def s(key, default=0.0) -> float:
+        return float(raw.get(key, default))
+
+    def si(key, default=0) -> int:
+        return int(raw.get(key, default))
+
+    no_of_years = si("yrs_proj")
+
+    # --- Scalar pass-through ---
+    scalar_input_data = {}
+    for h in ("lat", "lon", "yrs_proj", "yr_mon", "analysis_no", "plot_name"):
+        if h in raw:
+            scalar_input_data[h] = np.atleast_1d(np.asarray(raw[h], dtype=float))
+
+    # Species: map old naming to new cohort naming
+    # TODO: simplify once single-row CSV headers are updated
+    if "species_base" in raw:
+        scalar_input_data["base_species1"] = np.atleast_1d(np.asarray(raw["species_base"], dtype=float))
+    for i in range(1, 4):
+        if f"species{i}" in raw:
+            scalar_input_data[f"proj_species{i}"] = np.atleast_1d(np.asarray(raw[f"species{i}"], dtype=float))
+
+    # Planting parameters: map old naming to new cohort-indexed naming
+    # TODO: simplify once single-row CSV headers are updated
+    if "base_plant_dens" in raw:
+        scalar_input_data["base_plant_dens1"] = np.atleast_1d(np.asarray(raw["base_plant_dens"], dtype=float))
+    for i in range(1, 4):
+        for key in (f"proj_plant_yr{i}", f"proj_plant_dens{i}"):
+            if key in raw:
+                scalar_input_data[key] = np.atleast_1d(np.asarray(raw[key], dtype=float))
+
+    # --- Tree size data ---
+    # Collect species numbers from the scalar pass-through
+    sp_list = []
+    for key, arr in scalar_input_data.items():
+        if re.match(r"^(base|proj)_species\d+$", key):
             try:
-                # scalar_input_data stores arrays, take first element
-                arr = np.atleast_1d(scalar_input_data[k])
                 sp_list.append(int(arr[0]))
             except Exception:
-                # missing or non-numeric
                 continue
 
-        for spp_number in set(sp_list):
-            if spp_number == 1:
-                sp_index = ""
-            else:
-                sp_index = f"sp{spp_number}_"
+    tree_size_data = {}
+    age_base_keys = ["age1", "age2", "age3", "age4", "age5", "age6"]
+    diam_base_keys = ["diam1", "diam2", "diam3", "diam4", "diam5", "diam6"]
 
-            age_input = [f"{sp_index}{key}" for key in age_base]
-            age_vals = [float(row_input_data.get(k, 0)) for k in age_input]
-            age_arr = np.array(age_vals)
-            age_arr = np.array(sorted(age_arr, key=int))
+    for spp_number in sorted(set(sp_list)):
+        sp_prefix = "" if spp_number == 1 else f"sp{spp_number}_"
+        age_vals = [s(f"{sp_prefix}{k}") for k in age_base_keys]
+        diam_vals = [s(f"{sp_prefix}{k}") for k in diam_base_keys]
 
-            diam_input = [f"{sp_index}{key}" for key in diam_base]
-            diam_vals = [float(row_input_data.get(k, 0)) for k in diam_input]
-            diam_arr = np.array(diam_vals)
+        # Sort measurements by age
+        pairs = sorted(zip(age_vals, diam_vals))
+        if pairs:
+            ages, diams = zip(*sorted(pairs))
+            tree_size_data[f"age_sp{spp_number}"] = np.array(ages)
+            tree_size_data[f"diam_sp{spp_number}"] = np.array(diams)
 
-            tree_size_data[f"age_sp{spp_number}"] = age_arr
-            tree_size_data[f"diam_sp{spp_number}"] = diam_arr
-        # --- crop data --- #
-        crop_data = {}
+    # --- Crop data ---
+    crop_data = {}
+    for index in range(1, 4):
+        for prefix in ("crop_base", "crop_proj"):
+            scalar_input_data[f"{prefix}_spp{index}"] = np.atleast_1d(
+                np.asarray(si(f"{prefix}_spp{index}"), dtype=float)
+            )
+            start_year = si(f"{prefix}_start{index}")
+            end_year = si(f"{prefix}_end{index}")
+            harvest_yield = np.zeros(no_of_years)
+            harv_frac = np.zeros(no_of_years)
+            harvest_yield[start_year:end_year] = s(f"{prefix}_yd{index}")
+            harv_frac[start_year:end_year] = s(f"{prefix}_left{index}")
+            crop_data[f"{prefix}_yd{index}"] = harvest_yield
+            crop_data[f"{prefix}_left{index}"] = harv_frac
 
-        for index in set({1,2,3}):
-            for prefix in set({"crop_base","crop_proj"}):
-                start_year = int(row_input_data[f"{prefix}_start{index}"]) 
-                end_year = int(row_input_data[f"{prefix}_end{index}"])
-                harvest_yield = harv_frac = np.zeros(no_of_years)
-                harvest_yield[start_year:end_year] = float(row_input_data[f"{prefix}_yd{index}"])
-                harv_frac[start_year:end_year] = float(row_input_data[f"{prefix}_left{index}"])
-                crop_data[f"{prefix}_yd{index}"] = harvest_yield
-                crop_data[f"{prefix}_left{index}"] = harv_frac
+    # --- Fertiliser ---
+    fertiliser_data = {}
+    for prefix in ("base", "proj"):
+        qty_vec = np.zeros(no_of_years)
+        n_vec = np.zeros(no_of_years)
+        interval = si(f"{prefix}_sf_int")
+        if interval > 0:
+            qty_vec[::interval] = s(f"{prefix}_sf_qty")
+            n_vec[::interval] = s(f"{prefix}_sf_n")
+        fertiliser_data[f"{prefix}_sf_qty"] = qty_vec
+        fertiliser_data[f"{prefix}_sf_n"] = n_vec
 
-        #---fertiliser---#
-        fertiliser_data = {}
+    # --- Litter ---
+    litter_data = {}
+    for prefix in ("base", "proj"):
+        qty_vec = np.zeros(no_of_years)
+        interval = si(f"{prefix}_lit_int")
+        if interval > 0:
+            qty_vec[::interval] = s(f"{prefix}_lit_qty")
+        litter_data[f"{prefix}_lit_qty"] = qty_vec
 
-        for prefix in set({"base","proj"}):
-            DMinput = np.zeros(no_of_years)
-            nitrogen = np.zeros(no_of_years)
-            interval = int(row_input_data[f"{prefix}_sf_int"])
-            quantity = row_input_data[f"{prefix}_sf_qty"]
-            n_content = row_input_data[f"{prefix}_sf_n"] # TODO: check between 0 and 1
-            if interval > 0:
-                DMinput[::interval] = quantity
-                nitrogen[::interval] = n_content
-            fertiliser_data[f"{prefix}_sf_qty"] = DMinput
-            fertiliser_data[f"{prefix}_sf_n"] = nitrogen
+    # --- Fire ---
+    fire_data = {}
+    for suffix in ("base", "proj"):
+        fire_on = np.zeros(no_of_years)
+        fire_off = np.zeros(no_of_years) if si(f"fire_off_{suffix}") == 0 else np.ones(no_of_years)
+        interval = si(f"fire_int_{suffix}")
+        if interval > 0:
+            fire_on[::interval] = s(f"fire_pres_{suffix}")
+        fire_data[f"fire_on_{suffix}"] = fire_on
+        fire_data[f"fire_off_{suffix}"] = fire_off
 
-        litter_data = {}
+    # --- Cover ---
+    cover_data = {}
+    for prefix in ("base", "proj"):
+        cover_year = np.zeros(12)
+        cover_year[si(f"{prefix}_cvr_mth_st"):si(f"{prefix}_cvr_mth_en")] = si(f"{prefix}_cvr_pres")
+        cover_data[f"{prefix}_cover"] = np.tile(cover_year, no_of_years)
 
-        for prefix in set({"base","proj"}):
-            DMinput = np.zeros(no_of_years)
-            interval = int(row_input_data[f"{prefix}_lit_int"])
-            quantity = row_input_data[f"{prefix}_lit_qty"]
-            if interval > 0:
-                DMinput[::interval] = quantity
-            litter_data[f"{prefix}_lit_qty"] = DMinput
+    # --- Tree management ---
+    # Build thinning/mortality arrays and copy them to every cohort present in
+    # this scenario.  Base always has exactly one cohort in the single-row
+    # format; proj can have up to three (species1–species3).
+    tree_data = {}
+    for mgmt in ("base", "proj"):
+        thinning_array = np.zeros(no_of_years + 1)
+        for i in range(1, 5):
+            yr = si(f"thin_{mgmt}_yr{i}")
+            pc = s(f"thin_{mgmt}_pc{i}")
+            if yr > 0:
+                thinning_array[yr] = pc
 
-        #--- fire---#
-        fire_data = {}
+        if mgmt == "base":
+            cohort_indices = [1]
+        else:
+            cohort_indices = [i for i in range(1, 4) if f"species{i}" in raw] or [1]
 
-        for suffix in set({"base","proj"}):
-            fire_on = np.zeros(no_of_years)
-            fire_off = (np.zeros(no_of_years) if int(row_input_data[f"fire_off_{suffix}"])==0 else np.ones(no_of_years) )
-            interval = int(row_input_data[f"fire_int_{suffix}"])
-            if interval > 0:
-                fire_on[::interval] = 1
-            fire_data[f"fire_on_{suffix}"] = fire_on
-            fire_data[f"fire_off_{suffix}"] = fire_off
+        for c in cohort_indices:
+            tree_data[f"thin_{mgmt}_cohort{c}"] = thinning_array
+            tree_data[f"mort_{mgmt}_cohort{c}"] = np.full(no_of_years + 1, s(f"{mgmt}_mort"))
+            for pool in ("br", "st"):
+                for turnover in ("thin", "mort"):
+                    tree_data[f"{turnover}_{mgmt}_{pool}_cohort{c}"] = np.full(
+                        no_of_years + 1, s(f"{turnover}_{mgmt}_{pool}")
+                    )
 
-        #---cover---#
-        cover_data = {}
+    mgmt_input_data = crop_data | fertiliser_data | litter_data | fire_data | tree_data
 
-        for prefix in set({"base","proj"}):
-            cover_year = np.zeros(12)
-            cover_year[int(row_input_data[f"{prefix}_cvr_mth_st"]) : 
-                  int(row_input_data[f"{prefix}_cvr_mth_en"])] = int(row_input_data[f"{prefix}_cvr_pres"])
-            cover = np.tile(cover_year, no_of_years)
-            cover_data[f"{prefix}_cover"] = cover
-
-        #-- tree mgmt---#
-        tree_data = {}
-
-        for mgmt in set({"base", "proj"}):
-            thinning_array = np.zeros(no_of_years + 1)
-            for i in range(1, 5):
-                key_yr = f"thin_{mgmt}_yr{i}"
-                key_pc = f"thin_{mgmt}_pc{i}"
-                if key_yr in row_input_data and key_pc in row_input_data:
-                    year = int(row_input_data[key_yr])
-                    percent = float(row_input_data[key_pc]) # TODO: check 0-1
-                    thinning_array[year] = percent
-            tree_data[f"thin_{mgmt}_cohort"] = thinning_array # TODO: need to copy this to number of cohorts
-            tree_data[f"mort_{mgmt}_cohort"] = np.repeat(row_input_data[f"{mgmt}_mort"],no_of_years+1)
-            for pool in set({"br","st"}):
-                for turnover in set({"thin","mort"}):
-                    percent = float(row_input_data[f"{turnover}_{mgmt}_{pool}"])
-                    tree_data[f"{turnover}_{mgmt}_{pool}_cohort"] = np.repeat(percent,no_of_years+1) # TODO: no_of_years + 1?
-        mgmt_input_data = crop_data | fertiliser_data | litter_data | fire_data | tree_data
-
-        return scalar_input_data, tree_size_data, mgmt_input_data, cover_data
+    return scalar_input_data, tree_size_data, mgmt_input_data, cover_data
 
