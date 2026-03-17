@@ -1,5 +1,6 @@
 from typing import Dict, Union, List, NamedTuple, Tuple, Any, Callable
 from toolz import get, compose  # type: ignore
+from copy import deepcopy
 import numpy as np
 
 import model.climate as Climate
@@ -216,50 +217,18 @@ def get_tree_model_data(
 class GetFireModelReturnData(NamedTuple):
     fire_base: np.ndarray
     fire_project: np.ndarray
-    fire_off_base: bool
-    fire_off_proj: bool
+    fire_off_base: np.ndarray
+    fire_off_proj: np.ndarray
 
 
 def get_fire_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetFireModelReturnData:
-    # Return interval of fire, [::2] = 1 is return interval of two years
-    base_fire_interval = get_int(CONSTANTS.FIRE_INTERVAL_BASE_KEY, intervention_input)
-    if base_fire_interval == 0:
-        fire_base = np.zeros(no_of_years)
-    else:
-        fire_base = np.zeros(no_of_years)
-        fire_base[::base_fire_interval] = get_int(
-            CONSTANTS.FIRE_PRES_BASE_KEY, intervention_input
-        )
-    base_fire_off_field = get_int("fire_off_base", intervention_input)
-    if base_fire_off_field == 1:
-        burn_off_base = True
-    else:
-        burn_off_base = False
-
-    project_fire_interval = get_int(
-        CONSTANTS.FIRE_INTERVAL_PROJECT_KEY, intervention_input
-    )
-    if project_fire_interval == 0:
-        fire_project = np.zeros(no_of_years)
-    else:
-        fire_project = np.zeros(no_of_years)
-        fire_project[::project_fire_interval] = get_int(
-            CONSTANTS.FIRE_PRES_PROJECT_KEY, intervention_input
-        )
-
-    proj_fire_off_field = get_int("fire_off_proj", intervention_input)
-    if proj_fire_off_field == 1:
-        burn_off_proj = True
-    else:
-        burn_off_proj = False
-
     return GetFireModelReturnData(
-        fire_base=fire_base,
-        fire_project=fire_project,
-        fire_off_base=burn_off_base,
-        fire_off_proj=burn_off_proj,
+        fire_base=np.array(intervention_input["fire_on_base"]),
+        fire_project=np.array(intervention_input["fire_on_proj"]),
+        fire_off_base=np.array(intervention_input["fire_off_base"]),
+        fire_off_proj=np.array(intervention_input["fire_off_proj"]),
     )
 
 
@@ -273,54 +242,20 @@ class GetLitterModelReturnData(NamedTuple):
 def get_litter_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetLitterModelReturnData:
-    # baseline external organic inputs
+    
     litter_external_base = LitterModel.from_defaults(
-        litter_frequency=get_int(
-            CONSTANTS.BASE_LITTER_INTERVAL_KEY, intervention_input
-        ),
-        litter_quantity=get_float(
-            CONSTANTS.BASE_LITTER_QUANTITY_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
+        litter_vector=intervention_input["base_lit_qty"],
     )
-
-    # baseline synthetic fertiliser additions
-    synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
-        frequency=get_int(
-            CONSTANTS.BASE_SYNTHETIC_FERTILISER_INTERVAL_KEY, intervention_input
-        ),
-        quantity=get_float(
-            CONSTANTS.BASE_SYNTHETIC_FERTILISER_QUANTITY_KEY, intervention_input
-        ),
-        nitrogen=get_float(
-            CONSTANTS.BASE_SYNTHETIC_FERTILISER_N_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
-    )
-
-    # Project external organic inputs
     litter_external_project = LitterModel.from_defaults(
-        litter_frequency=get_int(
-            CONSTANTS.PROJECT_LITTER_INTERVAL_KEY, intervention_input
-        ),
-        litter_quantity=get_float(
-            CONSTANTS.PROJECT_LITTER_QUANTITY_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
+        litter_vector=intervention_input["proj_lit_qty"],
     )
-
-    # Project synthetic fertiliser additions
+    synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
+        quantity_vector=intervention_input["base_sf_qty"],
+        nitrogen_vector=intervention_input["base_sf_n"],
+    )
     synthetic_fertiliser_project = LitterModel.synthetic_fertiliser(
-        frequency=get_int(
-            CONSTANTS.PROJECT_SYNTHETIC_FERTILISER_INTERVAL_KEY, intervention_input
-        ),
-        quantity=get_float(
-            CONSTANTS.PROJECT_SYNTHETIC_FERTILISER_QUANTITY_KEY, intervention_input
-        ),
-        nitrogen=get_float(
-            CONSTANTS.PROJECT_SYNTHETIC_FERTILISER_N_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
+        quantity_vector=intervention_input["proj_sf_qty"],
+        nitrogen_vector=intervention_input["proj_sf_n"],
     )
 
     return GetLitterModelReturnData(
@@ -369,7 +304,6 @@ class GetSoilCarbonReturnData(NamedTuple):
 
 
 def get_soil_carbon_data(
-    intervention_input: Dict[str, Union[float, int]],
     no_of_years: int,
     climate: Climate.ClimateData,
     soil: SoilParams.SoilParamsData,
@@ -382,26 +316,11 @@ def get_soil_carbon_data(
     tree_projects: List[TreeModel.TreeModel],
     litter_external_base: LitterModel.LitterModelData,
     litter_external_project: LitterModel.LitterModelData,
+    cover_base: np.ndarray,
+    cover_proj: np.ndarray,
     create_forward_soil_model,
     create_inverse_soil_model,
 ) -> GetSoilCarbonReturnData:
-    # soil cover for baseline
-    cover_base = np.zeros(12)
-    cover_base[
-        get_int(CONSTANTS.BASE_COVER_MONTH_START_KEY, intervention_input) : get_int(
-            CONSTANTS.BASE_COVER_MONTH_END_KEY, intervention_input
-        )
-    ] = get_int(CONSTANTS.BASE_COVER_PRES_KEY, intervention_input)
-
-    # soil cover for project
-    cover_proj = np.zeros(12)
-
-    cover_proj[
-        get_int(CONSTANTS.PROJECT_COVER_MONTH_START_KEY, intervention_input) : get_int(
-            CONSTANTS.PROJECT_COVER_MONTH_END_KEY, intervention_input
-        )
-    ] = get_int(CONSTANTS.PROJECT_COVER_PRES_KEY, intervention_input)
-
     # Solve to y=0
     for_soil = create_forward_soil_model(
         soil,
@@ -706,7 +625,14 @@ def handle_intervention(
     soil = SoilParams.get_soil_params(
         location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
     )
-    inverse_soil_model = create_inverse_soil_model(soil, climate)
+
+    # inverse uses one monthly vector of climate data, but climate is a 12 * years vector, so average:
+    inverse_climate = deepcopy(climate)
+    inverse_climate.evaporation = np.mean(inverse_climate.evaporation.reshape(-1, 12), axis=0)
+    inverse_climate.temperature = np.mean(inverse_climate.temperature.reshape(-1, 12), axis=0)
+    inverse_climate.rain = np.mean(inverse_climate.rain.reshape(-1, 12), axis=0)
+
+    inverse_soil_model = create_inverse_soil_model(soil, inverse_climate)
 
     # ----------
     # MODEL DATA
@@ -782,7 +708,6 @@ def handle_intervention(
     # SOIL EMISSIONS
     # ----------
     soil_carbon_data = get_soil_carbon_data(
-        intervention_input=intervention_input,
         no_of_years=no_of_years,
         climate=climate,
         soil=soil,
@@ -795,6 +720,8 @@ def handle_intervention(
         tree_projects=tree_model_data.tree_projects,
         litter_external_base=litter_model_data.litter_external_base,
         litter_external_project=litter_model_data.litter_external_project,
+        cover_base=intervention_input["base_cover"],
+        cover_proj=intervention_input["proj_cover"],
         create_forward_soil_model=create_forward_soil_model,
         create_inverse_soil_model=create_inverse_soil_model,
     )
