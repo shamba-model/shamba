@@ -2,13 +2,11 @@ import os  # Add the parent directory to the Python path
 import model.emit as Emit
 import numpy as np
 import pytest
-from model.common import csv_handler
 from model import configuration
 import model.tree_model as TreeModel
 import model.tree_params as TreeParams
 import model.tree_growth as TreeGrowth
-import model.common.constants as CONSTANTS
-from model.common.calculate_emissions import get_int
+from model.common.data_handler import expand_single_row_data_input
 
 WL_N_COHORTS = 1
 WL_allometric_keys = ["chave dry", "chave dry"]
@@ -209,81 +207,51 @@ testB_expected_project_emissions = [0.000000,
 ])
 
 def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_emissions, expected_project_emissions):
-    input_csv = csv_input_file
-    file_path = os.path.join(configuration.TESTS_DIR, "fixtures", input_csv)
-    csv_input_data = csv_handler.get_csv_input_data(0, file_path)
-    N_YEARS = int(csv_input_data["yrs_proj"])
-    allometric_keys = allometric_keys
+    file_path = os.path.join(configuration.TESTS_DIR, "fixtures", csv_input_file)
 
-    base_fire_interval = int(csv_input_data["fire_int_base"])
-    if base_fire_interval == 0:
-        fire_base = np.zeros(N_YEARS)
-    else:
-        fire_base = np.zeros(N_YEARS)
-        fire_base[::base_fire_interval] = int(csv_input_data["fire_pres_base"])
+    scalar_input_data, tree_size_data, mgmt_input_data, _ = expand_single_row_data_input(file_path)
+    N_YEARS = int(scalar_input_data["yrs_proj"][0])
 
-    proj_fire_interval = int(csv_input_data["fire_int_proj"])
-    if proj_fire_interval == 0:
-        fire_project = np.zeros(N_YEARS)
-    else:
-        fire_project = np.zeros(N_YEARS)
-        fire_project[::proj_fire_interval] = int(csv_input_data["fire_pres_proj"])
-    
-    base_fire_off_field = int(csv_input_data["fire_off_base"])
-    if base_fire_off_field == 1:
-        burn_off_base = True
-    else:        burn_off_base = False
+    fire_base = mgmt_input_data["fire_on_base"]
+    fire_project = mgmt_input_data["fire_on_proj"]
+    burn_off_base = bool(np.any(mgmt_input_data["fire_off_base"]))
+    burn_off_project = bool(np.any(mgmt_input_data["fire_off_proj"]))
 
-    proj_fire_off_field = int(csv_input_data["fire_off_proj"])
-    if proj_fire_off_field == 1:
-        burn_off_project = True
-    else:        burn_off_project = False
+    tree_par_base = TreeParams.from_species_index(int(scalar_input_data["base_species1"][0]))
+    tree_params_1 = TreeParams.from_species_index(int(scalar_input_data["proj_species1"][0]))
 
-    tree_par_base = TreeParams.from_species_index(int(csv_input_data["species_base"]))
-    tree_params_1 = TreeParams.from_species_index(int(csv_input_data["species1"]))
-
-    thinning_base = np.zeros(N_YEARS + 1)
-    thinning_base[int(csv_input_data["thin_base_yr1"])] = float(
-        csv_input_data["thin_base_pc1"]
-    )
-    thinning_base[int(csv_input_data["thin_base_yr2"])] = float(
-        csv_input_data["thin_base_pc2"]
-    )
+    # growth_input merges scalars, tree size, and an alias so create_tree_params_from_species_index
+    # can find "species1" (its expected key for the first project cohort)
+    growth_input = {
+        **scalar_input_data,
+        **tree_size_data,
+        "species1": scalar_input_data["proj_species1"],
+    }
 
     growth_base = TreeGrowth.get_growth(
-        csv_input_data,
-        "species_base",
-        tree_par_base,
-        allometric_key=allometric_keys[0],
+        growth_input, "base_species1", tree_par_base, allometric_key=allometric_keys[0]
     )
 
-    thinning_fraction_left_base = np.array(
-        [
-            1,
-            float(csv_input_data["thin_base_br"]),
-            float(csv_input_data["thin_base_st"]),
-            1,
-            1,
-        ]
-    )
-
-    mortality_base = np.array((N_YEARS + 1) * [float(csv_input_data["base_mort"])])
-
-    mortality_fraction_left_base = np.array(
-        [
-            1,
-            float(csv_input_data["mort_base_br"]),
-            float(csv_input_data["mort_base_st"]),
-            1,
-            1,
-        ]
-    )
+    thinning_base = mgmt_input_data["thin_base_cohort1"]
+    thinning_fraction_left_base = np.array([
+        1,
+        mgmt_input_data["thin_base_br_cohort1"][0],
+        mgmt_input_data["thin_base_st_cohort1"][0],
+        1, 1,
+    ])
+    mortality_base = mgmt_input_data["mort_base_cohort1"]
+    mortality_fraction_left_base = np.array([
+        1,
+        mgmt_input_data["mort_base_br_cohort1"][0],
+        mgmt_input_data["mort_base_st_cohort1"][0],
+        1, 1,
+    ])
 
     tree_base = TreeModel.from_defaults(
         tree_params=tree_params_1,
         tree_growth=growth_base,
         year_planted=0,
-        stand_density=get_int(CONSTANTS.BASE_PLANT_DENSITY_KEY, csv_input_data),
+        stand_density=int(scalar_input_data["base_plant_dens1"][0]),
         thinning=thinning_base,
         thinning_fraction=thinning_fraction_left_base,
         mortality=mortality_base,
@@ -291,48 +259,26 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         no_of_years=N_YEARS,
     )
 
-    tree_params = TreeParams.create_tree_params_from_species_index(
-        csv_input_data, N_COHORTS
-    )
-    tree_growths = TreeGrowth.create_tree_growths(
-        csv_input_data, tree_params, allometric_keys, N_COHORTS
-    )
-    
-    thinning_project = np.zeros(N_YEARS + 1)
-    thinning_project[int(csv_input_data["thin_proj_yr1"])] = float(
-        csv_input_data["thin_proj_pc1"]
-    )
-    thinning_project[int(csv_input_data["thin_proj_yr2"])] = float(
-        csv_input_data["thin_proj_pc2"]
-    )
-    thinning_project[int(csv_input_data["thin_proj_yr3"])] = float(
-        csv_input_data["thin_proj_pc3"]
-    )
-    thinning_project[int(csv_input_data["thin_proj_yr4"])] = float(
-        csv_input_data["thin_proj_pc4"]
-    )
-    thinning_fraction_left_project = np.array(
-        [
-            1,
-            float(csv_input_data["thin_proj_br"]),
-            float(csv_input_data["thin_proj_st"]),
-            1,
-            1,
-        ]
-    )
-    mortality_project = np.array((N_YEARS + 1) * [float(csv_input_data["proj_mort"])])
-    mortality_fraction_left_project = np.array(
-        [
-            1,
-            float(csv_input_data["mort_proj_br"]),
-            float(csv_input_data["mort_proj_st"]),
-            1,
-            1,
-        ]
-    )
+    tree_params = TreeParams.create_tree_params_from_species_index(growth_input, N_COHORTS)
+    tree_growths = TreeGrowth.create_tree_growths(growth_input, tree_params, allometric_keys, N_COHORTS)
+
+    thinning_project = mgmt_input_data["thin_proj_cohort1"]
+    thinning_fraction_left_project = np.array([
+        1,
+        mgmt_input_data["thin_proj_br_cohort1"][0],
+        mgmt_input_data["thin_proj_st_cohort1"][0],
+        1, 1,
+    ])
+    mortality_project = mgmt_input_data["mort_proj_cohort1"]
+    mortality_fraction_left_project = np.array([
+        1,
+        mgmt_input_data["mort_proj_br_cohort1"][0],
+        mgmt_input_data["mort_proj_st_cohort1"][0],
+        1, 1,
+    ])
 
     tree_projects = TreeModel.create_tree_projects(
-        csv_input_data=csv_input_data,
+        csv_input_data=growth_input,
         tree_params=tree_params,
         growths=tree_growths,
         thinning_project=thinning_project,
@@ -343,7 +289,6 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         cohort_count=N_COHORTS,
     )
 
-
     tree_base_emissions = Emit.create(
         no_of_years=N_YEARS, tree=[tree_base], fire=fire_base, burn_off=burn_off_base,
     )
@@ -351,7 +296,7 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         no_of_years=N_YEARS, tree=tree_projects, fire=fire_project, burn_off=burn_off_project,
     )
 
-    assert tree_base_emissions == pytest.approx(expected_base_emissions, rel=1e-3 )
+    assert tree_base_emissions == pytest.approx(expected_base_emissions, rel=1e-3)
     assert tree_project_emissions == pytest.approx(expected_project_emissions, rel=1e-3)
-    # These tests require lower accuracy than other tests. This is because the results are dependent on the parameters of the fitted equations, 
+    # These tests require lower accuracy than other tests. This is because the results are dependent on the parameters of the fitted equations,
     # which may vary slightly between the code calculations and the expected results, which were calculated separately and hard coded here.

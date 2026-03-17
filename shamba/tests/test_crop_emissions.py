@@ -5,6 +5,7 @@ import pytest
 from model.common import csv_handler
 from model import configuration
 from model.crop_model import get_crop_bases, get_crop_projects
+from model.common.data_handler import expand_single_row_data_input
 
 #-- Expected emissions arrays -- #
 WL_expected_base_emissions = [0.22413,
@@ -205,11 +206,14 @@ def test_crop_model(csv_input_file, expected_base_emissions, expected_project_em
     csv_input_data = csv_handler.get_csv_input_data(0, file_path)
     N_YEARS = int(csv_input_data["yrs_proj"])
 
+    scalar_input_data, _, mgmt_input_data, _ = expand_single_row_data_input(file_path)
+    input_data = {**scalar_input_data, **mgmt_input_data}
+
     crop_base, _crop_par_base = get_crop_bases(
-        input_data=csv_input_data, no_of_years=N_YEARS, start_index=1, end_index=3
+        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=3
     )
     crop_project, _crop_par_project = get_crop_projects(
-        input_data=csv_input_data, no_of_years=N_YEARS, start_index=1, end_index=3
+        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=3
     )
 
     base_fire_interval = int(csv_input_data["fire_int_base"])

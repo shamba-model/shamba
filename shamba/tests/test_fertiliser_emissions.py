@@ -208,17 +208,27 @@ def test_fertiliser_model(csv_input_file, expected_base_emissions, expected_proj
     csv_input_data = csv_handler.get_csv_input_data(0, file_path)
     N_YEARS = int(csv_input_data["yrs_proj"])
 
+    base_sf_qty_vec = np.zeros(N_YEARS)
+    base_sf_n_vec = np.zeros(N_YEARS)
+    base_sf_int = int(csv_input_data["base_sf_int"])
+    if base_sf_int > 0:
+        base_sf_qty_vec[::base_sf_int] = float(csv_input_data["base_sf_qty"])
+        base_sf_n_vec[::base_sf_int] = float(csv_input_data["base_sf_n"])
+
+    proj_sf_qty_vec = np.zeros(N_YEARS)
+    proj_sf_n_vec = np.zeros(N_YEARS)
+    proj_sf_int = int(csv_input_data["proj_sf_int"])
+    if proj_sf_int > 0:
+        proj_sf_qty_vec[::proj_sf_int] = float(csv_input_data["proj_sf_qty"])
+        proj_sf_n_vec[::proj_sf_int] = float(csv_input_data["proj_sf_n"])
+
     synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
-        frequency=int(csv_input_data["base_sf_int"]),
-        quantity=float(csv_input_data["base_sf_qty"]),
-        nitrogen=float(csv_input_data["base_sf_n"]),
-        no_of_years=N_YEARS,
+        quantity_vector=base_sf_qty_vec,
+        nitrogen_vector=base_sf_n_vec,
     )
     synthetic_fertiliser_project = LitterModel.synthetic_fertiliser(
-        frequency=int(csv_input_data["proj_sf_int"]),
-        quantity=float(csv_input_data["proj_sf_qty"]),
-        nitrogen=float(csv_input_data["proj_sf_n"]),
-        no_of_years=N_YEARS,
+        quantity_vector=proj_sf_qty_vec,
+        nitrogen_vector=proj_sf_n_vec,
     )
     base_fire_interval = int(csv_input_data["fire_int_base"])
     if base_fire_interval == 0:

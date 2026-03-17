@@ -230,16 +230,18 @@ def test_litter_model(csv_input_file, expected_base_emissions, expected_project_
         burn_off_project = True
     else:        burn_off_project = False
 
-    litter_external_base = LitterModel.from_defaults(
-        litter_frequency=int(csv_input_data["base_lit_int"]),
-        litter_quantity=float(csv_input_data["base_lit_qty"]),
-        no_of_years=N_YEARS,
-    )
-    litter_external_project = LitterModel.from_defaults(
-        litter_frequency=int(csv_input_data["proj_lit_int"]),
-        litter_quantity=float(csv_input_data["proj_lit_qty"]),
-        no_of_years=N_YEARS,
-    )
+    base_lit_vec = np.zeros(N_YEARS)
+    base_lit_int = int(csv_input_data["base_lit_int"])
+    if base_lit_int > 0:
+        base_lit_vec[::base_lit_int] = float(csv_input_data["base_lit_qty"])
+
+    proj_lit_vec = np.zeros(N_YEARS)
+    proj_lit_int = int(csv_input_data["proj_lit_int"])
+    if proj_lit_int > 0:
+        proj_lit_vec[::proj_lit_int] = float(csv_input_data["proj_lit_qty"])
+
+    litter_external_base = LitterModel.from_defaults(litter_vector=base_lit_vec)
+    litter_external_project = LitterModel.from_defaults(litter_vector=proj_lit_vec)
 
     litter_base_emissions = Emit.create(
         no_of_years=N_YEARS, litter=[litter_external_base], fire=fire_base, burn_off=burn_off_base,
