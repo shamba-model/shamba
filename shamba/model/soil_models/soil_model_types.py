@@ -96,7 +96,7 @@ class SoilModelBaseSchema(Schema):
     soil_params = fields.Nested(SoilParamsSchema, required=True)
     climate = fields.Nested(ClimateDataSchema, required=True)
     cover = fields.List(fields.Float, required=True)
-    k = fields.List(fields.Float, required=True)
+    k = fields.List(fields.List(fields.Float), required=True)
 
 
 class ForwardSoilModelBaseSchema(SoilModelBaseSchema):

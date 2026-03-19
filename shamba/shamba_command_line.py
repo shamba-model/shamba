@@ -379,7 +379,7 @@ def main(n, arguments):
     if arguments.get("input-file-name") is not None:
         file_path = os.path.join(configuration.INPUT_DIR, arguments["input-file-name"])
         scalar_input_data, tree_size_data, mgmt_input_data, cover_data = data_handler.expand_single_row_data_input(file_path)
-        N_YEARS = int(scalar_input_data["yrs_proj"])
+        N_YEARS = int(np.atleast_1d(scalar_input_data["yrs_proj"])[0])
         vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data | cover_data
 
     elif arguments.get("split-input-file-id") is not None:
@@ -389,7 +389,7 @@ def main(n, arguments):
             permitted_vector_lengths=[1],
             target_vector_length=1,
         )
-        N_YEARS = int(scalar_input_data["yrs_proj"])
+        N_YEARS = int(np.atleast_1d(scalar_input_data["yrs_proj"])[0])
         mgmt_input_data = data_handler.read_and_validate_timeseries_by_header(
             file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_mgmt_data.csv"),
             permitted_vector_lengths=[1, N_YEARS],

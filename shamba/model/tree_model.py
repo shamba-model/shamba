@@ -530,8 +530,8 @@ def create_tree_projects(
         from_defaults(
             tree_params=tree_params[i],
             tree_growth=growths[i],
-            year_planted=int(csv_input_data[f"proj_plant_yr{i + 1}"]),
-            stand_density=int(csv_input_data[f"proj_plant_dens{i + 1}"]),
+            year_planted=int(np.atleast_1d(csv_input_data[f"proj_plant_yr{i + 1}"])[0]),
+            stand_density=int(np.atleast_1d(csv_input_data[f"proj_plant_dens{i + 1}"])[0]),
             thinning=thinning_project,
             thinning_fraction=thinning_fraction_left_project,
             mortality=mortality_project,

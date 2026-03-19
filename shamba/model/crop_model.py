@@ -132,10 +132,10 @@ def get_crop_models_and_crop_params(
         for index in range(start_index, end_index + 1)
     ]
 
-    # Unzip the results into two separate lists
-    crop_models, crop_params = zip(*results)
+    if not results:
+        return [], []
 
-    # Convert the results to lists (as zip returns tuples)
+    crop_models, crop_params = zip(*results)
     return list(crop_models), list(crop_params)
 
 
@@ -158,13 +158,23 @@ def get_crop_projects(
 def get_crop_data(
     input_data, no_of_years, prefix, index
 ) -> Tuple[CropModelData, CropParamsData]:
-    spp = int(input_data[f"{prefix}_spp{index}"])
+    scenario = "baseline" if "base" in prefix else "project"
+    try:
+        spp = int(input_data[f"{prefix}_spp{index}"])
+        crop_yield = input_data[f"{prefix}_yd{index}"]
+        left_in_field = input_data[f"{prefix}_left{index}"]
+    except KeyError as e:
+        raise ValueError(
+            f"Missing crop data for {scenario} crop species {index} "
+            f"(expected key {e} in input). "
+            f"Check that all declared crop species have matching data in your input file."
+        )
     crop_params = create_crop_params_from_species_index(spp)
     crop_model = create(
         crop_params=crop_params,
         no_of_years=no_of_years,
-        crop_yield=input_data[f"{prefix}_yd{index}"],
-        left_in_field=input_data[f"{prefix}_left{index}"],
+        crop_yield=crop_yield,
+        left_in_field=left_in_field,
     )
 
     return crop_model, crop_params

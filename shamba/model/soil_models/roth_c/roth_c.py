@@ -28,7 +28,7 @@ def create(soil, climate, cover, no_of_years):
         "soil_params": vars(soil),
         "climate": vars(climate),
         "cover": cover,
-        "k": get_rmf(climate=climate, cover=cover, soil=soil, no_of_years=no_of_years) * K_BASE,
+        "k": get_rmf(climate=climate, cover=cover, soil=soil, no_of_years=no_of_years)[..., np.newaxis] * K_BASE,
     }
 
     schema = SoilModelBaseSchema()

@@ -176,14 +176,3 @@ def read_mixed_csv(file_in, cols=None, types=None):
 
     return array
 
-
-def get_csv_input_data(n, file_path):
-    with open(file_path, newline="") as csvfile:
-        reader = csv.reader(csvfile)
-        data = list(reader)
-
-    keys = data[0]
-    values = data[n + 1]
-
-    # Create dictionary directly using zip
-    return dict(zip(keys, values))

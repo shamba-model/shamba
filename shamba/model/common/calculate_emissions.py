@@ -194,17 +194,20 @@ class GetCropModelReturnData(NamedTuple):
 def get_crop_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetCropModelReturnData:
+    n_crop_base = sum(1 for i in range(1, 100) if f"crop_base_spp{i}" in intervention_input)
+    n_crop_proj = sum(1 for i in range(1, 100) if f"crop_proj_spp{i}" in intervention_input)
+
     crop_base, crop_par_base = CropModel.get_crop_bases(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
-        end_index=3, # TODO:vec this (and proj below) needs to have dynamic number of crop indices
+        end_index=n_crop_base,
     )
     crop_project, crop_par_project = CropModel.get_crop_projects(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
-        end_index=3,
+        end_index=n_crop_proj,
     )
 
     return GetCropModelReturnData(
