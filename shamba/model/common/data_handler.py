@@ -33,8 +33,8 @@ REQUIRED_HEADER_DATATYPE = {
 
 ANCHOR_HEADER_DATATYPE_PATTERNS = {
     r"^crop_(base|proj)_spp": "scalar integer",
-     r"^(base|proj)_species": "scalar integer",  # TODO: this is different from current naming "species_base" "species1" etc
-     r"^(base|proj)_sf_qty": "float", # only SF not LIT here, as only SF needs a matching _n proportion
+    r"^(base|proj)_species": "scalar integer",
+    r"^(base|proj)_sf_qty": "float",  # only SF not LIT here, as only SF needs a matching _n proportion
 }
 
 CROP_HEADER_DATATYPE_PATTERNS = {
@@ -50,9 +50,9 @@ SPECIES_HEADER_DATATYPE_PATTERNS = {
 
 COHORT_HEADER_DATATYPE_PATTERNS = {
     # Cohort species, planting years & densities by cohort index
-    r"^(base|proj)_species": "scalar integer",  # TODO: this is different from current naming "species_base" "species1" etc
-    r"^(base|proj)_plant_yr": "scalar integer", # TODO: base doesn't currently have cohort-specific planting years, but may need to be added
-    r"^(base|proj)_plant_dens": "scalar integer", # TODO: base doesn't currently have cohort-specific planting densities, but may need to be added
+    r"^(base|proj)_species": "scalar integer",
+    r"^(base|proj)_plant_yr": "scalar integer",
+    r"^(base|proj)_plant_dens": "scalar integer",
 
     # Thinning percents by cohort index
     r"^thin_(base|proj)_cohort": "proportion",

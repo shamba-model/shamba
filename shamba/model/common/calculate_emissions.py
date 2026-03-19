@@ -33,19 +33,6 @@ def get_location(year_input: Dict[str, Any]) -> Tuple[float, float]:
     )
 
 
-def populate_thinning_array(
-    intervention_input: Dict[str, Union[float, int]],
-    key_pairs: List[Tuple[str, str]],
-    no_of_years: int,
-):
-    thinning_array = np.zeros(no_of_years + 1)
-    for year_key, percent_key in key_pairs:
-        year = get_int(year_key, intervention_input)
-        percent = get_float(percent_key, intervention_input)
-        thinning_array[year] = percent
-    return thinning_array
-
-
 # ----------
 # TREE MODEL
 # ----------
@@ -61,132 +48,63 @@ def get_tree_model_data(
     no_of_cohorts: int,
     allometry: List[str],
 ) -> GetTreeModelReturnData:
-    # Linking tree cohort parameteres
+    # Tree params: read species codes directly from vector-format keys
     tree_par_base = TreeParams.from_species_index(
-        get_int(CONSTANTS.SPECIES_BASE_KEY, intervention_input)
+        int(np.atleast_1d(intervention_input["base_species1"])[0])
     )
-    tree_params_1 = TreeParams.from_species_index(
-        get_int(CONSTANTS.SPECIES_1_KEY, intervention_input)
-    )
+    tree_params = [
+        TreeParams.from_species_index(
+            int(np.atleast_1d(intervention_input[f"proj_species{i + 1}"])[0])
+        )
+        for i in range(no_of_cohorts)
+    ]
 
-    tree_params = TreeParams.create_tree_params_from_species_index(
-        intervention_input, no_of_cohorts
-    )
-
-    # Linking tree growth
-    # Baseline growth: single species # identified in species_base
-    growth_base = TreeGrowth.get_growth(
-        intervention_input,
-        CONSTANTS.SPECIES_BASE_KEY,
-        tree_par_base,
-        allometric_key=allometry[0]
-    )
-
-    # Intervention growth: species # identified in no_of_cohorts different cases,
-    # so uses a wrapper function to identify species info for each cohort
+    # Tree growth
+    growth_base = TreeGrowth.create_baseline_tree_growths(
+        intervention_input, [tree_par_base], allometry, cohort_count=1
+    )[0]
     tree_growths = TreeGrowth.create_tree_growths(
         intervention_input, tree_params, allometry, no_of_cohorts
     )
 
-    # Specify thinning regime and fraction left in field (lif)
-    # baseline thinning regime
-    # (add line of thinning[yr] = % thinned for each event)
-    thinning_base = populate_thinning_array(
-        intervention_input,
-        [
-            (CONSTANTS.THINNING_BASE_YEAR_1_KEY, CONSTANTS.THINNING_BASE_PC1_KEY),
-            (CONSTANTS.THINNING_BASE_YEAR_2_KEY, CONSTANTS.THINNING_BASE_PC2_KEY),
-        ],
-        no_of_years,
-    )
+    # Thinning and mortality: read pre-built vectors directly from input.
+    # Project thinning uses cohort 1 arrays, shared across all project cohorts.
+    # Per-cohort project thinning is a future enhancement.
+    thinning_base = intervention_input["thin_base_cohort1"]
+    thinning_fraction_left_base = np.array([
+        1,
+        float(np.atleast_1d(intervention_input["thin_base_br_cohort1"])[0]),
+        float(np.atleast_1d(intervention_input["thin_base_st_cohort1"])[0]),
+        1, 1,
+    ])
+    mortality_base = intervention_input["mort_base_cohort1"]
+    mortality_fraction_left_base = np.array([
+        1,
+        float(np.atleast_1d(intervention_input["mort_base_br_cohort1"])[0]),
+        float(np.atleast_1d(intervention_input["mort_base_st_cohort1"])[0]),
+        1, 1,
+    ])
 
-    thinning_project = populate_thinning_array(
-        intervention_input,
-        [
-            (CONSTANTS.THINNING_PROJECT_YEAR_1_KEY, CONSTANTS.THINNING_PROJECT_PC1_KEY),
-            (CONSTANTS.THINNING_PROJECT_YEAR_2_KEY, CONSTANTS.THINNING_PROJECT_PC2_KEY),
-            (CONSTANTS.THINNING_PROJECT_YEAR_3_KEY, CONSTANTS.THINNING_PROJECT_PC3_KEY),
-            (CONSTANTS.THINNING_PROJECT_YEAR_4_KEY, CONSTANTS.THINNING_PROJECT_PC4_KEY),
-        ],
-        no_of_years,
-    )
+    thinning_project = intervention_input["thin_proj_cohort1"]
+    thinning_fraction_left_project = np.array([
+        1,
+        float(np.atleast_1d(intervention_input["thin_proj_br_cohort1"])[0]),
+        float(np.atleast_1d(intervention_input["thin_proj_st_cohort1"])[0]),
+        1, 1,
+    ])
+    mortality_project = intervention_input["mort_proj_cohort1"]
+    mortality_fraction_left_project = np.array([
+        1,
+        float(np.atleast_1d(intervention_input["mort_proj_br_cohort1"])[0]),
+        float(np.atleast_1d(intervention_input["mort_proj_st_cohort1"])[0]),
+        1, 1,
+    ])
 
-    # Baseline fraction of thinning left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    thinning_fraction_left_base = np.array(
-        [
-            1,
-            get_float(CONSTANTS.THINNING_BASE_BR_KEY, intervention_input),
-            get_float(CONSTANTS.THINNING_BASE_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # Project fraction of thinning left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    thinning_fraction_left_project = np.array(
-        [
-            1,
-            get_float(CONSTANTS.THINNING_PROJECT_BR_KEY, intervention_input),
-            get_float(CONSTANTS.THINNING_PROJECT_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # Specify mortality regime and fraction left in field (lif)
-    # Baseline yearly mortality
-    mortality_base = np.array(
-        (no_of_years + 1)
-        * [get_float(CONSTANTS.BASE_MORTALITY_KEY, intervention_input)]
-    )
-
-    # Project yearly mortality
-    mortality_project = np.array(
-        (no_of_years + 1)
-        * [get_float(CONSTANTS.PROJECT_MORTALITY_KEY, intervention_input)]
-    )
-
-    # Baseline fraction of dead biomass left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    mortality_fraction_left_base = np.array(
-        [
-            1,
-            get_float(CONSTANTS.MORTALITY_BASE_BR_KEY, intervention_input),
-            get_float(CONSTANTS.MORTALITY_BASE_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # Project fraction of dead biomass left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    mortality_fraction_left_project = np.array(
-        [
-            1,
-            get_float(CONSTANTS.MORTALITY_PROJECT_BR_KEY, intervention_input),
-            get_float(CONSTANTS.MORTALITY_PROJECT_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # RUN TREE MODEL
-    # Trees planted in baseline (stand_dens must be at least 1)
     tree_base = TreeModel.from_defaults(
-        tree_params=tree_params_1,
+        tree_params=tree_par_base,
         tree_growth=growth_base,
-        year_planted=get_int(CONSTANTS.BASE_PLANT_YEAR_KEY, intervention_input),
-        stand_density=get_int(CONSTANTS.BASE_PLANT_DENSITY_KEY, intervention_input),
+        year_planted=int(np.atleast_1d(intervention_input["base_plant_yr1"])[0]),
+        stand_density=int(np.atleast_1d(intervention_input["base_plant_dens1"])[0]),
         thinning=thinning_base,
         thinning_fraction=thinning_fraction_left_base,
         mortality=mortality_base,
@@ -280,7 +198,7 @@ def get_crop_model_data(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
-        end_index=3,
+        end_index=3, # TODO:vec this (and proj below) needs to have dynamic number of crop indices
     )
     crop_project, crop_par_project = CropModel.get_crop_projects(
         input_data=intervention_input,
@@ -606,7 +524,7 @@ def handle_intervention(
     create_inverse_soil_model,
     n_cohorts: int,
     plot_index: int,
-    allometry: str = CONSTANTS.DEFAULT_ALLOMORPHY,
+    allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
     use_api: bool = CONSTANTS.DEFAULT_USE_API,
 ):

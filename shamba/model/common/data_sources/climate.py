@@ -82,23 +82,24 @@ def segment_and_sum_by_month(
     return monthly_sums / no_of_years
 
 
-def get_climate_data(longitude: float, latitude: float, use_api=True) -> np.ndarray:
+def get_climate_data(longitude: float, latitude: float) -> Optional[np.ndarray]:
     """
-    Get climate data for a given location.
+    Get climate data for a given location from the API.
 
-    If use_api is True, use the API to get the data. Otherwise, use the local data.
-
-    Each piece of climate data is a 12-month average. For the API response, the data is
-    grouped by month, and then averaged over the months.
+    Each piece of climate data is a 12-month average. The data is grouped by month
+    and then averaged over the months.
 
     Args:
         longitude (float): The longitude of the location.
         latitude (float): The latitude of the location.
-        use_api (bool): Whether to use the API to get the data.
 
     Returns:
-        np.ndarray: The climate data for the given location.
+        np.ndarray of shape (3, 12) with rows [temperature, rain, evapotranspiration],
+        or None if the API call fails.
     """
+    # TODO: extend to return 12*n_years climate data (one vector per month per year)
+    # rather than a single 30-year monthly average. This would be consistent with updated 
+    # approach to climate data. n_years should be passed in as a parameter.
     current_year = datetime.now().year
     last_full_year = current_year - 1
     start_year = last_full_year - 29
@@ -117,6 +118,10 @@ def get_climate_data(longitude: float, latitude: float, use_api=True) -> np.ndar
         start_date=start_date,
         end_date=end_date,
     )
+
+    if api_response is None:
+        return None
+
     daily_data = api_response["daily"]
     temperature = segment_and_average_by_month(
         np.array(daily_data["temperature_2m_mean"]),

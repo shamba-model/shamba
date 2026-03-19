@@ -102,7 +102,7 @@ def get_soil_params(
     result = get_soil_data(location, use_api, plot_index, plot_id, filename)
 
     if result is None:
-        raise
+        raise ValueError("Soil data not found in API or local file. Please provide a local soil file.")
 
     Cy0, clay = result
     params = {"Cy0": Cy0, "clay": clay}

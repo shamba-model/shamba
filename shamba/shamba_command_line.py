@@ -421,9 +421,6 @@ def main(n, arguments):
 
     gwp = arguments["gwp"]
 
-    TREE_SPP = TreeParams.load_tree_species_data()
-    CROP_SPP = CropParams.load_crop_species_data()
-
     intervention_emissions = handle_intervention(
         intervention_input=vector_input_data,
         n_cohorts=N_COHORTS,

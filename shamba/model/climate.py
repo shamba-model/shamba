@@ -2,10 +2,8 @@
 
 """Module holding Climate class."""
 
-import logging as log
 import math
 import calendar
-import sys
 import os
 from model import configuration
 
@@ -87,30 +85,30 @@ def from_location(location, use_api: bool) -> ClimateData:
     longitude = location[1]
 
     if use_api:
-        climate_data = get_climate_data(
-            latitude=latitude, longitude=longitude, use_api=use_api
-        )
+        climate_array = get_climate_data(latitude=latitude, longitude=longitude)
 
-        # pet given in OpenMeteo instead of evaporation, so convert
-        climate_data[2] /= 0.75
+        if climate_array is not None:
+            # pet given in OpenMeteo instead of evaporation, so convert
+            climate_array[2] /= 0.75
 
-        params = {
-            "temperature": climate_data[0],
-            "rain": climate_data[1],
-            "evaporation": climate_data[2],
-        }
+            params = {
+                "temperature": climate_array[0],
+                "rain": climate_array[1],
+                "evaporation": climate_array[2],
+            }
 
-        schema = ClimateDataSchema()
-        errors = schema.validate(params)
-        climate = schema.load(params)
+            schema = ClimateDataSchema()
+            errors = schema.validate(params)
+            if errors != {}:
+                print(f"Errors in climate data: {str(errors)}")
+            return schema.load(params)  # type: ignore
 
-        if errors != {}:
-            print(f"Errors in climate data: {str(errors)}")
+        print("Climate API unavailable — falling back to local climate file.")
 
-    else:
-        climate = from_csv()
-
-    return climate  # type: ignore
+    try:
+        return from_csv()
+    except ValueError:
+        raise ValueError("Climate data not found in API or local file.")
 
 
 def from_csv(filename="climate.csv") -> ClimateData:
@@ -168,11 +166,9 @@ def from_csv(filename="climate.csv") -> ClimateData:
             }
         )  # type: ignore
     except ValueError as e:
-        log.exception(f"Error in climate data headers: {str(e)}")
-        sys.exit(1)
+        raise ValueError(f"Error in climate data: {str(e)}")
     except IndexError:
-        log.exception("Data not in correct format")
-        sys.exit(1)
+        raise ValueError("Climate data file is not in the correct format.")
 
     return climate
 

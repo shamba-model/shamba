@@ -643,8 +643,13 @@ allometric = {
 }
 
 
-# Uses spp_prefix_map to get the correct prefix for the species-specific columns
-def get_growth(csv_input_data, spp_key, tree_params, allometric_key): # TODO:vec update prefix/lookup - diff between species and cohort
+def get_growth(csv_input_data, spp_key, tree_params, allometric_key):
+    """Return a Growth object for a single cohort.
+
+    spp_key is a cohort header (e.g. 'proj_species1'). Its value is the
+    species code, which is used to look up the corresponding age/diameter
+    data (age_sp{code}, diam_sp{code}).
+    """
     spp_number = int(np.atleast_1d(csv_input_data[spp_key])[0])
     return from_csv(
         tree_params=tree_params,
@@ -654,13 +659,35 @@ def get_growth(csv_input_data, spp_key, tree_params, allometric_key): # TODO:vec
     )
 
 
+def create_baseline_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count=1):
+    """Return a list of Growth objects for baseline cohorts.
+
+    Defaults to one baseline cohort. Increase cohort_count when the baseline
+    contains multiple tree species. Baseline allometry is always at index 0
+    of allometric_keys.
+    """
+    return [
+        get_growth(
+            csv_input_data,
+            f"base_species{i + 1}",
+            tree_params[i],
+            allometric_key=allometric_keys[0],
+        )
+        for i in range(cohort_count)
+    ]
+
+
 def create_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count):
+    """Return a list of Growth objects for project cohorts.
+
+    Project allometry starts at index 1 of allometric_keys (index 0 is baseline).
+    """
     return [
         get_growth(
             csv_input_data,
             f"proj_species{i + 1}",
             tree_params[i],
-            allometric_key=allometric_keys[i+1], # baseline allometry is at index 0 in allometric_keys # TODO: decide whether baseline can have more than one cohort
+            allometric_key=allometric_keys[i + 1],
         )
         for i in range(cohort_count)
     ]
