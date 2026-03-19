@@ -407,6 +407,7 @@ def main(n, arguments):
                 permitted_vector_lengths=[1] + [i * 12 for i in range(1, N_YEARS + 1)],
                 target_vector_length=12 * N_YEARS,
             )
+            climate_input_data = data_handler.resolve_evap_pet(climate_input_data)
             vector_input_data = vector_input_data | climate_input_data
 
     grouped_headers_errors = data_handler.validate_all_grouped_headers(vector_input_data)

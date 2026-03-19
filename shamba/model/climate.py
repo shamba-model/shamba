@@ -140,7 +140,8 @@ def from_csv(filename="climate.csv") -> ClimateData:
         has_evap = "evap" in headers
 
         if has_pet and has_evap:
-            raise ValueError("Climate data cannot contain both 'pet' and 'evap'")
+            print("Both 'evap' and 'pet' found in climate data — 'evap' will be used and 'pet' discarded.")
+            has_pet = False
         elif not has_pet and not has_evap:
             raise ValueError("Climate data must contain either 'pet' or 'evap'")
 

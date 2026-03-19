@@ -19,13 +19,13 @@ REQUIRED_HEADER_DATATYPE = {
     "year": "integer",
     "Temp": "float",
     "Rain": "float",
-    "evap": "float", # TODO: evap OR pet required
+    "evap": "float",
     "pet": "float",
     "base_cover": "binary",
     "proj_cover": "binary",
     "fire_on_base": "binary",
     "fire_on_proj": "binary",
-    "fire_off_base": "binary", # TODO: current code has fire_off as a bool, then applied every year
+    "fire_off_base": "binary",
     "fire_off_proj": "binary",
 }
 
@@ -250,6 +250,16 @@ def group_indices(headers, pattern):
         if (m := re.match(pattern, h))
     }
 
+def _pattern_to_example(pattern: str, index: int) -> str:
+    """Convert a regex header pattern and index into a human-readable example string.
+
+    For instance, r"^(base|proj)_sf_n" with index 1 becomes "{base/proj}_sf_n1".
+    """
+    p = pattern.lstrip("^").rstrip("$")
+    p = re.sub(r"\(([^)]+)\)", lambda m: "{" + "/".join(m.group(1).split("|")) + "}", p)
+    return f"{p}{index}"
+
+
 def validate_grouped_headers(headers, anchor_pattern, required_patterns):
     """
     For each index N where a header matches `anchor_pattern + r"(N)$"`,
@@ -264,8 +274,8 @@ def validate_grouped_headers(headers, anchor_pattern, required_patterns):
             required_regex = required_pattern + rf"{i}$"
             if not any(re.match(required_regex, h) for h in headers):
                 errors.append(
-                    f"Header matching '{required_regex}' is required " # TODO: this prints the regex so not particularly specific or readable
-                    f"because a header matching '{anchor_pattern}{i}$' is present"
+                    f"'{_pattern_to_example(required_pattern, i)}' is required "
+                    f"because '{_pattern_to_example(anchor_pattern, i)}' is present"
                 )
     return errors
 
@@ -281,6 +291,33 @@ def validate_all_grouped_headers(data):
             )
         )
     return errors
+
+def resolve_evap_pet(data_dict: dict) -> dict:
+    """Ensure climate data contains exactly one evaporation column named 'evap'.
+
+    Rules:
+    - If both 'evap' and 'pet' are present, 'pet' is discarded and 'evap' is used.
+    - If only 'pet' is present, it is converted to open-pan evaporation (evap = pet / 0.75)
+      and stored under 'evap'.
+    - If neither is present, raises ValueError.
+
+    Returns the dict with 'pet' removed and 'evap' guaranteed to be present.
+    """
+    has_evap = "evap" in data_dict
+    has_pet = "pet" in data_dict
+
+    if not has_evap and not has_pet:
+        raise ValueError("Climate data must contain either 'evap' or 'pet'.")
+
+    if has_evap and has_pet:
+        print("Both 'evap' and 'pet' found in climate data — 'evap' will be used and 'pet' discarded.")
+        del data_dict["pet"]
+
+    if not has_evap and has_pet:
+        data_dict["evap"] = data_dict.pop("pet") / 0.75
+
+    return data_dict
+
 
 def _read_single_row_csv(file_path: str) -> dict[str, float]:
     """Read a single-row legacy CSV without validating header names.
