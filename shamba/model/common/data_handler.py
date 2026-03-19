@@ -8,6 +8,8 @@ import numpy as np
 import re
 from typing import Optional
 
+from model.common.legacy_adapter import rename_legacy_headers
+
 
 REQUIRED_HEADER_DATATYPE = {
     "lat": "scalar float",
@@ -41,8 +43,7 @@ CROP_HEADER_DATATYPE_PATTERNS = {
     r"^crop_(base|proj)_yd": "float",
     r"^crop_(base|proj)_left": "proportion",}
 
-SPECIES_HEADER_DATATYPE_PATTERNS = { # TODO: this needs a specific check: what species numbers are contained in the data under headers {r"^(base|proj)_species"}, and also needs to match the species data in the related file
-    # Tree ages/diams: tree1 / sp2 / sp3 generalized # TODO: this needs a new data input file: species index should be embedded in the header, and there may be more than 3 species, so will need to be in a different input file and validated separately
+SPECIES_HEADER_DATATYPE_PATTERNS = {
     r"^(age_sp)": "integer",
     r"^(diam_sp)": "float",
 }
@@ -292,6 +293,36 @@ def validate_all_grouped_headers(data):
         )
     return errors
 
+def validate_species_data(data: dict) -> list[str]:
+    """Check that every species code declared in (base|proj)_species{n} headers
+    has corresponding age and diameter data in the same input dict.
+
+    Species codes are the *values* of those scalar headers (e.g. base_species1 = 3
+    means cohort 1 uses species type 3, so age_sp3 and diam_sp3 must be present).
+
+    Returns a list of error strings (empty if valid).
+    """
+    errors = []
+    species_codes = set()
+
+    for key, arr in data.items():
+        if re.match(r"^(base|proj)_species\d+$", key):
+            try:
+                species_codes.add(int(np.atleast_1d(arr)[0]))
+            except (ValueError, IndexError):
+                errors.append(f"Could not read species code from '{key}'.")
+
+    for code in sorted(species_codes):
+        for required in (f"age_sp{code}", f"diam_sp{code}"):
+            if required not in data:
+                errors.append(
+                    f"'{required}' is required because species {code} is declared "
+                    f"in the input data but has no corresponding size data."
+                )
+
+    return errors
+
+
 def resolve_evap_pet(data_dict: dict) -> dict:
     """Ensure climate data contains exactly one evaporation column named 'evap'.
 
@@ -352,7 +383,7 @@ def expand_single_row_data_input(file_path: str):
         mgmt_input_data     dict of annual (no_of_years,) management vectors
         cover_data          dict of monthly-annual (12 * no_of_years,) cover vectors
     """
-    raw = _read_single_row_csv(file_path)
+    raw = rename_legacy_headers(_read_single_row_csv(file_path))
 
     def s(key, default=0.0) -> float:
         return float(raw.get(key, default))
@@ -368,22 +399,14 @@ def expand_single_row_data_input(file_path: str):
         if h in raw:
             scalar_input_data[h] = np.atleast_1d(np.asarray(raw[h], dtype=float))
 
-    # Species: map old naming to new cohort naming
-    # TODO: simplify once single-row CSV headers are updated
-    if "species_base" in raw:
-        scalar_input_data["base_species1"] = np.atleast_1d(np.asarray(raw["species_base"], dtype=float))
-    for i in range(1, 4):
-        if f"species{i}" in raw:
-            scalar_input_data[f"proj_species{i}"] = np.atleast_1d(np.asarray(raw[f"species{i}"], dtype=float))
-
-    # Planting parameters: map old naming to new cohort-indexed naming
-    # TODO: simplify once single-row CSV headers are updated
-    if "base_plant_dens" in raw:
-        scalar_input_data["base_plant_dens1"] = np.atleast_1d(np.asarray(raw["base_plant_dens"], dtype=float))
-    for i in range(1, 4):
-        for key in (f"proj_plant_yr{i}", f"proj_plant_dens{i}"):
-            if key in raw:
-                scalar_input_data[key] = np.atleast_1d(np.asarray(raw[key], dtype=float))
+    # Species and planting parameters (already renamed to new convention by rename_legacy_headers)
+    for key in raw:
+        if any(re.match(p, key) for p in (
+            r"^(base|proj)_species\d+$",
+            r"^(base|proj)_plant_yr\d+$",
+            r"^(base|proj)_plant_dens\d+$",
+        )):
+            scalar_input_data[key] = np.atleast_1d(np.asarray(raw[key], dtype=float))
 
     # --- Tree size data ---
     # Collect species numbers from the scalar pass-through

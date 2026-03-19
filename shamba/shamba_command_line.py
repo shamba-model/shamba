@@ -410,9 +410,12 @@ def main(n, arguments):
             climate_input_data = data_handler.resolve_evap_pet(climate_input_data)
             vector_input_data = vector_input_data | climate_input_data
 
-    grouped_headers_errors = data_handler.validate_all_grouped_headers(vector_input_data)
-    if grouped_headers_errors:
-        raise ValueError(grouped_headers_errors)
+    validation_errors = (
+        data_handler.validate_all_grouped_headers(vector_input_data)
+        + data_handler.validate_species_data(vector_input_data)
+    )
+    if validation_errors:
+        raise ValueError("\n".join(validation_errors))
 
     allometric_keys = arguments["allometric-keys"]
 
