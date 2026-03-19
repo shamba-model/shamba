@@ -374,90 +374,40 @@ def main(n, arguments):
 
     N_COHORTS = arguments["n-cohorts"]
 
-    if "input-file-name" in arguments: # TODO: at the moment both of these run so that there aren't errors
-        input_csv = arguments["input-file-name"]
-
-
-        # ----------
-        # getting input data
-        # ----------
-
-        ## creating dictionary of input data from input.csv
-        file_path = os.path.join(configuration.INPUT_DIR, input_csv)
-        csv_input_data = csv_handler.get_csv_input_data(n, file_path)
-
-        # terms in coded below preceded by csv_input_data are values being pulled in from dictionary
-        # created above. Converting to float or interger as needed for each
-        # key
-
-        ## getting plot anlaysis number to name output
-        st = int(csv_input_data["analysis_no"])
-
-        # ----------
-        # project length
-        # ----------
-        # YEARS = length of tree data. ACCT = years in accounting period
-        N_YEARS = int(csv_input_data["yrs_proj"])
-       
-
-    if arguments.get("split-input-file-id") is not None:
-        prefix = arguments["split-input-file-id"]
-        # Define configurations for each CSV read
-        csv_configs = [
-            {
-                "path": os.path.join(configuration.INPUT_DIR, f"{prefix}_plot_data.csv"),
-                "permitted_lengths": [1],
-                "target_length": 1,
-                "assign_to": "scalar_input_data"
-            },
-            {
-                "path": os.path.join(configuration.INPUT_DIR, f"{prefix}_mgmt_data.csv"),
-                "permitted_lengths": [1, N_YEARS],
-                "target_length": N_YEARS,
-                "assign_to": "mgmt_input_data"
-            },
-            {
-                "path": os.path.join(configuration.INPUT_DIR, f"{prefix}_tree_size_data.csv"),
-                "permitted_lengths": [i for i in range(5, N_YEARS + 1)],
-                "target_length": None,  # If not applicable
-                "assign_to": "tree_size_data"
-            },
-        ]
-
-        if arguments["use-api"] is False:
-            csv_configs.append(
-                { 
-                    "path": os.path.join(configuration.INPUT_DIR, str(prefix + "_climate_cover_data.csv")),
-                    "permitted_lengths": [1] + [i*12 for i in range(1, N_YEARS+1)],
-                    "target_length": 12*N_YEARS,
-                    "assign_to": "climate_input_data"
-                }
-            )
-
-        # Read and validate each CSV
-        data_store = {}
-        for config in csv_configs:
-            data = data_handler.read_and_validate_timeseries_by_header(
-                file_path=config["path"],
-                permitted_vector_lengths=config["permitted_lengths"],
-                target_vector_length=config["target_length"]
-            )
-            if config["assign_to"]:
-                data_store[config["assign_to"]] = data
-
-        # Unpack for use (or access directly from data_store)
-        scalar_input_data = data_store.get("scalar_input_data")
-        mgmt_input_data = data_store.get("mgmt_input_data")
-        tree_size_data = data_store.get("tree_size_data")
-        if arguments["use-api"] is False:
-            climate_input_data = data_store.get("climate_input_data")
+    climate_input_data = None
 
     if arguments.get("input-file-name") is not None:
-        # single-row input: split the flat dictionary into scalar, tree size and management data. This is not validated # TODO:
+        file_path = os.path.join(configuration.INPUT_DIR, arguments["input-file-name"])
         scalar_input_data, tree_size_data, mgmt_input_data, cover_data = data_handler.expand_single_row_data_input(file_path)
-    # TODO: handle climate data here
+        N_YEARS = int(scalar_input_data["yrs_proj"])
+        vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data | cover_data
 
-    vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
+    elif arguments.get("split-input-file-id") is not None:
+        prefix = arguments["split-input-file-id"]
+        scalar_input_data = data_handler.read_and_validate_timeseries_by_header(
+            file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_plot_data.csv"),
+            permitted_vector_lengths=[1],
+            target_vector_length=1,
+        )
+        N_YEARS = int(scalar_input_data["yrs_proj"])
+        mgmt_input_data = data_handler.read_and_validate_timeseries_by_header(
+            file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_mgmt_data.csv"),
+            permitted_vector_lengths=[1, N_YEARS],
+            target_vector_length=N_YEARS,
+        )
+        tree_size_data = data_handler.read_and_validate_timeseries_by_header(
+            file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_tree_size_data.csv"),
+            permitted_vector_lengths=list(range(5, N_YEARS + 1)),
+            target_vector_length=None,
+        )
+        vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
+        if arguments["use-api"] is False:
+            climate_input_data = data_handler.read_and_validate_timeseries_by_header(
+                file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_climate_cover_data.csv"),
+                permitted_vector_lengths=[1] + [i * 12 for i in range(1, N_YEARS + 1)],
+                target_vector_length=12 * N_YEARS,
+            )
+            vector_input_data = vector_input_data | climate_input_data
 
     grouped_headers_errors = data_handler.validate_all_grouped_headers(vector_input_data)
     if grouped_headers_errors:
@@ -471,7 +421,7 @@ def main(n, arguments):
     CROP_SPP = CropParams.load_crop_species_data()
 
     intervention_emissions = handle_intervention(
-        intervention_input=csv_input_data,
+        intervention_input=vector_input_data,
         n_cohorts=N_COHORTS,
         plot_index=n,
         allometry=allometric_keys,
@@ -611,7 +561,7 @@ def main(n, arguments):
         ["Total Difference", f"{sum(emit_difference):.2f}", "t CO2 ha^-1"],
     ]
 
-    accounting_year = csv_input_data["yrs_proj"]
+    accounting_year = N_YEARS
 
     summary_difference_title = (
         f"SUMMARY OF EMISSIONS for Year {accounting_year} (t CO2)"
@@ -661,10 +611,10 @@ def main(n, arguments):
         out_path = os.path.join(dir, f"validated_{name}_input_data_{st}.csv")
         csv_handler.print_csv(file_out=out_path, array=data_to_save, col_names=cols)
 
-    if arguments["use-api"] is False: # TODO: is this duplicated below?
+    if climate_input_data is not None:
         cols = list(climate_input_data.keys())
         data_to_save = np.column_stack([np.asarray(climate_input_data[k], dtype=float) for k in cols])
-        csv_handler.print_csv(file_out=os.path.join(configuration.OUTPUT_DIR, dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols) # TODO: where to put this?
+        csv_handler.print_csv(file_out=os.path.join(dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols)
 
     Climate.save(intervention_emissions.climate, plot_name + "_climate.csv")
 
