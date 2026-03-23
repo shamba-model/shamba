@@ -390,9 +390,12 @@ def main(n, arguments):
             target_vector_length=1,
         )
         N_YEARS = int(np.atleast_1d(scalar_input_data["yrs_proj"])[0])
+        # TODO: thinning and mortality arrays use N_YEARS+1 entries (year 0 included);
+        # other management arrays use N_YEARS. N_YEARS+1 is included here to accommodate
+        # both. See the same TODO in broadcast_to_length for full context.
         mgmt_input_data = data_handler.read_and_validate_timeseries_by_header(
             file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_mgmt_data.csv"),
-            permitted_vector_lengths=[1, N_YEARS],
+            permitted_vector_lengths=[1, N_YEARS, N_YEARS + 1],
             target_vector_length=N_YEARS,
         )
         tree_size_data = data_handler.read_and_validate_timeseries_by_header(
@@ -401,14 +404,16 @@ def main(n, arguments):
             target_vector_length=None,
         )
         vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
+        # _climate_cover_data.csv always provides base_cover and proj_cover.
+        # When use_api=False it also contains climate data (Temp, Rain, evap/pet).
+        climate_cover_data = data_handler.read_and_validate_timeseries_by_header(
+            file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_climate_cover_data.csv"),
+            permitted_vector_lengths=[1] + [i * 12 for i in range(1, N_YEARS + 1)],
+            target_vector_length=12 * N_YEARS,
+        )
         if arguments["use-api"] is False:
-            climate_input_data = data_handler.read_and_validate_timeseries_by_header(
-                file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_climate_cover_data.csv"),
-                permitted_vector_lengths=[1] + [i * 12 for i in range(1, N_YEARS + 1)],
-                target_vector_length=12 * N_YEARS,
-            )
-            climate_input_data = data_handler.resolve_evap_pet(climate_input_data)
-            vector_input_data = vector_input_data | climate_input_data
+            climate_cover_data = data_handler.resolve_evap_pet(climate_cover_data)
+        vector_input_data = vector_input_data | climate_cover_data
 
     validation_errors = (
         data_handler.validate_all_grouped_headers(vector_input_data)

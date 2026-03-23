@@ -162,18 +162,18 @@ def get_litter_model_data(
 ) -> GetLitterModelReturnData:
     
     litter_external_base = LitterModel.from_defaults(
-        litter_vector=intervention_input["base_lit_qty"],
+        litter_vector=intervention_input["base_lit_qty1"],
     )
     litter_external_project = LitterModel.from_defaults(
-        litter_vector=intervention_input["proj_lit_qty"],
+        litter_vector=intervention_input["proj_lit_qty1"],
     )
     synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
-        quantity_vector=intervention_input["base_sf_qty"],
-        nitrogen_vector=intervention_input["base_sf_n"],
+        quantity_vector=intervention_input["base_sf_qty1"],
+        nitrogen_vector=intervention_input["base_sf_n1"],
     )
     synthetic_fertiliser_project = LitterModel.synthetic_fertiliser(
-        quantity_vector=intervention_input["proj_sf_qty"],
-        nitrogen_vector=intervention_input["proj_sf_n"],
+        quantity_vector=intervention_input["proj_sf_qty1"],
+        nitrogen_vector=intervention_input["proj_sf_n1"],
     )
 
     return GetLitterModelReturnData(

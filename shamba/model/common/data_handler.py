@@ -60,8 +60,8 @@ COHORT_HEADER_DATATYPE_PATTERNS = {
     # Thinning fractions by pool, cohort index embedded
     r"^thin_(base|proj)_(br|st)_cohort": "proportion",
 
-    # Mortality by cohort
-    r"^(base|proj)_mort_cohort": "proportion",
+    # Mortality by cohort — keys use the form mort_{base|proj}_cohort{n}
+    r"^mort_(base|proj)_cohort": "proportion",
     r"^mort_(base|proj)_(br|st)_cohort": "proportion",
 }
 
@@ -143,8 +143,12 @@ def broadcast_to_length(data: dict, target_length: int, keys_to_broadcast: list[
         if key in keys_to_broadcast and arr.size < target_length:
             # repeat the array values to the target length
             data[key] = np.tile(arr, target_length // arr.size + 1)[:target_length]
-        elif arr.size == target_length:
-            pass  # No need to change
+        elif arr.size >= target_length:
+            pass  # arrays at or above target length are kept as-is
+            # TODO: thinning and mortality arrays use N_YEARS+1 entries (including year 0),
+            # while other management arrays use N_YEARS. This inconsistency should be resolved
+            # in a future branch — either standardise on N_YEARS throughout, or split
+            # thinning/mortality into a separate file with its own permitted_vector_lengths.
         else:
             raise ValueError(f"Cannot broadcast array of size {arr.size} for key '{key}' to target length {target_length}.")
     return data
@@ -459,8 +463,8 @@ def expand_single_row_data_input(file_path: str):
         if interval > 0:
             qty_vec[::interval] = s(f"{prefix}_sf_qty")
             n_vec[::interval] = s(f"{prefix}_sf_n")
-        fertiliser_data[f"{prefix}_sf_qty"] = qty_vec
-        fertiliser_data[f"{prefix}_sf_n"] = n_vec
+        fertiliser_data[f"{prefix}_sf_qty1"] = qty_vec
+        fertiliser_data[f"{prefix}_sf_n1"] = n_vec
 
     # --- Litter ---
     litter_data = {}
@@ -469,7 +473,7 @@ def expand_single_row_data_input(file_path: str):
         interval = si(f"{prefix}_lit_int")
         if interval > 0:
             qty_vec[::interval] = s(f"{prefix}_lit_qty")
-        litter_data[f"{prefix}_lit_qty"] = qty_vec
+        litter_data[f"{prefix}_lit_qty1"] = qty_vec
 
     # --- Fire ---
     fire_data = {}

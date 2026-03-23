@@ -209,12 +209,12 @@ def test_fertiliser_model(csv_input_file, expected_base_emissions, expected_proj
     N_YEARS = int(scalar_input_data["yrs_proj"])
 
     synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
-        quantity_vector=mgmt_input_data["base_sf_qty"],
-        nitrogen_vector=mgmt_input_data["base_sf_n"],
+        quantity_vector=mgmt_input_data["base_sf_qty1"],
+        nitrogen_vector=mgmt_input_data["base_sf_n1"],
     )
     synthetic_fertiliser_project = LitterModel.synthetic_fertiliser(
-        quantity_vector=mgmt_input_data["proj_sf_qty"],
-        nitrogen_vector=mgmt_input_data["proj_sf_n"],
+        quantity_vector=mgmt_input_data["proj_sf_qty1"],
+        nitrogen_vector=mgmt_input_data["proj_sf_n1"],
     )
 
     fertiliser_base_emissions = Emit.create(

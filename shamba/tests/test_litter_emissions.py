@@ -206,8 +206,8 @@ def test_litter_model(csv_input_file, expected_base_emissions, expected_project_
     scalar_input_data, _, mgmt_input_data, _ = expand_single_row_data_input(file_path)
     N_YEARS = int(scalar_input_data["yrs_proj"])
 
-    litter_external_base = LitterModel.from_defaults(litter_vector=mgmt_input_data["base_lit_qty"])
-    litter_external_project = LitterModel.from_defaults(litter_vector=mgmt_input_data["proj_lit_qty"])
+    litter_external_base = LitterModel.from_defaults(litter_vector=mgmt_input_data["base_lit_qty1"])
+    litter_external_project = LitterModel.from_defaults(litter_vector=mgmt_input_data["proj_lit_qty1"])
 
     litter_base_emissions = Emit.create(
         no_of_years=N_YEARS,
