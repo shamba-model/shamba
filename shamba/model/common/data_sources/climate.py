@@ -97,9 +97,11 @@ def get_climate_data(longitude: float, latitude: float) -> Optional[np.ndarray]:
         np.ndarray of shape (3, 12) with rows [temperature, rain, evapotranspiration],
         or None if the API call fails.
     """
-    # TODO: extend to return 12*n_years climate data (one vector per month per year)
-    # rather than a single 30-year monthly average. This would be consistent with updated 
-    # approach to climate data. n_years should be passed in as a parameter.
+    # TODO: extend to return 12*n_years climate data (one value per month per year) so that
+    # each model year uses its own monthly climate rather than a 30-year average.
+    # This should use a forecast API (not historical archive) to supply future-year climate
+    # data for the duration of the project. n_years would be passed down from
+    # handle_intervention via from_location().
     current_year = datetime.now().year
     last_full_year = current_year - 1
     start_year = last_full_year - 29
