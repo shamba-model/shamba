@@ -1,7 +1,5 @@
 import os
 import numpy as np
-import math
-import calendar
 from datetime import datetime, timedelta
 from itertools import groupby
 import requests

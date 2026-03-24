@@ -25,11 +25,9 @@ import model.climate as Climate
 import model.crop_model as CropModel
 import model.crop_params as CropParams
 import model.emit as Emit
-import model.litter as LitterModel
 import model.soil_params as SoilParams
 import model.tree_growth as TreeGrowth
 import model.tree_model as TreeModel
-import model.tree_params as TreeParams
 from model import configuration
 from model.common.calculate_emissions import handle_intervention
 
@@ -374,8 +372,6 @@ def main(n, arguments):
 
     N_COHORTS = arguments["n-cohorts"]
 
-    climate_input_data = None
-
     if arguments.get("input-file-name") is not None:
         file_path = os.path.join(configuration.INPUT_DIR, arguments["input-file-name"])
         scalar_input_data, tree_size_data, mgmt_input_data, cover_data = data_handler.expand_single_row_data_input(file_path)
@@ -620,9 +616,9 @@ def main(n, arguments):
         out_path = os.path.join(dir, f"validated_{name}_input_data_{st}.csv")
         csv_handler.print_csv(file_out=out_path, array=data_to_save, col_names=cols)
 
-    if climate_input_data is not None:
-        cols = list(climate_input_data.keys())
-        data_to_save = np.column_stack([np.asarray(climate_input_data[k], dtype=float) for k in cols])
+    if arguments.get("split-input-file-id") is not None:
+        cols = list(climate_cover_data.keys())
+        data_to_save = np.column_stack([np.asarray(climate_cover_data[k], dtype=float) for k in cols])
         csv_handler.print_csv(file_out=os.path.join(dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols)
 
     Climate.save(intervention_emissions.climate, plot_name + "_climate.csv")

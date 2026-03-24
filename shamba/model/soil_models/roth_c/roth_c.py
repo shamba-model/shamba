@@ -13,7 +13,6 @@ from ..soil_model_types import BaseSoilModelData, SoilModelBaseSchema
 K_BASE = np.array([10.0, 0.3, 0.66, 0.02])
 
 
-# We probably do not need this `create` function
 def create(soil, climate, cover, no_of_years):
     """Creates rothc object.
 
