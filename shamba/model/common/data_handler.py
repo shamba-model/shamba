@@ -94,6 +94,23 @@ GROUPED_HEADER_VALIDATIONS = [
     (r"^(base|proj)_species", [r"^(base|proj)_plant_yr", r"^(base|proj)_plant_dens"]),
 ]
 
+# Management keys that must always be present (use zeros if the feature is not applied).
+REQUIRED_MGMT_KEYS = [
+    "fire_on_base", "fire_off_base", "fire_on_proj", "fire_off_proj",
+    "base_lit_qty1", "proj_lit_qty1",
+    "base_sf_qty1", "base_sf_n1", "proj_sf_qty1", "proj_sf_n1",
+]
+
+
+def validate_required_mgmt_keys(data: dict) -> list:
+    missing = [k for k in REQUIRED_MGMT_KEYS if k not in data]
+    if missing:
+        return [
+            "Missing required management columns (supply zeros if not applicable): "
+            + ", ".join(missing)
+        ]
+    return []
+
 def get_header_type(header: str) -> Optional[str]:
     # Exact match first
     if header in REQUIRED_HEADER_DATATYPE:
@@ -144,20 +161,30 @@ def build_field_specs(headers):
         raise ValueError(error_message)
     return field_specs
 
+_THINNING_MORTALITY_PATTERN = re.compile(r"^(thin|mort)_(base|proj)_")
+
+
 def broadcast_to_length(data: dict, target_length: int, keys_to_broadcast: list[str]) -> np.ndarray:
-    """Broadcasts a 1D array to a specified target length by repeating its values as needed."""
+    """Broadcasts or truncates each broadcastable array to target_length.
+
+    Thinning and mortality arrays are exempt from truncation: they carry
+    N_YEARS+1 entries (year 0 through year N) because the tree model
+    indexes them by year number rather than sequentially.  All other
+    management arrays must be exactly target_length after this call.
+    """
     for key, arr in data.items():
         if key in keys_to_broadcast and arr.size < target_length:
-            # repeat the array values to the target length
             data[key] = np.tile(arr, target_length // arr.size + 1)[:target_length]
-        elif arr.size >= target_length:
-            pass  # arrays at or above target length are kept as-is
             # TODO: thinning and mortality arrays use N_YEARS+1 entries (including year 0),
             # while other management arrays use N_YEARS. This inconsistency should be resolved
             # in a future branch — either standardise on N_YEARS throughout, or split
             # thinning/mortality into a separate file with its own permitted_vector_lengths.
-        else:
-            raise ValueError(f"Cannot broadcast array of size {arr.size} for key '{key}' to target length {target_length}.")
+        elif key in keys_to_broadcast and arr.size > target_length:
+            if _THINNING_MORTALITY_PATTERN.match(key):
+                pass  # year-indexed; must keep N_YEARS+1 entries
+            else:
+                data[key] = arr[:target_length]
+        # else: arr.size == target_length, or non-broadcast key — keep as-is
     return data
 
 def first_error_text(x):

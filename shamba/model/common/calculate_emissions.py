@@ -160,7 +160,6 @@ class GetLitterModelReturnData(NamedTuple):
 def get_litter_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetLitterModelReturnData:
-    
     litter_external_base = LitterModel.from_defaults(
         litter_vector=intervention_input["base_lit_qty1"],
     )

@@ -420,6 +420,7 @@ def main(n, arguments):
     validation_errors = (
         data_handler.validate_all_grouped_headers(vector_input_data)
         + data_handler.validate_species_data(vector_input_data)
+        + data_handler.validate_required_mgmt_keys(vector_input_data)
     )
     if validation_errors:
         raise ValueError("\n".join(validation_errors))
