@@ -33,7 +33,8 @@ def get_arguments_interactively():
         """
 INSTRUCTIONS
 
-___________________________STEP 1: create main input file _____________________
+___________________________STEP 1: create main input file(s) _____________________
+--------------------------- Option 1: Single input file---------------------------
 Complete in full the Excel worksheet 'SHAMBA input output template v1.2',
 (located in the 'data-input-templates' folder) including all references 
 for information. The reviewer will reject the modelling unless it is fully
@@ -48,6 +49,43 @@ To run the model for a particular intervention, save the `input` sheet from the
 template as a .csv file into a new `shamba/projects/"project-name"/input`
 folder. This is the 'source directory'
 you must specify when prompted at the command line.
+
+-------------- Option 2: prepare split input files (vector format) ----------------
+Instead of a single, one row input csv (Option 1), you can provide data split 
+across four csv files.
+
+This allows parameters to vary year-by-year and therefore results in
+more accurate modelling of carbon changes and greenhouse gas emissions.
+For example: the single-row input file allows a single crop yield value, applied 
+over one growth phase (between start year and end year). Split input files allow 
+you to enter different crop yields each year - which could represent changing 
+seeding rates, a crop rotation or the impact of changing climate.
+
+All four split input files must share a common prefix (e.g. "WL"), be saved in the 
+source directory, and be named:
+  {prefix}_plot_data.csv
+    Scalar site parameters (one data row). Contains all fields from the main
+    input file that do not vary over time (e.g. lat, lon, yrs_proj, species codes).
+
+  {prefix}_mgmt_data.csv
+    Management parameters. Each column is a parameter; each row is a year
+    (rows 0 to yrs_proj-1, plus an optional year-0 row for thinning/mortality).
+    Columns with a single value will be broadcast to all years automatically.
+    An initial 'year' column (0, 1, 2, ...) is recommended but not required.
+
+  {prefix}_tree_size_data.csv
+    Tree size (age and diameter) measurements for each species. Must have at
+    least 5 rows and at most yrs_proj rows. Each species contributes a pair of
+    columns (e.g. age_sp1, diam_sp1).
+
+  {prefix}_climate_cover_data.csv
+    Monthly climate data and land cover fractions. proj_cover and base_cover
+    are required; base_cover may be a single value (broadcast to all months).
+    When NOT using the API, also include monthly Temp, Rain, and evap/pet columns
+    (12 * yrs_proj rows, or a single row to broadcast). When using the API,
+    only proj_cover and base_cover are needed.
+
+See the example split files in /projects/examples/UG_TS_2016/input
 
 _____________________STEP 2: create other required input files __________________
 Other required input files are parameters for:
@@ -97,7 +135,7 @@ Soil and climate data is either sourced from APIs, or from local csv files of yo
 own data. To use your own values for soil and climate data, csv files should
 be added to the source directory (alongisde your input file).
 
-The climate data csv must be called climate.csv and match the format shown in 
+The climate data csv must be called climate.csv and match the format shown in
 /projects/examples/UG_TS_2016/input/climate.csv.
 The soil data csv must be called soil-info.csv and match the format shown in
 /projects/examples/UG_TS_2016/input/soil-info.csv.
