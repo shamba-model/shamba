@@ -91,6 +91,8 @@ def synthetic_fertiliser(quantity_vector, nitrogen_vector):
     """Synthetic fertiliser (special case of litter).
     Be sure to keep separate though when passing a litter object to
     other methods/classes. (e.g. fert isn't an input to soil model)"""
+    # carbon=0: synthetic fertiliser adds no carbon to soil
+    # nitrogen=0: placeholder only — nitrogen_vector overrides it in get_inputs
     params = {"carbon": 0, "nitrogen": 0}
 
     return create(
