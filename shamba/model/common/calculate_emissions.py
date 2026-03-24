@@ -538,7 +538,14 @@ def handle_intervention(
     # LOCATION INFORMATION
     # ----------
     location = get_location(intervention_input)
-    climate = Climate.from_location(location, use_api=use_api)
+    climate_vectors = None
+    if "Temp" in intervention_input:
+        climate_vectors = (
+            intervention_input["Temp"],
+            intervention_input["Rain"],
+            intervention_input["evap"],
+        )
+    climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors, n_years=no_of_years)
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE

@@ -17,7 +17,7 @@ from model.common.data_sources.climate import get_climate_data
 
 
 def validate_monthly_list_length(lst):
-    return ["List must contain 12 elements"] if len(lst) != 12 else []
+    return ["List length must be a non-zero multiple of 12"] if len(lst) == 0 or len(lst) % 12 != 0 else []
 
 
 def validate_temperature(values):
@@ -71,16 +71,37 @@ class ClimateDataSchema(Schema):
         return ClimateData(**data)
 
 
-def from_location(location, use_api: bool) -> ClimateData:
-    """Construct Climate object using CRU-TS
-    dataset for a given location.
+def from_vectors(temperature, rain, evaporation) -> ClimateData:
+    """Construct ClimateData directly from pre-validated arrays.
+
+    Bypasses the length-12 schema check, so accepts multi-year arrays
+    (e.g. length 12 * N_YEARS from split input files).
+    """
+    return ClimateData(
+        temperature=np.array(temperature),
+        rain=np.array(rain),
+        evaporation=np.array(evaporation),
+    )
+
+
+def from_location(location, use_api: bool, climate_vectors=None, n_years: int = 1) -> ClimateData:
+    """Construct Climate object for a given location.
+
+    Priority order:
+      1. Climate API (if use_api=True and call succeeds)
+      2. climate_vectors from split input file (Temp/Rain/evap columns)
+      3. Local climate.csv file
 
     Args:
-        location
+        location: (latitude, longitude) tuple
+        use_api: whether to attempt the climate API
+        climate_vectors: optional tuple of (temperature, rain, evaporation)
+            arrays from the split _climate_cover_data.csv file
+        n_years: number of projection years; API and CSV results are tiled to
+            12 * n_years so all climate sources return the same length array
     Returns:
-        Climate object
+        ClimateData object
     """
-    # Location stuff
     latitude = location[0]
     longitude = location[1]
 
@@ -90,6 +111,9 @@ def from_location(location, use_api: bool) -> ClimateData:
         if climate_array is not None:
             # pet given in OpenMeteo instead of evaporation, so convert
             climate_array[2] /= 0.75
+
+            if n_years > 1:
+                climate_array = [np.tile(arr, n_years) for arr in climate_array]
 
             params = {
                 "temperature": climate_array[0],
@@ -103,19 +127,24 @@ def from_location(location, use_api: bool) -> ClimateData:
                 print(f"Errors in climate data: {str(errors)}")
             return schema.load(params)  # type: ignore
 
-        print("Climate API unavailable — falling back to local climate file.")
+        print("Climate API unavailable — falling back to local climate data.")
+
+    if climate_vectors is not None:
+        return from_vectors(*climate_vectors)
 
     try:
-        return from_csv()
+        return from_csv(n_years=n_years)
     except ValueError:
-        raise ValueError("Climate data not found in API or local file.")
+        raise ValueError("Climate data not found in API, split input file, or local climate.csv.")
 
 
-def from_csv(filename="climate.csv") -> ClimateData:
+def from_csv(filename="climate.csv", n_years: int = 1) -> ClimateData:
     """Construct Climate object from a csv file.
 
     Args:
         filename: path to csv file containing climate data
+        n_years: number of projection years; the 12-row CSV is tiled to
+            12 * n_years so the result matches multi-year climate arrays
     Returns:
         Climate object
     Raises:
@@ -149,14 +178,18 @@ def from_csv(filename="climate.csv") -> ClimateData:
         else:
             correct_order = ("temp", "rain", "evap")
 
-        # Create clim array with the correct rows
-        climate_data = np.zeros((3, 12))
+        # Read data and tile to n_years
+        n_rows = len(data)
+        climate_data = np.zeros((3, n_rows))
         for i in range(3):
             climate_data[i] = data[:, np.where(headers == correct_order[i])[0][0]]
 
         # Convert PET to open-pan evaporation if PET data was used
         if has_pet:
             climate_data[2] /= 0.75
+
+        if n_years > 1:
+            climate_data = np.tile(climate_data, (1, n_years))
 
         climate: ClimateData = ClimateDataSchema().load(
             {
