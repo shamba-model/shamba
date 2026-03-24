@@ -9,20 +9,21 @@ import re
 from typing import Optional
 
 from model.common.legacy_adapter import rename_legacy_headers
+from model.common.validations import validate_positive_or_zero_numerical_list
 
 
 REQUIRED_HEADER_DATATYPE = {
     "lat": "scalar float",
     "lon": "scalar float",
-    "yrs_proj": "scalar integer",
-    "yr_mon": "scalar integer",
-    "analysis_no": "scalar integer",
-    "plot_name": "scalar integer",
-    "year": "integer",
+    "yrs_proj": "non-negative scalar integer",
+    "yr_mon": "non-negative scalar integer",
+    "analysis_no": "non-negative scalar integer",
+    "plot_name": "non-negative scalar integer",
+    "year": "non-negative integer",
     "Temp": "float",
-    "Rain": "float",
-    "evap": "float",
-    "pet": "float",
+    "Rain": "non-negative float",
+    "evap": "non-negative float",
+    "pet": "non-negative float",
     "base_cover": "binary",
     "proj_cover": "binary",
     "fire_on_base": "binary",
@@ -32,27 +33,27 @@ REQUIRED_HEADER_DATATYPE = {
 }
 
 ANCHOR_HEADER_DATATYPE_PATTERNS = {
-    r"^crop_(base|proj)_spp": "scalar integer",
-    r"^(base|proj)_species": "scalar integer",
-    r"^(base|proj)_sf_qty": "float",  # only SF not LIT here, as only SF needs a matching _n proportion
+    r"^crop_(base|proj)_spp": "non-negative scalar integer",
+    r"^(base|proj)_species": "non-negative scalar integer",
+    r"^(base|proj)_sf_qty": "non-negative float",  # only SF not LIT here, as only SF needs a matching _n proportion
 }
 
 CROP_HEADER_DATATYPE_PATTERNS = {
     # Crops (baseline & project), any index
-    r"^crop_(base|proj)_spp": "scalar integer",
-    r"^crop_(base|proj)_yd": "float",
+    r"^crop_(base|proj)_spp": "non-negative scalar integer",
+    r"^crop_(base|proj)_yd": "non-negative float",
     r"^crop_(base|proj)_left": "proportion",}
 
 SPECIES_HEADER_DATATYPE_PATTERNS = {
-    r"^(age_sp)": "integer",
-    r"^(diam_sp)": "float",
+    r"^(age_sp)": "non-negative float",
+    r"^(diam_sp)": "non-negative float",
 }
 
 COHORT_HEADER_DATATYPE_PATTERNS = {
     # Cohort species, planting years & densities by cohort index
-    r"^(base|proj)_species": "scalar integer",
-    r"^(base|proj)_plant_yr": "scalar integer",
-    r"^(base|proj)_plant_dens": "scalar integer",
+    r"^(base|proj)_species": "non-negative scalar integer",
+    r"^(base|proj)_plant_yr": "non-negative scalar integer",
+    r"^(base|proj)_plant_dens": "non-negative scalar integer",
 
     # Thinning percents by cohort index
     r"^thin_(base|proj)_cohort": "proportion",
@@ -67,13 +68,13 @@ COHORT_HEADER_DATATYPE_PATTERNS = {
 
 FERT_HEADER_DATATYPE_PATTERNS = {
     # Synthetic fertiliser
-    r"^(base|proj)_sf_qty": "float",
+    r"^(base|proj)_sf_qty": "non-negative float",
     r"^(base|proj)_sf_n": "proportion",
     }
 
 LITTER_HEADER_DATATYPE_PATTERNS = {
     # Litter
-    r"^(base|proj)_lit_qty": "float",
+    r"^(base|proj)_lit_qty": "non-negative float",
 }
 
 
@@ -108,14 +109,20 @@ def make_field_for_type(type_name: str):
         return fields.Float()
     if type_name == "scalar integer":
         return fields.Integer()
+    if type_name == "non-negative scalar integer":
+        return fields.Integer(validate=Range(min=0))
     if type_name == "scalar proportion":
         return fields.Float(validate=Range(min=0.0, max=1.0))
     if type_name == "scalar binary":
         return fields.Integer(validate=OneOf([0, 1]))
     if type_name == "float":
         return fields.List(fields.Float())
+    if type_name == "non-negative float":
+        return fields.List(fields.Float(), validate=validate_positive_or_zero_numerical_list)
     if type_name == "integer":
         return fields.List(fields.Integer())
+    if type_name == "non-negative integer":
+        return fields.List(fields.Integer(), validate=validate_positive_or_zero_numerical_list)
     if type_name == "proportion":
         return fields.List(fields.Float(validate=Range(min=0.0, max=1.0)))
     if type_name == "binary":
