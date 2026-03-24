@@ -68,10 +68,25 @@ source directory, and be named:
     input file that do not vary over time (e.g. lat, lon, yrs_proj, species codes).
 
   {prefix}_mgmt_data.csv
-    Management parameters. Each column is a parameter; each row is a year
-    (rows 0 to yrs_proj-1, plus an optional year-0 row for thinning/mortality).
+    Management parameters. Each column is a parameter; each row is a year.
+    Rows 0 to yrs_proj-1 cover the project period; an optional extra row at
+    index yrs_proj is needed if thinning/mortality arrays are supplied, as
+    those arrays are indexed 0..yrs_proj (inclusive).
     Columns with a single value will be broadcast to all years automatically.
     An initial 'year' column (0, 1, 2, ...) is recommended but not required.
+
+    Required thinning/mortality columns (supply zeros if not applicable):
+      thin_base_cohort1, thin_base_br_cohort1, thin_base_st_cohort1
+      mort_base_cohort1, mort_base_br_cohort1, mort_base_st_cohort1
+      thin_proj_cohort1, thin_proj_br_cohort1, thin_proj_st_cohort1
+      mort_proj_cohort1, mort_proj_br_cohort1, mort_proj_st_cohort1
+    For scenarios with multiple project cohorts (N = 2, 3), also supply:
+      thin_proj_cohortN, thin_proj_br_cohortN, thin_proj_st_cohortN
+      mort_proj_cohortN, mort_proj_br_cohortN, mort_proj_st_cohortN
+
+    Note: the single-row input format applies the same thinning and mortality
+    schedule to all project cohorts. Use the split-file format to specify
+    different thinning schedules per cohort.
 
   {prefix}_tree_size_data.csv
     Tree size (age and diameter) measurements for each species. Must have at

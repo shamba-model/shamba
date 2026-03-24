@@ -92,6 +92,16 @@ GROUPED_HEADER_VALIDATIONS = [
     (r"^crop_(base|proj)_spp", [r"^crop_(base|proj)_yd", r"^crop_(base|proj)_left"]),
     # If a cohort species is given for index N, planting year and density are required.
     (r"^(base|proj)_species", [r"^(base|proj)_plant_yr", r"^(base|proj)_plant_dens"]),
+    # If a project cohort species N is given, per-cohort thinning/mortality is required.
+    # (Cohort 1 is also covered by REQUIRED_MGMT_KEYS; this catches cohorts 2 and above.)
+    (r"^proj_species", [
+        r"^thin_proj_cohort",
+        r"^thin_proj_br_cohort",
+        r"^thin_proj_st_cohort",
+        r"^mort_proj_cohort",
+        r"^mort_proj_br_cohort",
+        r"^mort_proj_st_cohort",
+    ]),
 ]
 
 # Management keys that must always be present (use zeros if the feature is not applied).
@@ -99,6 +109,12 @@ REQUIRED_MGMT_KEYS = [
     "fire_on_base", "fire_off_base", "fire_on_proj", "fire_off_proj",
     "base_lit_qty1", "proj_lit_qty1",
     "base_sf_qty1", "base_sf_n1", "proj_sf_qty1", "proj_sf_n1",
+    # Thinning/mortality — baseline always has one cohort; project requires at least cohort 1.
+    # Supply zeros for thinning arrays if no thinning events occur.
+    "thin_base_cohort1", "thin_base_br_cohort1", "thin_base_st_cohort1",
+    "mort_base_cohort1", "mort_base_br_cohort1", "mort_base_st_cohort1",
+    "thin_proj_cohort1", "thin_proj_br_cohort1", "thin_proj_st_cohort1",
+    "mort_proj_cohort1", "mort_proj_br_cohort1", "mort_proj_st_cohort1",
 ]
 
 

@@ -68,8 +68,7 @@ def get_tree_model_data(
     )
 
     # Thinning and mortality: read pre-built vectors directly from input.
-    # Project thinning uses cohort 1 arrays, shared across all project cohorts.
-    # Per-cohort project thinning is a future enhancement.
+    # Baseline always has one cohort; project reads per-cohort arrays indexed 1..no_of_cohorts.
     thinning_base = intervention_input["thin_base_cohort1"]
     thinning_fraction_left_base = np.array([
         1,
@@ -85,20 +84,30 @@ def get_tree_model_data(
         1, 1,
     ])
 
-    thinning_project = intervention_input["thin_proj_cohort1"]
-    thinning_fraction_left_project = np.array([
-        1,
-        float(np.atleast_1d(intervention_input["thin_proj_br_cohort1"])[0]),
-        float(np.atleast_1d(intervention_input["thin_proj_st_cohort1"])[0]),
-        1, 1,
-    ])
-    mortality_project = intervention_input["mort_proj_cohort1"]
-    mortality_fraction_left_project = np.array([
-        1,
-        float(np.atleast_1d(intervention_input["mort_proj_br_cohort1"])[0]),
-        float(np.atleast_1d(intervention_input["mort_proj_st_cohort1"])[0]),
-        1, 1,
-    ])
+    thinnings_project = [
+        intervention_input[f"thin_proj_cohort{i + 1}"] for i in range(no_of_cohorts)
+    ]
+    thinning_fractions_project = [
+        np.array([
+            1,
+            float(np.atleast_1d(intervention_input[f"thin_proj_br_cohort{i + 1}"])[0]),
+            float(np.atleast_1d(intervention_input[f"thin_proj_st_cohort{i + 1}"])[0]),
+            1, 1,
+        ])
+        for i in range(no_of_cohorts)
+    ]
+    mortalities_project = [
+        intervention_input[f"mort_proj_cohort{i + 1}"] for i in range(no_of_cohorts)
+    ]
+    mortality_fractions_project = [
+        np.array([
+            1,
+            float(np.atleast_1d(intervention_input[f"mort_proj_br_cohort{i + 1}"])[0]),
+            float(np.atleast_1d(intervention_input[f"mort_proj_st_cohort{i + 1}"])[0]),
+            1, 1,
+        ])
+        for i in range(no_of_cohorts)
+    ]
 
     tree_base = TreeModel.from_defaults(
         tree_params=tree_par_base,
@@ -116,10 +125,10 @@ def get_tree_model_data(
         csv_input_data=intervention_input,
         tree_params=tree_params,
         growths=tree_growths,
-        thinning_project=thinning_project,
-        thinning_fraction_left_project=thinning_fraction_left_project,
-        mortality_project=mortality_project,
-        mortality_fraction_left_project=mortality_fraction_left_project,
+        thinnings_project=thinnings_project,
+        thinning_fractions_project=thinning_fractions_project,
+        mortalities_project=mortalities_project,
+        mortality_fractions_project=mortality_fractions_project,
         no_of_years=no_of_years,
         cohort_count=no_of_cohorts,
     )

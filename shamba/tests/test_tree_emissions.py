@@ -6,7 +6,7 @@ from model import configuration
 import model.tree_model as TreeModel
 import model.tree_params as TreeParams
 import model.tree_growth as TreeGrowth
-from model.common.data_handler import expand_single_row_data_input
+from model.common.data_handler import expand_single_row_data_input, validate_all_grouped_headers
 
 WL_N_COHORTS = 1
 WL_allometric_keys = ["chave dry", "chave dry"]
@@ -262,29 +262,29 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
     tree_params = TreeParams.create_tree_params_from_species_index(growth_input, N_COHORTS)
     tree_growths = TreeGrowth.create_tree_growths(growth_input, tree_params, allometric_keys, N_COHORTS)
 
-    thinning_project = mgmt_input_data["thin_proj_cohort1"]
-    thinning_fraction_left_project = np.array([
+    thinnings_project = [mgmt_input_data["thin_proj_cohort1"]]
+    thinning_fractions_project = [np.array([
         1,
         mgmt_input_data["thin_proj_br_cohort1"][0],
         mgmt_input_data["thin_proj_st_cohort1"][0],
         1, 1,
-    ])
-    mortality_project = mgmt_input_data["mort_proj_cohort1"]
-    mortality_fraction_left_project = np.array([
+    ])]
+    mortalities_project = [mgmt_input_data["mort_proj_cohort1"]]
+    mortality_fractions_project = [np.array([
         1,
         mgmt_input_data["mort_proj_br_cohort1"][0],
         mgmt_input_data["mort_proj_st_cohort1"][0],
         1, 1,
-    ])
+    ])]
 
     tree_projects = TreeModel.create_tree_projects(
         csv_input_data=growth_input,
         tree_params=tree_params,
         growths=tree_growths,
-        thinning_project=thinning_project,
-        thinning_fraction_left_project=thinning_fraction_left_project,
-        mortality_project=mortality_project,
-        mortality_fraction_left_project=mortality_fraction_left_project,
+        thinnings_project=thinnings_project,
+        thinning_fractions_project=thinning_fractions_project,
+        mortalities_project=mortalities_project,
+        mortality_fractions_project=mortality_fractions_project,
         no_of_years=N_YEARS,
         cohort_count=N_COHORTS,
     )
@@ -300,3 +300,76 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
     assert tree_project_emissions == pytest.approx(expected_project_emissions, rel=1e-3)
     # These tests require lower accuracy than other tests. This is because the results are dependent on the parameters of the fitted equations,
     # which may vary slightly between the code calculations and the expected results, which were calculated separately and hard coded here.
+
+
+def test_create_tree_projects_uses_per_cohort_thinning():
+    """Each project cohort must receive its own thinning array, not a shared one."""
+    file_path = os.path.join(configuration.TESTS_DIR, "fixtures", "WL_input.csv")
+    scalar_input_data, tree_size_data, mgmt_input_data, _ = expand_single_row_data_input(file_path)
+    N_YEARS = int(scalar_input_data["yrs_proj"][0])
+
+    # Build a two-cohort scenario reusing WL species for both cohorts.
+    # create_tree_params_from_species_index reads "species{N}";
+    # create_tree_growths reads "proj_species{N}" at allometric_keys[N] (index 0 = base).
+    growth_input = {
+        **scalar_input_data,
+        **tree_size_data,
+        "species1": scalar_input_data["proj_species1"],
+        "species2": scalar_input_data["proj_species1"],
+        "proj_species2": scalar_input_data["proj_species1"],
+        "proj_plant_yr2": scalar_input_data["proj_plant_yr1"],
+        "proj_plant_dens2": scalar_input_data["proj_plant_dens1"],
+    }
+    tree_params = TreeParams.create_tree_params_from_species_index(growth_input, 2)
+    tree_growths = TreeGrowth.create_tree_growths(
+        growth_input, tree_params, ["chave dry", "chave dry", "chave dry"], 2
+    )
+
+    thinning_cohort1 = mgmt_input_data["thin_proj_cohort1"].copy()
+    thinning_cohort2 = mgmt_input_data["thin_proj_cohort1"].copy()
+    # Give cohort 2 a different thinning value at year 0 so the arrays are distinguishable.
+    thinning_cohort2[0] = 0.99
+
+    fraction = np.array([1, 0.0, 0.0, 1, 1])
+
+    tree_projects = TreeModel.create_tree_projects(
+        csv_input_data=growth_input,
+        tree_params=tree_params,
+        growths=tree_growths,
+        thinnings_project=[thinning_cohort1, thinning_cohort2],
+        thinning_fractions_project=[fraction, fraction],
+        mortalities_project=[
+            mgmt_input_data["mort_proj_cohort1"],
+            mgmt_input_data["mort_proj_cohort1"],
+        ],
+        mortality_fractions_project=[fraction, fraction],
+        no_of_years=N_YEARS,
+        cohort_count=2,
+    )
+
+    assert tree_projects[0].thinning[0] != tree_projects[1].thinning[0], (
+        "Cohort 1 and cohort 2 should have different thinning arrays"
+    )
+    np.testing.assert_array_equal(tree_projects[0].thinning, thinning_cohort1)
+    np.testing.assert_array_equal(tree_projects[1].thinning, thinning_cohort2)
+
+
+def test_validation_requires_per_cohort_thinning_when_second_cohort_present():
+    """validate_all_grouped_headers must flag missing thinning/mortality for cohort 2."""
+    data = {
+        "proj_species1": np.array([1]),
+        "proj_species2": np.array([2]),
+        # cohort 1 thinning present
+        "thin_proj_cohort1": np.zeros(5),
+        "thin_proj_br_cohort1": np.array([0.0]),
+        "thin_proj_st_cohort1": np.array([0.0]),
+        "mort_proj_cohort1": np.zeros(5),
+        "mort_proj_br_cohort1": np.array([0.0]),
+        "mort_proj_st_cohort1": np.array([0.0]),
+        # cohort 2 thinning deliberately absent
+    }
+    errors = validate_all_grouped_headers(data)
+    missing_keys = [e for e in errors if "cohort2" in e]
+    assert len(missing_keys) == 6, (
+        f"Expected 6 missing-cohort-2 errors (one per thinning/mortality key), got: {missing_keys}"
+    )
