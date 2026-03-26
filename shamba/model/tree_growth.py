@@ -278,7 +278,7 @@ def create(
     Returns:
         TreeGrowth: A TreeGrowth object.
     """
-    tree_diameter = growth_params["diam"]
+    tree_diameter = growth_params.get("diam", np.array([]))
     allometric_key = allom.lower()
     biomass = (
         growth_params["biomass"]
@@ -341,12 +341,16 @@ def from_csv(
     age_key = f"age_sp{sp_index}"
     age = input_data[age_key]
     diam_key = f"diam_sp{sp_index}"
-    diam = input_data[diam_key]
+    diam = input_data.get(diam_key, np.array([]))
 
     params = {
         "age": age,
         "diam": diam,
     }
+
+    biomass_key = f"biomass_sp{sp_index}"
+    if biomass_key in input_data:
+        params["biomass"] = input_data[biomass_key]
 
     growth = create(tree_params, params, allometric_key)
 

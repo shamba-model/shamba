@@ -47,6 +47,7 @@ CROP_HEADER_DATATYPE_PATTERNS = {
 SPECIES_HEADER_DATATYPE_PATTERNS = {
     r"^(age_sp)": "non-negative float",
     r"^(diam_sp)": "non-negative float",
+    r"^(biomass_sp)": "non-negative float",
 }
 
 COHORT_HEADER_DATATYPE_PATTERNS = {
@@ -349,8 +350,11 @@ def validate_all_grouped_headers(data):
 
 def validate_species_data(data: dict) -> list[str]:
     """Check that every species code declared in (base|proj)_species{n} headers
-    has corresponding age and diameter data in the same input dict.
+    has corresponding age and size data in the same input dict.
 
+    age_sp{N} is always required. At least one of diam_sp{N} or biomass_sp{N}
+    is required — if biomass is supplied directly, diameter data is not needed.
+    Note:
     Species codes are the *values* of those scalar headers (e.g. base_species1 = 3
     means cohort 1 uses species type 3, so age_sp3 and diam_sp3 must be present).
 
@@ -367,12 +371,16 @@ def validate_species_data(data: dict) -> list[str]:
                 errors.append(f"Could not read species code from '{key}'.")
 
     for code in sorted(species_codes):
-        for required in (f"age_sp{code}", f"diam_sp{code}"):
-            if required not in data:
-                errors.append(
-                    f"'{required}' is required because species {code} is declared "
-                    f"in the input data but has no corresponding size data."
-                )
+        if f"age_sp{code}" not in data:
+            errors.append(
+                f"'age_sp{code}' is required because species {code} is declared "
+                f"in the input data but has no corresponding age data."
+            )
+        if f"diam_sp{code}" not in data and f"biomass_sp{code}" not in data:
+            errors.append(
+                f"Either 'diam_sp{code}' or 'biomass_sp{code}' is required because "
+                f"species {code} is declared in the input data but has no size or biomass data."
+            )
 
     return errors
 
