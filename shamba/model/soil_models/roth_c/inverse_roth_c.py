@@ -22,7 +22,7 @@ def create(soil, climate, cover=np.ones(12)) -> InverseSoilModelData:
         cover: monthly soil cover vector
 
     """
-    roth_c = create_roth_c(soil, climate, cover)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years = 1)
 
     eq_C, input_C, x = solver(roth_c)
 
@@ -66,7 +66,7 @@ def solver(roth_c):
 
     # Loop through range of inputs
     for input in np.arange(0.1, 10, 0.1):
-        C = optimize.fsolve(dC_dt, C0, args=(t, x, roth_c.k, input))
+        C = optimize.fsolve(dC_dt, C0, args=(t, x, roth_c.k[0], input))
         Ctot = np.sum(np.array(C)) + roth_c.soil.iom
         current_difference = math.fabs(Ctot - roth_c.soil.Ceq)
 

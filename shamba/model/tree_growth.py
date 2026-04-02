@@ -278,7 +278,7 @@ def create(
     Returns:
         TreeGrowth: A TreeGrowth object.
     """
-    tree_diameter = growth_params["diam"]
+    tree_diameter = growth_params.get("diam", np.array([]))
     allometric_key = allom.lower()
     biomass = (
         growth_params["biomass"]
@@ -321,8 +321,8 @@ def create(
 def from_csv(
     tree_params: List[TreeParams.TreeParamsData],
     allometric_key: str,
-    csv_input_data: Dict[str, Any],
-    species_prefix: str = "",
+    input_data: Dict[str, Any],
+    sp_index: str = "",
 ):
     """Construct Growth object using data in a csv file.
 
@@ -338,22 +338,19 @@ def from_csv(
     Returns:
         tree_growth: TreeGrowth object
     """
-
-    age_base = ["age1", "age2", "age3", "age4", "age5", "age6"]
-    age_input = [f"{species_prefix}{key}" for key in age_base]
-    age = {key: csv_input_data[key] for key in age_input}
-    age = np.array(list(age.values())).astype(float)
-    age = np.array(sorted(age, key=int))
-
-    diam_base = ["diam1", "diam2", "diam3", "diam4", "diam5", "diam6"]
-    diam_input = [f"{species_prefix}{key}" for key in diam_base]
-    diam = {key: csv_input_data[key] for key in diam_input}
-    diam = np.array(list(diam.values())).astype(float)
+    age_key = f"age_sp{sp_index}"
+    age = input_data[age_key]
+    diam_key = f"diam_sp{sp_index}"
+    diam = input_data.get(diam_key, np.array([]))
 
     params = {
         "age": age,
         "diam": diam,
     }
+
+    biomass_key = f"biomass_sp{sp_index}"
+    if biomass_key in input_data:
+        params["biomass"] = input_data[biomass_key]
 
     growth = create(tree_params, params, allometric_key)
 
@@ -650,29 +647,51 @@ allometric = {
 }
 
 
-# Uses spp_prefix_map to get the correct prefix for the species-specific columns
 def get_growth(csv_input_data, spp_key, tree_params, allometric_key):
-    spp_number = int(csv_input_data[spp_key])
-    if spp_number == 1:
-        prefix = ""
-    else:
-        prefix = f"sp{spp_number}_"
+    """Return a Growth object for a single cohort.
 
+    spp_key is a cohort header (e.g. 'proj_species1'). Its value is the
+    species code, which is used to look up the corresponding age/diameter
+    data (age_sp{code}, diam_sp{code}).
+    """
+    spp_number = int(np.atleast_1d(csv_input_data[spp_key])[0])
     return from_csv(
         tree_params=tree_params,
         allometric_key=allometric_key,
-        csv_input_data=csv_input_data,
-        species_prefix=prefix,
+        input_data=csv_input_data,
+        sp_index=spp_number,
     )
 
 
-def create_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count):
+def create_baseline_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count=1):
+    """Return a list of Growth objects for baseline cohorts.
+
+    Defaults to one baseline cohort. Increase cohort_count when the baseline
+    contains multiple tree species. Baseline allometry is always at index 0
+    of allometric_keys.
+    """
     return [
         get_growth(
             csv_input_data,
-            f"species{i + 1}",
+            f"base_species{i + 1}",
             tree_params[i],
-            allometric_key=allometric_keys[i+1], # baseline allometry is at index 0 in allometric_keys
+            allometric_key=allometric_keys[0],
+        )
+        for i in range(cohort_count)
+    ]
+
+
+def create_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count):
+    """Return a list of Growth objects for project cohorts.
+
+    Project allometry starts at index 1 of allometric_keys (index 0 is baseline).
+    """
+    return [
+        get_growth(
+            csv_input_data,
+            f"proj_species{i + 1}",
+            tree_params[i],
+            allometric_key=allometric_keys[i + 1],
         )
         for i in range(cohort_count)
     ]

@@ -1,5 +1,6 @@
 from typing import Dict, Union, List, NamedTuple, Tuple, Any, Callable
 from toolz import get, compose  # type: ignore
+from copy import deepcopy
 import numpy as np
 
 import model.climate as Climate
@@ -32,19 +33,6 @@ def get_location(year_input: Dict[str, Any]) -> Tuple[float, float]:
     )
 
 
-def populate_thinning_array(
-    intervention_input: Dict[str, Union[float, int]],
-    key_pairs: List[Tuple[str, str]],
-    no_of_years: int,
-):
-    thinning_array = np.zeros(no_of_years + 1)
-    for year_key, percent_key in key_pairs:
-        year = get_int(year_key, intervention_input)
-        percent = get_float(percent_key, intervention_input)
-        thinning_array[year] = percent
-    return thinning_array
-
-
 # ----------
 # TREE MODEL
 # ----------
@@ -60,132 +48,72 @@ def get_tree_model_data(
     no_of_cohorts: int,
     allometry: List[str],
 ) -> GetTreeModelReturnData:
-    # Linking tree cohort parameteres
+    # Tree params: read species codes directly from vector-format keys
     tree_par_base = TreeParams.from_species_index(
-        get_int(CONSTANTS.SPECIES_BASE_KEY, intervention_input)
+        int(np.atleast_1d(intervention_input["base_species1"])[0])
     )
-    tree_params_1 = TreeParams.from_species_index(
-        get_int(CONSTANTS.SPECIES_1_KEY, intervention_input)
-    )
+    tree_params = [
+        TreeParams.from_species_index(
+            int(np.atleast_1d(intervention_input[f"proj_species{i + 1}"])[0])
+        )
+        for i in range(no_of_cohorts)
+    ]
 
-    tree_params = TreeParams.create_tree_params_from_species_index(
-        intervention_input, no_of_cohorts
-    )
-
-    # Linking tree growth
-    # Baseline growth: single species # identified in species_base
-    growth_base = TreeGrowth.get_growth(
-        intervention_input,
-        CONSTANTS.SPECIES_BASE_KEY,
-        tree_par_base,
-        allometric_key=allometry[0]
-    )
-
-    # Intervention growth: species # identified in no_of_cohorts different cases,
-    # so uses a wrapper function to identify species info for each cohort
+    # Tree growth
+    growth_base = TreeGrowth.create_baseline_tree_growths(
+        intervention_input, [tree_par_base], allometry, cohort_count=1
+    )[0]
     tree_growths = TreeGrowth.create_tree_growths(
         intervention_input, tree_params, allometry, no_of_cohorts
     )
 
-    # Specify thinning regime and fraction left in field (lif)
-    # baseline thinning regime
-    # (add line of thinning[yr] = % thinned for each event)
-    thinning_base = populate_thinning_array(
-        intervention_input,
-        [
-            (CONSTANTS.THINNING_BASE_YEAR_1_KEY, CONSTANTS.THINNING_BASE_PC1_KEY),
-            (CONSTANTS.THINNING_BASE_YEAR_2_KEY, CONSTANTS.THINNING_BASE_PC2_KEY),
-        ],
-        no_of_years,
-    )
+    # Thinning and mortality: read pre-built vectors directly from input.
+    # Baseline always has one cohort; project reads per-cohort arrays indexed 1..no_of_cohorts.
+    thinning_base = intervention_input["thin_base_cohort1"]
+    thinning_fraction_left_base = np.array([
+        1,
+        float(np.atleast_1d(intervention_input["thin_base_br_cohort1"])[0]),
+        float(np.atleast_1d(intervention_input["thin_base_st_cohort1"])[0]),
+        1, 1,
+    ])
+    mortality_base = intervention_input["mort_base_cohort1"]
+    mortality_fraction_left_base = np.array([
+        1,
+        float(np.atleast_1d(intervention_input["mort_base_br_cohort1"])[0]),
+        float(np.atleast_1d(intervention_input["mort_base_st_cohort1"])[0]),
+        1, 1,
+    ])
 
-    thinning_project = populate_thinning_array(
-        intervention_input,
-        [
-            (CONSTANTS.THINNING_PROJECT_YEAR_1_KEY, CONSTANTS.THINNING_PROJECT_PC1_KEY),
-            (CONSTANTS.THINNING_PROJECT_YEAR_2_KEY, CONSTANTS.THINNING_PROJECT_PC2_KEY),
-            (CONSTANTS.THINNING_PROJECT_YEAR_3_KEY, CONSTANTS.THINNING_PROJECT_PC3_KEY),
-            (CONSTANTS.THINNING_PROJECT_YEAR_4_KEY, CONSTANTS.THINNING_PROJECT_PC4_KEY),
-        ],
-        no_of_years,
-    )
+    thinnings_project = [
+        intervention_input[f"thin_proj_cohort{i + 1}"] for i in range(no_of_cohorts)
+    ]
+    thinning_fractions_project = [
+        np.array([
+            1,
+            float(np.atleast_1d(intervention_input[f"thin_proj_br_cohort{i + 1}"])[0]),
+            float(np.atleast_1d(intervention_input[f"thin_proj_st_cohort{i + 1}"])[0]),
+            1, 1,
+        ])
+        for i in range(no_of_cohorts)
+    ]
+    mortalities_project = [
+        intervention_input[f"mort_proj_cohort{i + 1}"] for i in range(no_of_cohorts)
+    ]
+    mortality_fractions_project = [
+        np.array([
+            1,
+            float(np.atleast_1d(intervention_input[f"mort_proj_br_cohort{i + 1}"])[0]),
+            float(np.atleast_1d(intervention_input[f"mort_proj_st_cohort{i + 1}"])[0]),
+            1, 1,
+        ])
+        for i in range(no_of_cohorts)
+    ]
 
-    # Baseline fraction of thinning left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    thinning_fraction_left_base = np.array(
-        [
-            1,
-            get_float(CONSTANTS.THINNING_BASE_BR_KEY, intervention_input),
-            get_float(CONSTANTS.THINNING_BASE_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # Project fraction of thinning left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    thinning_fraction_left_project = np.array(
-        [
-            1,
-            get_float(CONSTANTS.THINNING_PROJECT_BR_KEY, intervention_input),
-            get_float(CONSTANTS.THINNING_PROJECT_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # Specify mortality regime and fraction left in field (lif)
-    # Baseline yearly mortality
-    mortality_base = np.array(
-        (no_of_years + 1)
-        * [get_float(CONSTANTS.BASE_MORTALITY_KEY, intervention_input)]
-    )
-
-    # Project yearly mortality
-    mortality_project = np.array(
-        (no_of_years + 1)
-        * [get_float(CONSTANTS.PROJECT_MORTALITY_KEY, intervention_input)]
-    )
-
-    # Baseline fraction of dead biomass left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    mortality_fraction_left_base = np.array(
-        [
-            1,
-            get_float(CONSTANTS.MORTALITY_BASE_BR_KEY, intervention_input),
-            get_float(CONSTANTS.MORTALITY_BASE_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # Project fraction of dead biomass left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    mortality_fraction_left_project = np.array(
-        [
-            1,
-            get_float(CONSTANTS.MORTALITY_PROJECT_BR_KEY, intervention_input),
-            get_float(CONSTANTS.MORTALITY_PROJECT_ST_KEY, intervention_input),
-            1,
-            1,
-        ]
-    )
-
-    # RUN TREE MODEL
-    # Trees planted in baseline (stand_dens must be at least 1)
     tree_base = TreeModel.from_defaults(
-        tree_params=tree_params_1,
+        tree_params=tree_par_base,
         tree_growth=growth_base,
-        year_planted=get_int(CONSTANTS.BASE_PLANT_YEAR_KEY, intervention_input),
-        stand_density=get_int(CONSTANTS.BASE_PLANT_DENSITY_KEY, intervention_input),
+        year_planted=int(np.atleast_1d(intervention_input["base_plant_yr1"])[0]),
+        stand_density=int(np.atleast_1d(intervention_input["base_plant_dens1"])[0]),
         thinning=thinning_base,
         thinning_fraction=thinning_fraction_left_base,
         mortality=mortality_base,
@@ -197,10 +125,10 @@ def get_tree_model_data(
         csv_input_data=intervention_input,
         tree_params=tree_params,
         growths=tree_growths,
-        thinning_project=thinning_project,
-        thinning_fraction_left_project=thinning_fraction_left_project,
-        mortality_project=mortality_project,
-        mortality_fraction_left_project=mortality_fraction_left_project,
+        thinnings_project=thinnings_project,
+        thinning_fractions_project=thinning_fractions_project,
+        mortalities_project=mortalities_project,
+        mortality_fractions_project=mortality_fractions_project,
         no_of_years=no_of_years,
         cohort_count=no_of_cohorts,
     )
@@ -216,50 +144,18 @@ def get_tree_model_data(
 class GetFireModelReturnData(NamedTuple):
     fire_base: np.ndarray
     fire_project: np.ndarray
-    fire_off_base: bool
-    fire_off_proj: bool
+    fire_off_base: np.ndarray
+    fire_off_proj: np.ndarray
 
 
 def get_fire_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetFireModelReturnData:
-    # Return interval of fire, [::2] = 1 is return interval of two years
-    base_fire_interval = get_int(CONSTANTS.FIRE_INTERVAL_BASE_KEY, intervention_input)
-    if base_fire_interval == 0:
-        fire_base = np.zeros(no_of_years)
-    else:
-        fire_base = np.zeros(no_of_years)
-        fire_base[::base_fire_interval] = get_int(
-            CONSTANTS.FIRE_PRES_BASE_KEY, intervention_input
-        )
-    base_fire_off_field = get_int("fire_off_base", intervention_input)
-    if base_fire_off_field == 1:
-        burn_off_base = True
-    else:
-        burn_off_base = False
-
-    project_fire_interval = get_int(
-        CONSTANTS.FIRE_INTERVAL_PROJECT_KEY, intervention_input
-    )
-    if project_fire_interval == 0:
-        fire_project = np.zeros(no_of_years)
-    else:
-        fire_project = np.zeros(no_of_years)
-        fire_project[::project_fire_interval] = get_int(
-            CONSTANTS.FIRE_PRES_PROJECT_KEY, intervention_input
-        )
-
-    proj_fire_off_field = get_int("fire_off_proj", intervention_input)
-    if proj_fire_off_field == 1:
-        burn_off_proj = True
-    else:
-        burn_off_proj = False
-
     return GetFireModelReturnData(
-        fire_base=fire_base,
-        fire_project=fire_project,
-        fire_off_base=burn_off_base,
-        fire_off_proj=burn_off_proj,
+        fire_base=np.array(intervention_input["fire_on_base"]),
+        fire_project=np.array(intervention_input["fire_on_proj"]),
+        fire_off_base=np.array(intervention_input["fire_off_base"]),
+        fire_off_proj=np.array(intervention_input["fire_off_proj"]),
     )
 
 
@@ -273,54 +169,19 @@ class GetLitterModelReturnData(NamedTuple):
 def get_litter_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetLitterModelReturnData:
-    # baseline external organic inputs
     litter_external_base = LitterModel.from_defaults(
-        litter_frequency=get_int(
-            CONSTANTS.BASE_LITTER_INTERVAL_KEY, intervention_input
-        ),
-        litter_quantity=get_float(
-            CONSTANTS.BASE_LITTER_QUANTITY_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
+        litter_vector=intervention_input["base_lit_qty1"],
     )
-
-    # baseline synthetic fertiliser additions
-    synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
-        frequency=get_int(
-            CONSTANTS.BASE_SYNTHETIC_FERTILISER_INTERVAL_KEY, intervention_input
-        ),
-        quantity=get_float(
-            CONSTANTS.BASE_SYNTHETIC_FERTILISER_QUANTITY_KEY, intervention_input
-        ),
-        nitrogen=get_float(
-            CONSTANTS.BASE_SYNTHETIC_FERTILISER_N_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
-    )
-
-    # Project external organic inputs
     litter_external_project = LitterModel.from_defaults(
-        litter_frequency=get_int(
-            CONSTANTS.PROJECT_LITTER_INTERVAL_KEY, intervention_input
-        ),
-        litter_quantity=get_float(
-            CONSTANTS.PROJECT_LITTER_QUANTITY_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
+        litter_vector=intervention_input["proj_lit_qty1"],
     )
-
-    # Project synthetic fertiliser additions
+    synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
+        quantity_vector=intervention_input["base_sf_qty1"],
+        nitrogen_vector=intervention_input["base_sf_n1"],
+    )
     synthetic_fertiliser_project = LitterModel.synthetic_fertiliser(
-        frequency=get_int(
-            CONSTANTS.PROJECT_SYNTHETIC_FERTILISER_INTERVAL_KEY, intervention_input
-        ),
-        quantity=get_float(
-            CONSTANTS.PROJECT_SYNTHETIC_FERTILISER_QUANTITY_KEY, intervention_input
-        ),
-        nitrogen=get_float(
-            CONSTANTS.PROJECT_SYNTHETIC_FERTILISER_N_KEY, intervention_input
-        ),
-        no_of_years=no_of_years,
+        quantity_vector=intervention_input["proj_sf_qty1"],
+        nitrogen_vector=intervention_input["proj_sf_n1"],
     )
 
     return GetLitterModelReturnData(
@@ -341,17 +202,20 @@ class GetCropModelReturnData(NamedTuple):
 def get_crop_model_data(
     intervention_input: Dict[str, Union[float, int]], no_of_years: int
 ) -> GetCropModelReturnData:
+    n_crop_base = sum(1 for i in range(1, 100) if f"crop_base_spp{i}" in intervention_input)
+    n_crop_proj = sum(1 for i in range(1, 100) if f"crop_proj_spp{i}" in intervention_input)
+
     crop_base, crop_par_base = CropModel.get_crop_bases(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
-        end_index=3,
+        end_index=n_crop_base,
     )
     crop_project, crop_par_project = CropModel.get_crop_projects(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
-        end_index=3,
+        end_index=n_crop_proj,
     )
 
     return GetCropModelReturnData(
@@ -369,7 +233,6 @@ class GetSoilCarbonReturnData(NamedTuple):
 
 
 def get_soil_carbon_data(
-    intervention_input: Dict[str, Union[float, int]],
     no_of_years: int,
     climate: Climate.ClimateData,
     soil: SoilParams.SoilParamsData,
@@ -382,26 +245,11 @@ def get_soil_carbon_data(
     tree_projects: List[TreeModel.TreeModel],
     litter_external_base: LitterModel.LitterModelData,
     litter_external_project: LitterModel.LitterModelData,
+    cover_base: np.ndarray,
+    cover_proj: np.ndarray,
     create_forward_soil_model,
     create_inverse_soil_model,
 ) -> GetSoilCarbonReturnData:
-    # soil cover for baseline
-    cover_base = np.zeros(12)
-    cover_base[
-        get_int(CONSTANTS.BASE_COVER_MONTH_START_KEY, intervention_input) : get_int(
-            CONSTANTS.BASE_COVER_MONTH_END_KEY, intervention_input
-        )
-    ] = get_int(CONSTANTS.BASE_COVER_PRES_KEY, intervention_input)
-
-    # soil cover for project
-    cover_proj = np.zeros(12)
-
-    cover_proj[
-        get_int(CONSTANTS.PROJECT_COVER_MONTH_START_KEY, intervention_input) : get_int(
-            CONSTANTS.PROJECT_COVER_MONTH_END_KEY, intervention_input
-        )
-    ] = get_int(CONSTANTS.PROJECT_COVER_PRES_KEY, intervention_input)
-
     # Solve to y=0
     for_soil = create_forward_soil_model(
         soil,
@@ -687,7 +535,7 @@ def handle_intervention(
     create_inverse_soil_model,
     n_cohorts: int,
     plot_index: int,
-    allometry: str = CONSTANTS.DEFAULT_ALLOMORPHY,
+    allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
     use_api: bool = CONSTANTS.DEFAULT_USE_API,
 ):
@@ -698,7 +546,14 @@ def handle_intervention(
     # LOCATION INFORMATION
     # ----------
     location = get_location(intervention_input)
-    climate = Climate.from_location(location, use_api=use_api)
+    climate_vectors = None
+    if "Temp" in intervention_input:
+        climate_vectors = (
+            intervention_input["Temp"],
+            intervention_input["Rain"],
+            intervention_input["evap"],
+        )
+    climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors, n_years=no_of_years)
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
@@ -706,7 +561,14 @@ def handle_intervention(
     soil = SoilParams.get_soil_params(
         location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
     )
-    inverse_soil_model = create_inverse_soil_model(soil, climate)
+
+    # inverse uses one monthly vector of climate data, but climate is a 12 * years vector, so average:
+    inverse_climate = deepcopy(climate)
+    inverse_climate.evaporation = np.mean(inverse_climate.evaporation.reshape(-1, 12), axis=0)
+    inverse_climate.temperature = np.mean(inverse_climate.temperature.reshape(-1, 12), axis=0)
+    inverse_climate.rain = np.mean(inverse_climate.rain.reshape(-1, 12), axis=0)
+
+    inverse_soil_model = create_inverse_soil_model(soil, inverse_climate)
 
     # ----------
     # MODEL DATA
@@ -782,7 +644,6 @@ def handle_intervention(
     # SOIL EMISSIONS
     # ----------
     soil_carbon_data = get_soil_carbon_data(
-        intervention_input=intervention_input,
         no_of_years=no_of_years,
         climate=climate,
         soil=soil,
@@ -795,6 +656,8 @@ def handle_intervention(
         tree_projects=tree_model_data.tree_projects,
         litter_external_base=litter_model_data.litter_external_base,
         litter_external_project=litter_model_data.litter_external_project,
+        cover_base=intervention_input["base_cover"],
+        cover_proj=intervention_input["proj_cover"],
         create_forward_soil_model=create_forward_soil_model,
         create_inverse_soil_model=create_inverse_soil_model,
     )

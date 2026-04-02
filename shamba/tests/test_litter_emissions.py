@@ -2,9 +2,9 @@ import os  # Add the parent directory to the Python path
 import model.emit as Emit
 import numpy as np
 import pytest
-from model.common import csv_handler
 from model import configuration
 import model.litter as LitterModel
+from model.common.data_handler import expand_single_row_data_input
 
 #-- Expected emissions arrays -- #
 WL_expected_base_emissions = [0.0000,
@@ -203,49 +203,23 @@ testB_expected_project_emissions = [2.57349,
 
 def test_litter_model(csv_input_file, expected_base_emissions, expected_project_emissions):
     file_path = os.path.join(configuration.TESTS_DIR, "fixtures", csv_input_file)
-    csv_input_data = csv_handler.get_csv_input_data(0, file_path)
-    N_YEARS = int(csv_input_data["yrs_proj"])
+    scalar_input_data, _, mgmt_input_data, _ = expand_single_row_data_input(file_path)
+    N_YEARS = int(scalar_input_data["yrs_proj"])
 
-    base_fire_interval = int(csv_input_data["fire_int_base"])
-    if base_fire_interval == 0:
-        fire_base = np.zeros(N_YEARS)
-    else:
-        fire_base = np.zeros(N_YEARS)
-        fire_base[::base_fire_interval] = int(csv_input_data["fire_pres_base"])
-
-    proj_fire_interval = int(csv_input_data["fire_int_proj"])
-    if proj_fire_interval == 0:
-        fire_project = np.zeros(N_YEARS)
-    else:
-        fire_project = np.zeros(N_YEARS)
-        fire_project[::proj_fire_interval] = int(csv_input_data["fire_pres_proj"])
-
-    base_fire_off_field = int(csv_input_data["fire_off_base"])
-    if base_fire_off_field == 1:
-        burn_off_base = True
-    else:        burn_off_base = False
-
-    proj_fire_off_field = int(csv_input_data["fire_off_proj"])
-    if proj_fire_off_field == 1:
-        burn_off_project = True
-    else:        burn_off_project = False
-
-    litter_external_base = LitterModel.from_defaults(
-        litter_frequency=int(csv_input_data["base_lit_int"]),
-        litter_quantity=float(csv_input_data["base_lit_qty"]),
-        no_of_years=N_YEARS,
-    )
-    litter_external_project = LitterModel.from_defaults(
-        litter_frequency=int(csv_input_data["proj_lit_int"]),
-        litter_quantity=float(csv_input_data["proj_lit_qty"]),
-        no_of_years=N_YEARS,
-    )
+    litter_external_base = LitterModel.from_defaults(litter_vector=mgmt_input_data["base_lit_qty1"])
+    litter_external_project = LitterModel.from_defaults(litter_vector=mgmt_input_data["proj_lit_qty1"])
 
     litter_base_emissions = Emit.create(
-        no_of_years=N_YEARS, litter=[litter_external_base], fire=fire_base, burn_off=burn_off_base,
+        no_of_years=N_YEARS,
+        litter=[litter_external_base],
+        fire=mgmt_input_data["fire_on_base"],
+        burn_off=mgmt_input_data["fire_off_base"],
     )
     litter_project_emissions = Emit.create(
-        no_of_years=N_YEARS, litter=[litter_external_project], fire=fire_project, burn_off=burn_off_project
+        no_of_years=N_YEARS,
+        litter=[litter_external_project],
+        fire=mgmt_input_data["fire_on_proj"],
+        burn_off=mgmt_input_data["fire_off_proj"],
     )
 
     assert litter_base_emissions == pytest.approx(expected_base_emissions, rel=1e-5)

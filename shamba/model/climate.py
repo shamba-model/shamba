@@ -2,10 +2,8 @@
 
 """Module holding Climate class."""
 
-import logging as log
 import math
 import calendar
-import sys
 import os
 from model import configuration
 
@@ -19,7 +17,7 @@ from model.common.data_sources.climate import get_climate_data
 
 
 def validate_monthly_list_length(lst):
-    return ["List must contain 12 elements"] if len(lst) != 12 else []
+    return ["List length must be a non-zero multiple of 12"] if len(lst) == 0 or len(lst) % 12 != 0 else []
 
 
 def validate_temperature(values):
@@ -73,51 +71,80 @@ class ClimateDataSchema(Schema):
         return ClimateData(**data)
 
 
-def from_location(location, use_api: bool) -> ClimateData:
-    """Construct Climate object using CRU-TS
-    dataset for a given location.
+def from_vectors(temperature, rain, evaporation) -> ClimateData:
+    """Construct ClimateData directly from pre-validated arrays.
+
+    Bypasses the length-12 schema check, so accepts multi-year arrays
+    (e.g. length 12 * N_YEARS from split input files).
+    """
+    return ClimateData(
+        temperature=np.array(temperature),
+        rain=np.array(rain),
+        evaporation=np.array(evaporation),
+    )
+
+
+def from_location(location, use_api: bool, climate_vectors=None, n_years: int = 1) -> ClimateData:
+    """Construct Climate object for a given location.
+
+    Priority order:
+      1. Climate API (if use_api=True and call succeeds)
+      2. climate_vectors from split input file (Temp/Rain/evap columns)
+      3. Local climate.csv file
 
     Args:
-        location
+        location: (latitude, longitude) tuple
+        use_api: whether to attempt the climate API
+        climate_vectors: optional tuple of (temperature, rain, evaporation)
+            arrays from the split _climate_cover_data.csv file
+        n_years: number of projection years; API and CSV results are tiled to
+            12 * n_years so all climate sources return the same length array
     Returns:
-        Climate object
+        ClimateData object
     """
-    # Location stuff
     latitude = location[0]
     longitude = location[1]
 
     if use_api:
-        climate_data = get_climate_data(
-            latitude=latitude, longitude=longitude, use_api=use_api
-        )
+        climate_array = get_climate_data(latitude=latitude, longitude=longitude)
 
-        # pet given in OpenMeteo instead of evaporation, so convert
-        climate_data[2] /= 0.75
+        if climate_array is not None:
+            # pet given in OpenMeteo instead of evaporation, so convert
+            climate_array[2] /= 0.75
 
-        params = {
-            "temperature": climate_data[0],
-            "rain": climate_data[1],
-            "evaporation": climate_data[2],
-        }
+            if n_years > 1:
+                climate_array = [np.tile(arr, n_years) for arr in climate_array]
 
-        schema = ClimateDataSchema()
-        errors = schema.validate(params)
-        climate = schema.load(params)
+            params = {
+                "temperature": climate_array[0],
+                "rain": climate_array[1],
+                "evaporation": climate_array[2],
+            }
 
-        if errors != {}:
-            print(f"Errors in climate data: {str(errors)}")
+            schema = ClimateDataSchema()
+            errors = schema.validate(params)
+            if errors != {}:
+                print(f"Errors in climate data: {str(errors)}")
+            return schema.load(params)  # type: ignore
 
-    else:
-        climate = from_csv()
+        print("Climate API unavailable — falling back to local climate data.")
 
-    return climate  # type: ignore
+    if climate_vectors is not None:
+        return from_vectors(*climate_vectors)
+
+    try:
+        return from_csv(n_years=n_years)
+    except ValueError:
+        raise ValueError("Climate data not found in API, split input file, or local climate.csv.")
 
 
-def from_csv(filename="climate.csv") -> ClimateData:
+def from_csv(filename="climate.csv", n_years: int = 1) -> ClimateData:
     """Construct Climate object from a csv file.
 
     Args:
         filename: path to csv file containing climate data
+        n_years: number of projection years; the 12-row CSV is tiled to
+            12 * n_years so the result matches multi-year climate arrays
     Returns:
         Climate object
     Raises:
@@ -140,7 +167,8 @@ def from_csv(filename="climate.csv") -> ClimateData:
         has_evap = "evap" in headers
 
         if has_pet and has_evap:
-            raise ValueError("Climate data cannot contain both 'pet' and 'evap'")
+            print("Both 'evap' and 'pet' found in climate data — 'evap' will be used and 'pet' discarded.")
+            has_pet = False
         elif not has_pet and not has_evap:
             raise ValueError("Climate data must contain either 'pet' or 'evap'")
 
@@ -150,14 +178,18 @@ def from_csv(filename="climate.csv") -> ClimateData:
         else:
             correct_order = ("temp", "rain", "evap")
 
-        # Create clim array with the correct rows
-        climate_data = np.zeros((3, 12))
+        # Read data and tile to n_years
+        n_rows = len(data)
+        climate_data = np.zeros((3, n_rows))
         for i in range(3):
             climate_data[i] = data[:, np.where(headers == correct_order[i])[0][0]]
 
         # Convert PET to open-pan evaporation if PET data was used
         if has_pet:
             climate_data[2] /= 0.75
+
+        if n_years > 1:
+            climate_data = np.tile(climate_data, (1, n_years))
 
         climate: ClimateData = ClimateDataSchema().load(
             {
@@ -167,11 +199,9 @@ def from_csv(filename="climate.csv") -> ClimateData:
             }
         )  # type: ignore
     except ValueError as e:
-        log.exception(f"Error in climate data headers: {str(e)}")
-        sys.exit(1)
+        raise ValueError(f"Error in climate data: {str(e)}")
     except IndexError:
-        log.exception("Data not in correct format")
-        sys.exit(1)
+        raise ValueError("Climate data file is not in the correct format.")
 
     return climate
 
