@@ -182,7 +182,7 @@ def get_tree_model_data(
     # RUN TREE MODEL
     # Trees planted in baseline (stand_dens must be at least 1)
     tree_base = TreeModel.from_defaults(
-        tree_params=tree_params_1,
+        tree_params=tree_par_base,
         tree_growth=growth_base,
         year_planted=get_int(CONSTANTS.BASE_PLANT_YEAR_KEY, intervention_input),
         stand_density=get_int(CONSTANTS.BASE_PLANT_DENSITY_KEY, intervention_input),
