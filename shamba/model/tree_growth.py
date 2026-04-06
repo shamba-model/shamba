@@ -345,15 +345,17 @@ def from_csv(
     age = np.array(list(age.values())).astype(float)
     age = np.array(sorted(age, key=int))
 
-    diam_base = ["diam1", "diam2", "diam3", "diam4", "diam5", "diam6"]
-    diam_input = [f"{species_prefix}{key}" for key in diam_base]
-    diam = {key: csv_input_data[key] for key in diam_input}
-    diam = np.array(list(diam.values())).astype(float)
+    biomass_base = ["biomass1", "biomass2", "biomass3", "biomass4", "biomass5", "biomass6"]
+    biomass_input = [f"{species_prefix}{key}" for key in biomass_base]
 
-    params = {
-        "age": age,
-        "diam": diam,
-    }
+    if all(key in csv_input_data for key in biomass_input):
+        biomass = np.array([csv_input_data[k] for k in biomass_input]).astype(float)
+        params = {"age": age, "diam": np.array([]), "biomass": biomass}
+    else:
+        diam_base = ["diam1", "diam2", "diam3", "diam4", "diam5", "diam6"]
+        diam_input = [f"{species_prefix}{key}" for key in diam_base]
+        diam = np.array([csv_input_data[k] for k in diam_input]).astype(float)
+        params = {"age": age, "diam": diam}
 
     growth = create(tree_params, params, allometric_key)
 
@@ -414,7 +416,7 @@ def print_to_stdout(tree_growth, label, fit=True, params=True, mse=True):
     print()  # Newline
     print()  # Newline
     print(table_title)
-    print(f"Allometric: {tree_growth.allometric_key}")
+    print("Source: biomass data" if len(tree_growth.tree_diameter) == 0 else f"Allometric: {tree_growth.allometric_key}")
     print("=" * len(table_title))
     print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
 
@@ -479,12 +481,17 @@ def save(tree_growth, file="tree_growth.csv"):
 
     """
     # growth data
+    diam_for_save = (
+        tree_growth.tree_diameter
+        if len(tree_growth.tree_diameter) > 0
+        else np.full(len(tree_growth.age), np.nan)
+    )
     csv_handler.print_csv(
         file,
         np.column_stack(
-            (tree_growth.age, tree_growth.tree_diameter, tree_growth.biomass)
+            (tree_growth.age, diam_for_save, tree_growth.biomass)
         ),
-        col_names=["age", "diam", "biomass", "allom=" + tree_growth.allometric_key],
+        col_names=["age", "diam", "biomass", "source=biomass data" if len(tree_growth.tree_diameter) == 0 else "allom=" + tree_growth.allometric_key],
     )
 
     # fitted data - in a list because of the size heterogeneity
@@ -576,6 +583,7 @@ def calculate_above_ground_biomass(
 # Some specific log allometrics
 # All take dbh vectors and tree object as arguments
 def ryan(dbh, tree_params):
+    # Note: this equation returns AGB in kg C, so no multiplication by tree_params.carbon is needed here
     """C. Ryan, biotropica (2010)."""
     return calculate_above_ground_biomass([2.601, -3.629], dbh)
 
