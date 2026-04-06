@@ -43,9 +43,9 @@ On the '_questionnaire' worksheet, you must enter a value in each of the
 blue cells in the 'Input data' column (column K) in response to each 
 'data collection question', otherwise the model will not run properly. 
 If the question is not relevant to the land use you are modelling, enter zero.
-If you want to use biomass data (kg C) instead of diameter at breast height (cm) 
-for your tree cohorts, you must manually add the biomass columns. See instructions
-in STEP 5, below.
+If you want to use biomass data (kg C per tree) instead of diameter at breast 
+height (cm) for your tree cohorts, you must manually add the biomass columns. 
+See instructions in STEP 5, below.
 
 To run the model for a particular intervention, save the `input` sheet from the 
 template as a .csv file into a new `shamba/projects/"project-name"/input`
