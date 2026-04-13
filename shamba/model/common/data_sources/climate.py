@@ -1,105 +1,92 @@
-import os
 import numpy as np
-from datetime import datetime, timedelta
-from itertools import groupby
+from datetime import datetime
+from collections import defaultdict
 import requests
 import socket
-from typing import List, Any, Dict, Optional, Tuple
+from typing import List, Any, Dict, Optional, Tuple, NamedTuple
 
-from model.common import csv_handler
 from model.common.data_sources.helpers import return_none_on_exception
 
 MONTHS_COUNT = 12
 
-TEMPERATURE_BASENAME = "tmp_"
-RAINFALL_BASENAME = "pre_"
-PET_BASENAME = "pet_"
-BASENAMES = [TEMPERATURE_BASENAME, RAINFALL_BASENAME, PET_BASENAME]
-
 API_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 
-def generate_dates(start_year: int, end_year: int) -> np.ndarray:
-    all_dates_in_range = []
-    for year in range(start_year, end_year + 1):
-        start_date = datetime(year, 1, 1)
-        year_dates = [
-            start_date + timedelta(days=i) for i in range(365 + calendar.isleap(year))
-        ]
-        all_dates_in_range.extend(year_dates)
-    return np.array(all_dates_in_range)
+class ClimateStats(NamedTuple):
+    """Inter-annual mean and standard deviation for one calendar month."""
+    mean: float
+    std: float
 
 
-def pair_dates_with_values(dates: np.ndarray, values: np.ndarray) -> np.ndarray:
-    # Ensure dates and values have the same length
-    min_length = min(len(dates), len(values))
-    return np.column_stack((dates[:min_length], values[:min_length]))
-
-
-def group_by_month(date_value_pairs: np.ndarray) -> list:
-    months = np.vectorize(lambda d: d.month)(date_value_pairs[:, 0])
-    return [(month, date_value_pairs[months == month]) for month in range(1, 13)]
-
-
-def calculate_monthly_average(
-    month_group: Tuple[int, np.ndarray],
-) -> Tuple[int, np.floating[Any]]:
-    month, values = month_group
-    return month, np.mean(values[:, 1])
-
-
-def calculate_monthly_sum(
-    month_group: Tuple[int, np.ndarray],
-) -> Tuple[int, np.floating[Any]]:
-    month, values = month_group
-    return month, np.sum(values[:, 1])
-
-
-def segment_and_average_by_month(
-    daily_values: np.ndarray, start_year: int, end_year: int
-) -> np.ndarray:
-    dates = generate_dates(start_year, end_year)
-    date_value_pairs = pair_dates_with_values(dates, daily_values)
-    grouped_by_month = group_by_month(date_value_pairs)
-    monthly_averages = np.array(
-        [calculate_monthly_average(group) for group in grouped_by_month]
-    )
-    return monthly_averages
-
-
-def segment_and_sum_by_month(
-    daily_values: np.ndarray, start_year: int, end_year: int
-) -> np.ndarray:
-    dates = generate_dates(start_year, end_year)
-    no_of_years = end_year - start_year + 1
-    date_value_pairs = pair_dates_with_values(dates, daily_values)
-    grouped_by_month = group_by_month(date_value_pairs)
-    monthly_sums = np.array(
-        [calculate_monthly_sum(group) for group in grouped_by_month]
-    )
-    return monthly_sums / no_of_years
-
-
-def get_climate_data(longitude: float, latitude: float) -> Optional[np.ndarray]:
+def compute_monthly_mean_std(
+    daily_values: np.ndarray,
+    date_strings: List[str],
+    aggregate_fn,
+) -> List[ClimateStats]:
     """
-    Get climate data for a given location from the API.
+    Compute inter-annual mean and standard deviation for each calendar month.
 
-    Each piece of climate data is a 12-month average. The data is grouped by month
-    and then averaged over the months.
+    For each calendar month (1–12):
+      1. For each year, aggregate the daily values within that (year, month)
+         using aggregate_fn — np.mean for temperature, np.sum for rain/ET.
+      2. Collect the resulting annual scalars across all years (~30 values).
+      3. Return ClimateStats(mean, std) across those annual scalars.
+
+    std uses ddof=1 (sample standard deviation). Returns std=0.0 if fewer than
+    two years of data are present for a month.
 
     Args:
-        longitude (float): The longitude of the location.
-        latitude (float): The latitude of the location.
+        daily_values: 1-D array of daily values, aligned with date_strings.
+        date_strings: list of ISO date strings (e.g. "1995-01-15") from the API.
+        aggregate_fn: function applied to a list of daily values within one
+            (year, month) to produce an annual scalar, e.g. np.mean or np.sum.
 
     Returns:
-        np.ndarray of shape (3, 12) with rows [temperature, rain, evapotranspiration],
-        or None if the API call fails.
+        List of 12 ClimateStats, one per calendar month (January first).
     """
-    # TODO: extend to return 12*n_years climate data (one value per month per year) so that
-    # each model year uses its own monthly climate rather than a 30-year average.
-    # This should use a forecast API (not historical archive) to supply future-year climate
-    # data for the duration of the project. n_years would be passed down from
-    # handle_intervention via from_location().
+    year_month_vals: Dict[Tuple[int, int], List[float]] = defaultdict(list)
+    for date_str, val in zip(date_strings, daily_values):
+        year, month = int(date_str[:4]), int(date_str[5:7])
+        year_month_vals[(year, month)].append(float(val))
+
+    result = []
+    for month in range(1, 13):
+        annual_scalars = [
+            aggregate_fn(vals)
+            for (y, m), vals in sorted(year_month_vals.items())
+            if m == month
+        ]
+        if len(annual_scalars) > 1:
+            result.append(ClimateStats(
+                mean=float(np.mean(annual_scalars)),
+                std=float(np.std(annual_scalars, ddof=1)),
+            ))
+        else:
+            mean_val = float(np.mean(annual_scalars)) if annual_scalars else 0.0
+            result.append(ClimateStats(mean=mean_val, std=0.0))
+
+    return result
+
+
+def get_climate_data(
+    longitude: float, latitude: float
+) -> Optional[Tuple[List[ClimateStats], List[ClimateStats], List[ClimateStats]]]:
+    """
+    Get climate data for a given location from the Open-Meteo archive API.
+
+    Returns a 3-tuple of (temperature_stats, rain_stats, evap_stats), each a list
+    of 12 ClimateStats objects (one per calendar month). Each ClimateStats holds
+    the inter-annual mean and standard deviation across ~30 years of daily data.
+
+    The standard deviation captures inter-annual variability: for each month, daily
+    values within each (year, month) are aggregated first, and then std is taken
+    across the ~30 resulting annual scalars.
+
+    Returns None if the API call fails.
+
+    Note: PET-to-evaporation conversion (/ 0.75) is applied in climate.py
+    from_location(), so both mean and std are in PET units here.
+    """
     current_year = datetime.now().year
     last_full_year = current_year - 1
     start_year = last_full_year - 29
@@ -123,22 +110,19 @@ def get_climate_data(longitude: float, latitude: float) -> Optional[np.ndarray]:
         return None
 
     daily_data = api_response["daily"]
-    temperature = segment_and_average_by_month(
-        np.array(daily_data["temperature_2m_mean"]),
-        start_year=start_year,
-        end_year=last_full_year,
+    date_strings: List[str] = daily_data["time"]
+
+    temp_stats = compute_monthly_mean_std(
+        np.array(daily_data["temperature_2m_mean"]), date_strings, np.mean
     )
-    rain = segment_and_sum_by_month(
-        np.array(daily_data["rain_sum"]), start_year=start_year, end_year=last_full_year
+    rain_stats = compute_monthly_mean_std(
+        np.array(daily_data["rain_sum"]), date_strings, np.sum
     )
-    evapotranspiration = segment_and_sum_by_month(
-        np.array(daily_data["et0_fao_evapotranspiration"]),
-        start_year=start_year,
-        end_year=last_full_year,
+    evap_stats = compute_monthly_mean_std(
+        np.array(daily_data["et0_fao_evapotranspiration"]), date_strings, np.sum
     )
 
-    result = np.vstack([temperature[:, 1], rain[:, 1], evapotranspiration[:, 1]])
-    return result
+    return temp_stats, rain_stats, evap_stats
 
 
 @return_none_on_exception(requests.RequestException, socket.gaierror)
@@ -157,8 +141,6 @@ def get_weather_forecast(
         "start_date": start_date,
         "end_date": end_date,
         "timezone": "GMT",
-        # "format": "json",
-        # "timeformat": "unixtime",
     }
 
     response = requests.get(API_URL, params=params)

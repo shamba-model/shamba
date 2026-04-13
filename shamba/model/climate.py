@@ -13,7 +13,7 @@ import numpy as np
 from marshmallow import Schema, fields, post_load
 
 from model.common import csv_handler
-from model.common.data_sources.climate import get_climate_data
+from model.common.data_sources.climate import get_climate_data, ClimateStats
 
 
 def validate_monthly_list_length(lst):
@@ -51,10 +51,16 @@ def validate_evaporation(values):
 
 
 class ClimateData:
-    def __init__(self, temperature, rain, evaporation):
+    def __init__(self, temperature, rain, evaporation,
+                 temperature_std=None, rain_std=None, evaporation_std=None):
         self.temperature = np.array(temperature)
         self.rain = np.array(rain)
         self.evaporation = np.array(evaporation)
+        # Std fields for Monte Carlo uncertainty.
+        # Default to zero arrays (no uncertainty) when not provided.
+        self.temperature_std = np.zeros_like(self.temperature) if temperature_std is None else np.array(temperature_std)
+        self.rain_std = np.zeros_like(self.rain) if rain_std is None else np.array(rain_std)
+        self.evaporation_std = np.zeros_like(self.evaporation) if evaporation_std is None else np.array(evaporation_std)
 
 
 class ClimateDataSchema(Schema):
@@ -65,6 +71,11 @@ class ClimateDataSchema(Schema):
     evaporation = fields.List(
         fields.Float, validate=lambda values: validate_evaporation(values)
     )
+    # Optional std fields for Monte Carlo uncertainty.
+    # Not required — absent means zero uncertainty.
+    temperature_std = fields.List(fields.Float, load_default=None)
+    rain_std        = fields.List(fields.Float, load_default=None)
+    evaporation_std = fields.List(fields.Float, load_default=None)
 
     @post_load
     def build(self, data, **kwargs):
@@ -106,26 +117,42 @@ def from_location(location, use_api: bool, climate_vectors=None, n_years: int = 
     longitude = location[1]
 
     if use_api:
-        climate_array = get_climate_data(latitude=latitude, longitude=longitude)
+        climate_result = get_climate_data(latitude=latitude, longitude=longitude)
 
-        if climate_array is not None:
-            # pet given in OpenMeteo instead of evaporation, so convert
-            climate_array[2] /= 0.75
+        if climate_result is not None:
+            temp_stats, rain_stats, evap_stats = climate_result
+            # PET → evap conversion applies to both mean and std
+            evap_stats = [ClimateStats(s.mean / 0.75, s.std / 0.75) for s in evap_stats]
+
+            temperature    = [s.mean for s in temp_stats]
+            rain           = [s.mean for s in rain_stats]
+            evaporation    = [s.mean for s in evap_stats]
+            temperature_std = [s.std for s in temp_stats]
+            rain_std        = [s.std for s in rain_stats]
+            evaporation_std = [s.std for s in evap_stats]
 
             if n_years > 1:
-                climate_array = [np.tile(arr, n_years) for arr in climate_array]
+                temperature     = list(np.tile(temperature, n_years))
+                rain            = list(np.tile(rain, n_years))
+                evaporation     = list(np.tile(evaporation, n_years))
+                temperature_std = list(np.tile(temperature_std, n_years))
+                rain_std        = list(np.tile(rain_std, n_years))
+                evaporation_std = list(np.tile(evaporation_std, n_years))
 
-            params = {
-                "temperature": climate_array[0],
-                "rain": climate_array[1],
-                "evaporation": climate_array[2],
-            }
-
+            params = {"temperature": temperature, "rain": rain, "evaporation": evaporation}
             schema = ClimateDataSchema()
             errors = schema.validate(params)
             if errors != {}:
                 print(f"Errors in climate data: {str(errors)}")
-            return schema.load(params)  # type: ignore
+
+            return ClimateData(
+                temperature=temperature,
+                rain=rain,
+                evaporation=evaporation,
+                temperature_std=temperature_std,
+                rain_std=rain_std,
+                evaporation_std=evaporation_std,
+            )
 
         print("Climate API unavailable — falling back to local climate data.")
 
@@ -172,38 +199,56 @@ def from_csv(filename="climate.csv", n_years: int = 1) -> ClimateData:
         elif not has_pet and not has_evap:
             raise ValueError("Climate data must contain either 'pet' or 'evap'")
 
-        # Set the correct order based on what's available
+        evap_col = "pet" if has_pet else "evap"
+
+        def col(name):
+            return data[:, np.where(headers == name)[0][0]].copy()
+
+        temperature = col("temp")
+        rain        = col("rain")
+        evaporation = col(evap_col)
+
         if has_pet:
-            correct_order = ("temp", "rain", "pet")
+            evaporation /= 0.75
+
+        # Optional std columns: temp_std, rain_std, evap_std
+        has_std = "temp_std" in headers
+        if has_std:
+            temperature_std = col("temp_std")
+            rain_std        = col("rain_std")
+            evaporation_std = col("evap_std")
+            if has_pet:
+                evaporation_std /= 0.75
         else:
-            correct_order = ("temp", "rain", "evap")
-
-        # Read data and tile to n_years
-        n_rows = len(data)
-        climate_data = np.zeros((3, n_rows))
-        for i in range(3):
-            climate_data[i] = data[:, np.where(headers == correct_order[i])[0][0]]
-
-        # Convert PET to open-pan evaporation if PET data was used
-        if has_pet:
-            climate_data[2] /= 0.75
+            temperature_std = np.zeros_like(temperature)
+            rain_std        = np.zeros_like(rain)
+            evaporation_std = np.zeros_like(evaporation)
 
         if n_years > 1:
-            climate_data = np.tile(climate_data, (1, n_years))
+            temperature     = np.tile(temperature, n_years)
+            rain            = np.tile(rain, n_years)
+            evaporation     = np.tile(evaporation, n_years)
+            temperature_std = np.tile(temperature_std, n_years)
+            rain_std        = np.tile(rain_std, n_years)
+            evaporation_std = np.tile(evaporation_std, n_years)
 
-        climate: ClimateData = ClimateDataSchema().load(
-            {
-                "temperature": climate_data[0],
-                "rain": climate_data[1],
-                "evaporation": climate_data[2],
-            }
-        )  # type: ignore
+        params = {"temperature": temperature, "rain": rain, "evaporation": evaporation}
+        errors = ClimateDataSchema().validate(params)
+        if errors != {}:
+            raise ValueError(str(errors))
+
+        return ClimateData(
+            temperature=temperature,
+            rain=rain,
+            evaporation=evaporation,
+            temperature_std=temperature_std,
+            rain_std=rain_std,
+            evaporation_std=evaporation_std,
+        )
     except ValueError as e:
         raise ValueError(f"Error in climate data: {str(e)}")
     except IndexError:
         raise ValueError("Climate data file is not in the correct format.")
-
-    return climate
 
 
 def plot(climate):
