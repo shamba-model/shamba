@@ -1,9 +1,9 @@
 from typing import Dict, Any, Tuple
 import numpy as np
-from marshmallow import Schema, fields, post_load
+from marshmallow import Schema, fields, post_load, validates_schema, ValidationError
 
 from model.common import csv_handler
-from model.common.data_sources.soil import get_soil_data
+from model.common.data_sources.soil import get_soil_data, SoilData
 
 
 def validate_clay(value):
@@ -17,12 +17,18 @@ def validate_Cy0(value):
 
 
 class SoilParamsData:
-    def __init__(self, Cy0, clay, depth, Ceq, iom):
+    def __init__(self, Cy0, clay, depth, Ceq, iom, Cy0_q05, Cy0_q95, clay_q05, clay_q95):
         self.Cy0 = Cy0
         self.clay = clay
         self.depth = depth
         self.Ceq = Ceq
         self.iom = iom
+        # Quantile fields for Monte Carlo uncertainty.
+        # When no uncertainty data is available, q05 = q95 = mean (deterministic).
+        self.Cy0_q05 = Cy0_q05
+        self.Cy0_q95 = Cy0_q95
+        self.clay_q05 = clay_q05
+        self.clay_q95 = clay_q95
 
 
 class SoilParamsSchema(Schema):
@@ -31,11 +37,15 @@ class SoilParamsSchema(Schema):
 
     Instance variables
     ------------------
-    Cy0     soil carbon at start of project in t C ha^-1 (year 0)
-    clay    soil clay content as percentage
-    depth   depth of soil in cm (default=30)
-    Ceq     soil carbon at equilibrium in t C ha^-1 (calculated from Cy0)
-    iom     soil inert organic matter in t C ha^-1 (calculated from Ceq)
+    Cy0      soil carbon at start of project in t C ha^-1 (year 0)
+    clay     soil clay content as percentage
+    depth    depth of soil in cm (default=30)
+    Ceq      soil carbon at equilibrium in t C ha^-1 (calculated from Cy0)
+    iom      soil inert organic matter in t C ha^-1 (calculated from Ceq)
+    Cy0_q05  Q0.05 quantile for Cy0 (for Monte Carlo; equals Cy0 when no uncertainty)
+    Cy0_q95  Q0.95 quantile for Cy0
+    clay_q05 Q0.05 quantile for clay
+    clay_q95 Q0.95 quantile for clay
     """
 
     clay = fields.Float(required=True, validate=lambda v: validate_clay(v))
@@ -43,6 +53,20 @@ class SoilParamsSchema(Schema):
     depth = fields.Float(required=True)
     Ceq = fields.Float(required=True)
     iom = fields.Float(required=True)
+    Cy0_q05 = fields.Float(required=True, validate=lambda v: validate_Cy0(v))
+    Cy0_q95 = fields.Float(required=True, validate=lambda v: validate_Cy0(v))
+    clay_q05 = fields.Float(required=True, validate=lambda v: validate_clay(v))
+    clay_q95 = fields.Float(required=True, validate=lambda v: validate_clay(v))
+
+    @validates_schema
+    def validate_quantile_ordering(self, data, **kwargs):
+        errors = []
+        if not (data["Cy0_q05"] <= data["Cy0"] <= data["Cy0_q95"]):
+            errors.append("Cy0_q05 must be <= Cy0 <= Cy0_q95.")
+        if not (data["clay_q05"] <= data["clay"] <= data["clay_q95"]):
+            errors.append("clay_q05 must be <= clay <= clay_q95.")
+        if errors:
+            raise ValidationError(errors)
 
     @post_load
     def build(self, data, **kwargs):
@@ -53,20 +77,28 @@ def create(soil_params: Dict[str, Any]) -> SoilParamsData:
     """Create soil data.
 
     Args:
-        soil_params: dict with soil params (keys='Cy0', 'clay')
+        soil_params: dict with soil params. Required keys: 'Cy0', 'clay'.
+            Optional quantile keys: 'Cy0_q05', 'Cy0_q95', 'clay_q05', 'clay_q95'.
+            When quantile keys are absent, they default to the mean value,
+            representing zero uncertainty (MC run degrades to deterministic).
 
     Returns:
         SoilParamsData: object containing soil parameters
     """
     Cy0 = soil_params["Cy0"]
+    clay = soil_params["clay"]
     Ceq = 1.25 * Cy0  # this is an assumption detailed in the SHAMBA model description: Ceq is 25% higher than Cy0 (Cy0 + 0.25*Cy0 = 1.25* Cy0)
 
     params = {
         "Cy0": Cy0,
-        "clay": soil_params["clay"],
+        "clay": clay,
         "depth": 30.0,
         "Ceq": Ceq,
         "iom": 0.049 * Ceq**1.139,
+        "Cy0_q05":  soil_params.get("Cy0_q05",  Cy0),
+        "Cy0_q95":  soil_params.get("Cy0_q95",  Cy0),
+        "clay_q05": soil_params.get("clay_q05", clay),
+        "clay_q95": soil_params.get("clay_q95", clay),
     }
 
     schema = SoilParamsSchema()
@@ -99,13 +131,19 @@ def get_soil_params(
         SoilParamsData: Soil parameters object
     """
 
-    result = get_soil_data(location, use_api, plot_index, plot_id, filename)
+    result: SoilData = get_soil_data(location, use_api, plot_index, plot_id, filename)
 
     if result is None:
         raise ValueError("Soil data not found in API or local file. Please provide a local soil file.")
 
-    Cy0, clay = result
-    params = {"Cy0": Cy0, "clay": clay}
+    params = {
+        "Cy0":      result.soc.mean,
+        "clay":     result.clay.mean,
+        "Cy0_q05":  result.soc.q05,
+        "Cy0_q95":  result.soc.q95,
+        "clay_q05": result.clay.q05,
+        "clay_q95": result.clay.q95,
+    }
     return create(params)
 
 
