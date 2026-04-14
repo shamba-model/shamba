@@ -233,6 +233,7 @@ def draw_samples(
     distributions: Dict[str, DistributionSpec],
     n_samples: int,
     seed: Optional[int] = None,
+    rng: Optional[np.random.Generator] = None,
 ) -> List[Dict]:
     """Draw N perturbed copies of base_input_dict.
 
@@ -253,12 +254,16 @@ def draw_samples(
         base_input_dict: validated input dict for the run.
         distributions: dict of parameter name → DistributionSpec (from load_distributions).
         n_samples: number of samples to draw.
-        seed: optional integer seed for reproducibility.
+        seed: optional integer seed for reproducibility. Ignored if rng is provided.
+        rng: optional numpy Generator. If supplied, it is used directly (and
+            seed is ignored), allowing the caller to thread a single RNG across
+            multiple sampling steps.
 
     Returns:
         list of n_samples dicts, each a perturbed copy of base_input_dict.
     """
-    rng = np.random.default_rng(seed)
+    if rng is None:
+        rng = np.random.default_rng(seed)
     samples = []
 
     for _ in range(n_samples):

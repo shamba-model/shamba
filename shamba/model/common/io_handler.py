@@ -257,6 +257,19 @@ ________________________________________________________________________________
         ).ask()
         arguments["input-file-name"] = input_file_name
 
+    monte_carlo = questionary.confirm("Do you want to run a Monte Carlo analysis?", default=False).ask()
+    
+    if monte_carlo:
+        distribution_filename = questionary.text(
+            "Enter the name of the distribution file (relative to source directory)", default="WL_distributions.csv"
+        ).ask()
+        arguments["distribution-file-name"] = distribution_filename
+        n_samples = questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000").ask() # TODO: derive a sensible default through analysis
+        arguments["n-samples"] = int(n_samples)
+    else:
+        arguments["n-samples"] = None
+        arguments["distribution-file-name"] = None
+
     # Prompt for output title
     output_title = questionary.text(
         "Enter the title of the output file:", default="WL"

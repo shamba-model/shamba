@@ -29,10 +29,13 @@ import model.soil_params as SoilParams
 import model.tree_growth as TreeGrowth
 import model.tree_model as TreeModel
 from model import configuration
-from model.common.calculate_emissions import handle_intervention
+from model.common.calculate_emissions import get_location, handle_intervention
+import model.common.constants as CONSTANTS
 
 import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
+from model.monte_carlo import distribution_handler
+from model.monte_carlo.runner import run_monte_carlo
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(_dir))
@@ -425,16 +428,69 @@ def main(n, arguments):
 
     gwp = arguments["gwp"]
 
-    intervention_emissions = handle_intervention(
-        intervention_input=vector_input_data,
-        n_cohorts=N_COHORTS,
-        plot_index=n,
-        allometry=allometric_keys,
-        gwp=gwp,
-        use_api=arguments["use-api"],
-        create_forward_soil_model=ForwardSoilModel.create,
-        create_inverse_soil_model=InverseSoilModel.create,
-    )
+    if arguments["n-samples"] and arguments["distribution-file-name"]:
+        n_samples = arguments["n-samples"]
+        distribution_file_path = os.path.join(configuration.INPUT_DIR, arguments["distribution-file-name"])
+        distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
+        # TODO: tidy the below up so that it isn't a duplicate of the code at the beginning of handle_intervention()
+        use_api = arguments["use-api"]
+        no_of_years = vector_input_data[CONSTANTS.NO_OF_YEARS_KEY]
+        plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
+        location = get_location(vector_input_data)
+        climate_vectors = None
+        if "Temp" in vector_input_data:
+            climate_vectors = (
+                vector_input_data["Temp"],
+                vector_input_data["Rain"],
+                vector_input_data["evap"],)
+        climate = Climate.from_location(location, use_api, climate_vectors=climate_vectors, n_years=no_of_years)
+        soil_params = SoilParams.get_soil_params(
+            location=location, use_api=use_api, plot_id=plot_id, plot_index=n
+        )
+
+        mc_results = run_monte_carlo(
+            base_input_dict=vector_input_data,
+            soil_params=soil_params,
+            climate=climate,
+            n_samples=n_samples,
+            create_forward_soil_model=ForwardSoilModel.create,
+            create_inverse_soil_model=InverseSoilModel.create,
+            n_cohorts=N_COHORTS,
+            plot_index=n,
+            distribution_dict=distribution_dict,
+            allometry=allometric_keys,
+            gwp=gwp,
+            use_api=arguments["use-api"],
+        )
+
+        # TODO: write mc_results to a summary CSV (e.g. mean, std, quantiles per
+        # year per emission pool). mc_results is a list of InterventionEmissions
+        # objects — one per sample. The output format needs to be designed before
+        # this can be implemented properly.
+        emit_diffs = [
+            r.emit_project_emissions - r.emit_base_emissions for r in mc_results
+        ]
+        total_diffs = np.array([float(np.sum(d)) for d in emit_diffs])
+        print(
+            f"\nMonte Carlo complete: {len(mc_results)} samples\n"
+            f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1"
+            f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
+        )
+        return
+    elif arguments["n-samples"] or arguments["distribution-file-name"]:
+        raise ValueError("Both # samples and distribution file name must be provided to run a Monte Carlo simulation.")
+    
+    else:
+        intervention_emissions = handle_intervention(
+            intervention_input=vector_input_data,
+            n_cohorts=N_COHORTS,
+            plot_index=n,
+            allometry=allometric_keys,
+            gwp=gwp,
+            use_api=arguments["use-api"],
+            create_forward_soil_model=ForwardSoilModel.create,
+            create_inverse_soil_model=InverseSoilModel.create,
+        )
 
     # ----------
     # Printing to stdout
