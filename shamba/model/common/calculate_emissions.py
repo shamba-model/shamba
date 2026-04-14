@@ -1,4 +1,4 @@
-from typing import Dict, Union, List, NamedTuple, Tuple, Any, Callable
+from typing import Dict, Optional, Union, List, NamedTuple, Tuple, Any, Callable
 from toolz import get, compose  # type: ignore
 from copy import deepcopy
 import numpy as np
@@ -535,6 +535,7 @@ def handle_intervention(
     create_inverse_soil_model,
     n_cohorts: int,
     plot_index: int,
+    soil_override: Optional[SoilParams.SoilParamsData] = None,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
     use_api: bool = CONSTANTS.DEFAULT_USE_API,
@@ -558,9 +559,12 @@ def handle_intervention(
     # ----------
     # SOIL EQUILIBRIUM SOLVE
     # ----------
-    soil = SoilParams.get_soil_params(
-        location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
-    )
+    if soil_override is not None:
+        soil = soil_override
+    else:
+        soil = SoilParams.get_soil_params(
+            location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
+        )
 
     # inverse uses one monthly vector of climate data, but climate is a 12 * years vector, so average:
     inverse_climate = deepcopy(climate)
