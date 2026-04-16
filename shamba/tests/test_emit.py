@@ -12,7 +12,7 @@ import pytest
 import model.emit as Emit
 from model.common.constants import (
     C_to_CO2_conversion_factor,
-    combustion_factor,
+    combustion_factor_default,
     GWP_list,
     DEFAULT_GWP,
 )

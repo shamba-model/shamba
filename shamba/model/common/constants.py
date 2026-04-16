@@ -42,25 +42,25 @@ N_to_N2O_conversion_factor = 44.0 / 28  # for N2O-N to N2O
 # From Table 2.5 IPCC 2006 GHG Inventory (unchanged in 2019)
 # "EMISSION FACTORS (g kg-1 DRY MATTER BURNT) FOR VARIOUS TYPES OF BURNING."
 # Tree based on "Tropical Forest".
-ef_burn = {"crop_N2O": 0.07, "crop_CH4": 2.7, "tree_N2O": 0.2, "tree_CH4": 6.8}
+ef_burn_default = {"crop_N2O": 0.07, "crop_CH4": 2.7, "tree_N2O": 0.2, "tree_CH4": 6.8}
 
 # From Table 11.1 IPCC 2019 GHG Inventory
 #  "DEFAULT EMISSION FACTORS TO ESTIMATE DIRECT N2O EMISSIONS FROM MANAGED SOILS"
 # (EF_1)
-ef_N_inputs = 0.01  # [kg N20-N/kg N]
+ef_N_inputs_default = 0.01  # [kg N20-N/kg N]
 
 # From Table 2.6 IPCC 2019 GHG Inventory
 # "COMBUSTION FACTOR VALUES (PROPORTION OF PREFIRE FUEL BIOMASS CONSUMED)
 # FOR FIRES IN A RANGE OF VEGETATION TYPES"
 # Tree based on "Savanna Woodlands", crop based on "Other Crops"
-combustion_factor = {"crop": 0.85, "tree": 0.74}
+combustion_factor_default = {"crop": 0.85, "tree": 0.74}
 
 # From Table 11.3 IPCC 2019 GHG Inventory
 # "DEFAULT EMISSION, VOLATILISATION AND LEACHING FACTORS FOR
 # INDIRECT SOIL N2O EMISSIONS"
 # (Frac_gasf, Frac_gasm)
-volatile_frac_synthetic_fertiliser = 0.11  # [(kg NH3-N + NOx-N) / kg N applied]
-volatile_frac_organic_fertiliser = 0.21  # [(kg NH3-N + NOx-N) / kg N applied]
+volatile_frac_synthetic_fertiliser_default = 0.11  # [(kg NH3-N + NOx-N) / kg N applied]
+volatile_frac_organic_fertiliser_default = 0.21  # [(kg NH3-N + NOx-N) / kg N applied]
 
 # =============================================================================
 #  Default values

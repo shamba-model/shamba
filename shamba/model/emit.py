@@ -11,21 +11,21 @@ import numpy as np
 from model import configuration
 from model.common import csv_handler
 from model.common.constants import (
-    ef_burn,
-    ef_N_inputs,
+    ef_burn_default,
+    ef_N_inputs_default,
     GWP_list,
     DEFAULT_GWP,
-    combustion_factor,
+    combustion_factor_default,
     C_to_CO2_conversion_factor,
     N_to_N2O_conversion_factor,
-    volatile_frac_organic_fertiliser,
-    volatile_frac_synthetic_fertiliser,
+    volatile_frac_organic_fertiliser_default,
+    volatile_frac_synthetic_fertiliser_default,
 )
 
 
 # Reduce crop/tree/litter outputs due to fire
 def reduce_from_fire(
-    no_of_years, crop=[], tree=[], litter=[], fire=[], output_type="carbon"
+    no_of_years, crop=[], tree=[], litter=[], fire=[], output_type="carbon", combustion_factor=combustion_factor_default
 ):
     """
     Calculate the crop and tree outputs
@@ -67,7 +67,6 @@ def reduce_from_fire(
     for i in np.where(fire == 1):
         crop_inputs["above"][i] *= 1 - combustion_factor["crop"]
         tree_inputs["above"][i] *= 1 - combustion_factor["tree"]
-        # tree_inputs used combustion_factor["crop"] - BUG
 
     # Return sum of above and below
     reduced = (sum(crop_inputs.values()), sum(tree_inputs.values()))
@@ -96,6 +95,11 @@ def create(
     fire=[],
     burn_off=True,
     gwp=GWP_list[DEFAULT_GWP],
+    ef_burn = ef_burn_default,
+    ef_N_inputs = ef_N_inputs_default,
+    combustion_factor = combustion_factor_default,
+    volatile_frac_organic_fertiliser = volatile_frac_organic_fertiliser_default,
+    volatile_frac_synthetic_fertiliser = volatile_frac_synthetic_fertiliser_default
 ) -> np.ndarray:
     """Create an array.
     Optional arguments gives flexibility about what/what kind of
@@ -133,17 +137,19 @@ def create(
             litter=litter,
             fire=fire,
             gwp=gwp,
+            ef_N_inputs=ef_N_inputs,
+            combustion_factor=combustion_factor,
         )
         if (crop or tree or litter)
         else 0
     )
     emissions_fire = (
-        fire_emit(crop, tree, litter, fire, no_of_years, gwp=gwp, burn_off=burn_off)
+        fire_emit(crop, tree, litter, fire, no_of_years, gwp=gwp, ef_burn=ef_burn, combustion_factor=combustion_factor, burn_off=burn_off)
         if (crop or tree or litter)
         else 0
     )
     emissions_fert = (
-        fert_emit(litter, fert, no_of_years, gwp) if (fert or litter) else 0
+        fert_emit(litter, fert, no_of_years, gwp, ef_N_inputs=ef_N_inputs, volatile_frac_organic_fertiliser=volatile_frac_organic_fertiliser, volatile_frac_synthetic_fertiliser=volatile_frac_synthetic_fertiliser) if (fert or litter) else 0
     )
 
     total_emissions = (
@@ -263,8 +269,8 @@ def tree_sink(tree, no_of_years):
 
 
 def nitrogen_emit(
-    no_of_years, crop, tree, litter, fire, gwp
-):  # fire was not included here - BUG
+    no_of_years, crop, tree, litter, fire, gwp, ef_N_inputs = ef_N_inputs_default, combustion_factor = combustion_factor_default
+): 
     """
     Calculate and return emissions due to nitrogen.
     toEmit_crop = crop N inputs after fire
@@ -277,13 +283,14 @@ def nitrogen_emit(
         litter=litter,
         fire=fire,
         output_type="nitrogen",
+        combustion_factor=combustion_factor,
     )
     to_emit = toEmit_crop + toEmit_tree
 
     return to_emit * ef_N_inputs * N_to_N2O_conversion_factor * gwp["N2O"]
 
 
-def fire_emit(crop, tree, litter, fire, no_of_years, gwp, burn_off=True):
+def fire_emit(crop, tree, litter, fire, no_of_years, gwp, ef_burn = ef_burn_default, combustion_factor = combustion_factor_default, burn_off=True):
     """Calculate and return emissions due to fire.
     crop: list of crop models
     tree: list of tree models
@@ -333,7 +340,7 @@ def fire_emit(crop, tree, litter, fire, no_of_years, gwp, burn_off=True):
     return emit
 
 
-def fert_emit(litter, fert, no_of_years, gwp):
+def fert_emit(litter, fert, no_of_years, gwp, ef_N_inputs = ef_N_inputs_default, volatile_frac_organic_fertiliser = volatile_frac_organic_fertiliser_default, volatile_frac_synthetic_fertiliser = volatile_frac_synthetic_fertiliser_default):
     """Calculate and return emissions due to fertiliser use.
     Args:
         litter: list-like of litter model objects
