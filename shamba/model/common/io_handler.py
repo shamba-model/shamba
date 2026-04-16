@@ -43,6 +43,9 @@ On the '_questionnaire' worksheet, you must enter a value in each of the
 blue cells in the 'Input data' column (column K) in response to each 
 'data collection question', otherwise the model will not run properly. 
 If the question is not relevant to the land use you are modelling, enter zero.
+If you want to use biomass data (kg C per tree) instead of diameter at breast 
+height (cm) for your tree cohorts, you must manually add the biomass columns. 
+See instructions in STEP 5, below.
 
 To run the model for a particular intervention, save the `input` sheet from the 
 template as a .csv file into a new `shamba/projects/"project-name"/input`
@@ -101,6 +104,18 @@ The climate data csv must be called climate.csv and match the format shown in
 /projects/examples/UG_TS_2016/input/climate.csv.
 The soil data csv must be called soil-info.csv and match the format shown in
 /projects/examples/UG_TS_2016/input/soil-info.csv.
+
+________STEP 5 (optional): use biomass data instead of dbh for tree cohorts _________
+If you want to use biomass data (kg C per tree) instead of diameter at breast height
+(cm) for any tree cohorts, you must manually add the biomass columns to your input 
+file.
+Use the same naming convention as the dbh columns, but replace 'diam' with 'biomass'
+(e.g. 'diam1' -> 'biomass1').
+Note:
+- All six biomass columns for a species must be present for the direct-input path to
+ be used. If any are missing, the model falls back to diameter + allometry as normal.
+- The six biomass values must correspond to the same six ages given in the age 
+ columns.
 _____________________________________________________________________________________
         """
     )
