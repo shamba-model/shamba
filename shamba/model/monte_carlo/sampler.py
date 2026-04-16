@@ -12,6 +12,8 @@ import scipy.stats
 import scipy.optimize
 
 from model.monte_carlo.distribution_handler import DistributionSpec
+from model.emit import EmissionFactors
+from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS, expand_model_param_samples, flatten_model_param_sample
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
@@ -397,3 +399,49 @@ def sample_climate_params(
         results.append({"Temp": temp_draw, "Rain": rain_draw, "evap": evap_draw})
 
     return results
+
+def sample_model_params(
+    n_samples: int,
+    seed: Optional[int] = None,
+    rng: Optional[np.random.Generator] = None,
+    base_model_params: EmissionFactors = EmissionFactors(),
+    distribution_dict: Dict[str, DistributionSpec] = MODEL_PARAMETER_DISTRIBUTIONS,
+) -> List[EmissionFactors]:
+    """Draw N model parameter dicts from the uncertainty stored in ModelParamsData.
+
+    Args:
+        model_params: ModelParamsData object with model parameters and their quantile fields.
+        n_samples: number of samples to draw.
+        rng: numpy random Generator.
+
+    Returns:
+        list of n_samples EmissionFactors namedtuples with perturbed model parameters.
+    """
+
+    if rng is None:
+        rng = np.random.default_rng(seed)
+    
+    flat_base = flatten_model_param_sample(base_model_params._asdict())
+    samples = []
+
+    for _ in range(n_samples):
+        sample = flat_base.copy()
+        for param, spec in distribution_dict.items():
+            base_value = flat_base[param]
+            arr = np.asarray(base_value, dtype=float)
+
+            perturbed = np.array([_draw_one(spec, float(elem), rng) for elem in arr.ravel()])
+            perturbed = perturbed.reshape(arr.shape)
+
+            sample[param] = perturbed
+        expanded_sample = expand_model_param_samples(sample)    
+        samples.append(EmissionFactors(
+            ef_burn=expanded_sample["ef_burn"],
+            ef_N_inputs=float(expanded_sample["ef_N_inputs"]),
+            combustion_factor=expanded_sample["combustion_factor"],
+            volatile_frac_organic_fertiliser=float(expanded_sample["volatile_frac_organic_fertiliser"]),
+            volatile_frac_synthetic_fertiliser=float(expanded_sample["volatile_frac_synthetic_fertiliser"]),
+        ))
+    
+    
+    return samples

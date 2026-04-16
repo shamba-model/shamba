@@ -4,6 +4,7 @@
 
 import logging as log
 import os
+from typing import NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,6 +23,13 @@ from model.common.constants import (
     volatile_frac_synthetic_fertiliser_default,
 )
 
+
+class EmissionFactors(NamedTuple):
+    ef_burn: dict = ef_burn_default
+    ef_N_inputs: float = ef_N_inputs_default
+    combustion_factor: dict = combustion_factor_default
+    volatile_frac_organic_fertiliser: float = volatile_frac_organic_fertiliser_default
+    volatile_frac_synthetic_fertiliser: float = volatile_frac_synthetic_fertiliser_default
 
 # Reduce crop/tree/litter outputs due to fire
 def reduce_from_fire(
@@ -95,11 +103,7 @@ def create(
     fire=[],
     burn_off=True,
     gwp=GWP_list[DEFAULT_GWP],
-    ef_burn = ef_burn_default,
-    ef_N_inputs = ef_N_inputs_default,
-    combustion_factor = combustion_factor_default,
-    volatile_frac_organic_fertiliser = volatile_frac_organic_fertiliser_default,
-    volatile_frac_synthetic_fertiliser = volatile_frac_synthetic_fertiliser_default
+    emission_factors=EmissionFactors(),
 ) -> np.ndarray:
     """Create an array.
     Optional arguments gives flexibility about what/what kind of
@@ -137,19 +141,19 @@ def create(
             litter=litter,
             fire=fire,
             gwp=gwp,
-            ef_N_inputs=ef_N_inputs,
-            combustion_factor=combustion_factor,
+            ef_N_inputs=emission_factors.ef_N_inputs,
+            combustion_factor=emission_factors.combustion_factor,
         )
         if (crop or tree or litter)
         else 0
     )
     emissions_fire = (
-        fire_emit(crop, tree, litter, fire, no_of_years, gwp=gwp, ef_burn=ef_burn, combustion_factor=combustion_factor, burn_off=burn_off)
+        fire_emit(crop, tree, litter, fire, no_of_years, gwp=gwp, ef_burn=emission_factors.ef_burn, combustion_factor=emission_factors.combustion_factor, burn_off=burn_off)
         if (crop or tree or litter)
         else 0
     )
     emissions_fert = (
-        fert_emit(litter, fert, no_of_years, gwp, ef_N_inputs=ef_N_inputs, volatile_frac_organic_fertiliser=volatile_frac_organic_fertiliser, volatile_frac_synthetic_fertiliser=volatile_frac_synthetic_fertiliser) if (fert or litter) else 0
+        fert_emit(litter, fert, no_of_years, gwp, ef_N_inputs=emission_factors.ef_N_inputs, volatile_frac_organic_fertiliser=emission_factors.volatile_frac_organic_fertiliser, volatile_frac_synthetic_fertiliser=emission_factors.volatile_frac_synthetic_fertiliser) if (fert or litter) else 0
     )
 
     total_emissions = (
