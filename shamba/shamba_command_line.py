@@ -457,6 +457,7 @@ def main(n, arguments):
             create_inverse_soil_model=InverseSoilModel.create,
             n_cohorts=N_COHORTS,
             plot_index=n,
+            sample_emission_factors=arguments["sample-emission-factors"],
             distribution_dict=distribution_dict,
             allometry=allometric_keys,
             gwp=gwp,

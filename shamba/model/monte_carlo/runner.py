@@ -6,6 +6,9 @@ from model.common.calculate_emissions import handle_intervention
 import model.common.constants as CONSTANTS
 import model.monte_carlo.sampler as sampler
 import numpy as np
+from model.emit import EmissionFactors
+from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS
+from model.monte_carlo.distribution_handler import DistributionSpec
 
 
 class SampleArgs(NamedTuple):
@@ -15,6 +18,7 @@ class SampleArgs(NamedTuple):
     n_cohorts: int
     plot_index: int
     soil_params: Optional[SoilParams.SoilParamsData] = None
+    emission_factors: EmissionFactors = EmissionFactors()
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP]
     use_api: bool = CONSTANTS.DEFAULT_USE_API
@@ -31,6 +35,7 @@ def _run_single_sample(arguments: SampleArgs):
         allometry=arguments.allometry,
         gwp=arguments.gwp,
         use_api=arguments.use_api,
+        emission_factors=arguments.emission_factors
     )
 
 
@@ -43,7 +48,10 @@ def run_monte_carlo(
     create_inverse_soil_model: Callable,
     n_cohorts: int,
     plot_index: int,
+    sample_emission_factors: bool = False,
     distribution_dict: Optional[Dict] = None,
+    model_params: Optional[EmissionFactors] = EmissionFactors(),
+    emission_distribution_dict: Dict[str, DistributionSpec] = MODEL_PARAMETER_DISTRIBUTIONS,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
     use_api: bool = CONSTANTS.DEFAULT_USE_API,
@@ -64,6 +72,17 @@ def run_monte_carlo(
         rng=rng,
     )
 
+    if sample_emission_factors:
+        emission_factor_samples = sampler.sample_model_params(
+            n_samples=n_samples,
+            rng=rng,
+            base_model_params=model_params,
+            distribution_dict=emission_distribution_dict
+        )
+    else:
+        emission_factor_samples = [EmissionFactors() for _ in range(n_samples)]
+
+
     if distribution_dict is None:
         samples = [dict(base_input_dict) for _ in range(n_samples)]
     else:
@@ -81,6 +100,7 @@ def run_monte_carlo(
         results = list(executor.map(_run_single_sample, [
             SampleArgs(
                 perturbed_intervention_input=samples[i],
+                emission_factors = emission_factor_samples[i],
                 create_forward_soil_model=create_forward_soil_model,
                 create_inverse_soil_model=create_inverse_soil_model,
                 n_cohorts=n_cohorts,

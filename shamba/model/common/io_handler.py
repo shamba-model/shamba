@@ -266,9 +266,11 @@ ________________________________________________________________________________
         arguments["distribution-file-name"] = distribution_filename
         n_samples = questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000").ask() # TODO: derive a sensible default through analysis
         arguments["n-samples"] = int(n_samples)
+        arguments["sample-emission-factors"] = questionary.confirm("Do you want to include uncertainty of emission factors?", default=False).ask()
     else:
         arguments["n-samples"] = None
         arguments["distribution-file-name"] = None
+        arguments["sample-emission-factors"] = False
 
     # Prompt for output title
     output_title = questionary.text(
