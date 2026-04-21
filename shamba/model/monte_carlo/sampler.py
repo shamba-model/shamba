@@ -14,26 +14,19 @@ import scipy.optimize
 from model.monte_carlo.distribution_handler import DistributionSpec
 from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS, expand_model_param_samples, flatten_model_param_sample
+from model.common.data_handler import get_header_type
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
 _CLIMATE_KEYS = frozenset({"Temp", "Rain", "evap"})
 
-# Fraction parameters: if any drawn value breaches [0, 1], clamp and warn.
-# The check is based on the base value, as determined by distribution_handler.
-# We re-derive this at draw time via the base value itself.
+_FRACTION_TYPES = frozenset({"proportion", "scalar proportion"})
 
 
 def _base_mean(base_value) -> float:
     """Scalar mean of a base value — handles scalars and numpy arrays."""
     arr = np.asarray(base_value, dtype=float).ravel()
     return float(np.mean(arr))
-
-
-def _is_fraction_parameter(base_value) -> bool:
-    """True if every element of the base value lies within [0, 1]."""
-    arr = np.asarray(base_value, dtype=float).ravel()
-    return bool(np.all((arr >= 0.0) & (arr <= 1.0)))
 
 
 def _draw_one(
@@ -274,7 +267,7 @@ def draw_samples(
         for param, spec in distributions.items():
             base_value = base_input_dict[param]
             arr = np.asarray(base_value, dtype=float)
-            is_fraction = _is_fraction_parameter(base_value)
+            is_fraction = get_header_type(param) in _FRACTION_TYPES
 
             if param in _CLIMATE_KEYS:
                 # Exception: draw one multiplicative scalar from the vector mean and
@@ -291,6 +284,7 @@ def draw_samples(
                 perturbed = perturbed.reshape(arr.shape)
 
                 # Clamp fraction parameters to [0, 1].
+                # TODO: confirm clamping is the intended functionality
                 if is_fraction:
                     clipped = np.clip(perturbed, 0.0, 1.0)
                     if not np.array_equal(clipped, perturbed):

@@ -230,7 +230,7 @@ def test_min_abs_floor_normal():
 # ---------------------------------------------------------------------------
 
 def test_fraction_parameter_clamped_with_warning():
-    """Normal distribution on a fraction parameter with large spread triggers clamping and a warning."""
+    """Fraction parameter (identified via schema, not value heuristic) with large spread triggers clamping and a warning."""
     # crop_base_left1 is in [0.3, 0.3, 0.3]; normal with CV=2.0 will easily breach [0, 1]
     specs = {"crop_base_left1": make_spec("normal", 2.0, 2.0)}
     with warnings.catch_warnings(record=True) as caught:
