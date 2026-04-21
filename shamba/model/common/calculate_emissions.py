@@ -68,6 +68,8 @@ def get_tree_model_data(
     )
 
     # Thinning and mortality: read pre-built vectors directly from input.
+    # TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
+    # baselines are possible and, if so, loop over base cohorts as is done for project cohorts.
     # Baseline always has one cohort; project reads per-cohort arrays indexed 1..no_of_cohorts.
     thinning_base = intervention_input["thin_base_cohort1"]
     thinning_fraction_left_base = np.array([
