@@ -437,7 +437,7 @@ def main(n, arguments):
             distribution_dict = None
         # TODO: tidy the below up so that it isn't a duplicate of the code at the beginning of handle_intervention()
         use_api = arguments["use-api"]
-        no_of_years = vector_input_data[CONSTANTS.NO_OF_YEARS_KEY]
+        no_of_years = int(np.atleast_1d(vector_input_data[CONSTANTS.NO_OF_YEARS_KEY])[0])
         plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
         location = get_location(vector_input_data)
         climate_vectors = None
