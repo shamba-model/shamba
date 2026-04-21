@@ -35,7 +35,7 @@ import model.common.constants as CONSTANTS
 import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
 from model.monte_carlo import distribution_handler
-from model.monte_carlo.runner import run_monte_carlo
+from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(_dir))
@@ -464,17 +464,39 @@ def main(n, arguments):
             use_api=arguments["use-api"],
         )
 
-        # TODO: write mc_results to a summary CSV (e.g. mean, std, quantiles per
-        # year per emission pool). mc_results is a list of InterventionEmissions
-        # objects — one per sample. The output format needs to be designed before
-        # this can be implemented properly.
+        st = 1
+        output_dir = Path(configuration.OUTPUT_DIR + f"_{mod_run}") / f"plot_{n + st}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        mc_summary = summarise_mc_results(mc_results)
+        for scenario, label in [
+            (mc_summary.base,    "baseline"),
+            (mc_summary.project, "project"),
+            (mc_summary.diff,    "diff"),
+        ]:
+            write_mc_summary_csv(scenario, str(output_dir / f"plot_{n + st}_mc_{label}.csv"))
+
+        # TODO: the MC path currently writes only the quantile summary CSV.  The
+        # deterministic path (below) also writes validated input CSVs, per-pool
+        # emissions CSVs, soil model CSVs, tree/crop data CSVs, and plots.  Decide
+        # which of those outputs are meaningful for an MC run and add them here.
+        # Candidates: validated input CSVs (same for all samples — write once);
+        # soil/climate CSVs from the base run (representative inputs); plots of the
+        # emission distribution (e.g. per-year credible interval fan chart).
+
+        # TODO: the MC path returns early here, so N_YEARS is not used below and
+        # the `scalar_input_data`/`mgmt_input_data`/`tree_size_data` variables
+        # defined during input loading are never saved.  If validated input saving
+        # is added to the MC path, reuse that logic rather than duplicating it.
+
         emit_diffs = [
             r.emit_project_emissions - r.emit_base_emissions for r in mc_results
         ]
         total_diffs = np.array([float(np.sum(d)) for d in emit_diffs])
         print(
             f"\nMonte Carlo complete: {len(mc_results)} samples\n"
-            f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1"
+            f"  Summaries written to: {output_dir}\n"
+            f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1  "
             f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
         )
         return

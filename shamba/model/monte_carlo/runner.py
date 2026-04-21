@@ -1,5 +1,5 @@
-from typing import Dict, List, NamedTuple, Any, Callable, Optional
-
+from typing import Dict, List, NamedTuple, Any, Callable, Optional, Tuple
+import csv
 import concurrent.futures
 import model.soil_params as SoilParams
 from model.common.calculate_emissions import handle_intervention
@@ -114,3 +114,87 @@ def run_monte_carlo(
         ]))
 
     return results
+
+
+_QUANTILES: Tuple[float, ...] = (0.05, 0.25, 0.50, 0.75, 0.95)
+
+_BASE_GETTERS = {
+    "soil":       lambda r: r.soil_base_emissions,
+    "tree":       lambda r: r.tree_base_emissions,
+    "fire":       lambda r: r.fire_base_emissions,
+    "litter":     lambda r: r.litter_base_emissions,
+    "fertiliser": lambda r: r.fertiliser_base_emissions,
+    "crop":       lambda r: r.crop_base_emissions,
+    "emit":       lambda r: r.emit_base_emissions,
+}
+
+_PROJ_GETTERS = {
+    "soil":       lambda r: r.soil_project_emissions,
+    "tree":       lambda r: r.tree_project_emissions,
+    "fire":       lambda r: r.fire_project_emissions,
+    "litter":     lambda r: r.litter_project_emissions,
+    "fertiliser": lambda r: r.fertiliser_project_emissions,
+    "crop":       lambda r: r.crop_project_emissions,
+    "emit":       lambda r: r.emit_project_emissions,
+}
+
+_DIFF_GETTERS = {
+    "soil":       lambda r: r.soil_difference,
+    "tree":       lambda r: r.tree_difference,
+    "fire":       lambda r: r.fire_difference,
+    "litter":     lambda r: r.litter_difference,
+    "fertiliser": lambda r: r.fertiliser_difference,
+    "crop":       lambda r: r.crop_difference,
+    "emit":       lambda r: r.emit_project_emissions - r.emit_base_emissions,
+}
+
+
+class MCSummaries(NamedTuple):
+    base: Dict[str, np.ndarray]
+    project: Dict[str, np.ndarray]
+    diff: Dict[str, np.ndarray]
+
+
+def _compute_summary(
+    mc_results: List[Any],
+    getters: Dict[str, Any],
+    quantiles: Tuple[float, ...],
+) -> Dict[str, np.ndarray]:
+    summary = {}
+    for pool_name, getter in getters.items():
+        data = np.array([getter(r) for r in mc_results])  # gathers n_samples arrays of results length n_years, array: (n_samples, n_years)
+        summary[f"{pool_name}_mean"] = data.mean(axis=0) # array: (n_years,)
+        summary[f"{pool_name}_std"] = data.std(axis=0)
+        for q in quantiles:
+            label = f"q{int(round(q * 100)):02d}"
+            summary[f"{pool_name}_{label}"] = np.quantile(data, q, axis=0)
+    return summary
+
+
+def summarise_mc_results(
+    mc_results: List[Any],
+    quantiles: Tuple[float, ...] = _QUANTILES,
+) -> MCSummaries:
+    """Reduce a list of InterventionReturnData to three per-year summary dicts.
+
+    Each dict has the same shape: columns {pool}_mean, {pool}_std,
+    {pool}_q05, {pool}_q25, {pool}_q50, {pool}_q75, {pool}_q95 for pools
+    soil, tree, fire, litter, fertiliser, crop, emit. Values represent
+    baseline emissions, project emissions, and their difference respectively.
+    """
+    return MCSummaries(
+        base=_compute_summary(mc_results, _BASE_GETTERS, quantiles),
+        project=_compute_summary(mc_results, _PROJ_GETTERS, quantiles),
+        diff=_compute_summary(mc_results, _DIFF_GETTERS, quantiles),
+    )
+
+
+def write_mc_summary_csv(summary: Dict[str, np.ndarray], output_path: str) -> None:
+    """Write a summary dict to a CSV file, one row per year."""
+    cols = list(summary.keys())
+    n_years = len(next(iter(summary.values())))
+    with open(output_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["year"] + cols)
+        for year in range(1, n_years + 1):
+            writer.writerow([year] + [float(summary[col][year - 1]) for col in cols])

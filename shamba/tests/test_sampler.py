@@ -337,7 +337,7 @@ def test_sample_climate_params_nonzero_std():
         evaporation_std=[5.0] * 12,
     )
     rng = np.random.default_rng(4)
-    samples = sample_climate_params(climate, n_samples=100, rng=rng)
+    samples = sample_climate_params(climate, n_samples=1000, rng=rng)
     temp_vals = np.array([s["Temp"][0] for s in samples])
     assert np.std(temp_vals) > 1.8
     # TODO: tighten to verify the formula directly. temperature_std=2.0 means draws are
