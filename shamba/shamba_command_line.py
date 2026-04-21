@@ -35,7 +35,7 @@ import model.common.constants as CONSTANTS
 import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
 from model.monte_carlo import distribution_handler
-from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv
+from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv, write_mc_metadata
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(_dir))
@@ -480,6 +480,16 @@ def main(n, arguments):
         ]:
             write_mc_summary_csv(scenario, str(output_dir / f"plot_{n + st}_mc_{label}.csv"))
 
+        write_mc_metadata(
+            output_path=str(output_dir / "mc_run_metadata.txt"),
+            n_samples=n_samples,
+            seed=arguments["seed"],
+            soil_params=soil_params,
+            climate=climate,
+            distribution_dict=distribution_dict,
+            sample_emission_factors=arguments["sample-emission-factors"],
+        )
+
         # TODO: the MC path currently writes only the quantile summary CSV.  The
         # deterministic path (below) also writes validated input CSVs, per-pool
         # emissions CSVs, soil model CSVs, tree/crop data CSVs, and plots.  Decide
@@ -488,10 +498,6 @@ def main(n, arguments):
         # soil/climate CSVs from the base run (representative inputs); plots of the
         # emission distribution (e.g. per-year credible interval fan chart).
 
-        # TODO: the MC path returns early here, so N_YEARS is not used below and
-        # the `scalar_input_data`/`mgmt_input_data`/`tree_size_data` variables
-        # defined during input loading are never saved.  If validated input saving
-        # is added to the MC path, reuse that logic rather than duplicating it.
 
         emit_diffs = [
             r.emit_project_emissions - r.emit_base_emissions for r in mc_results

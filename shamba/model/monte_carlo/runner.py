@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Dict, List, NamedTuple, Any, Callable, Optional, Tuple
 import csv
 import concurrent.futures
@@ -198,3 +199,70 @@ def write_mc_summary_csv(summary: Dict[str, np.ndarray], output_path: str) -> No
         writer.writerow(["year"] + cols)
         for year in range(1, n_years + 1):
             writer.writerow([year] + [float(summary[col][year - 1]) for col in cols])
+
+
+def write_mc_metadata(
+    output_path: str,
+    n_samples: int,
+    seed: Optional[int],
+    soil_params: SoilParams.SoilParamsData,
+    climate,
+    distribution_dict: Optional[Dict[str, DistributionSpec]],
+    sample_emission_factors: bool,
+) -> None:
+    """Write a plain-text summary of what the Monte Carlo run sampled."""
+    lines = []
+    lines.append("SHAMBA Monte Carlo run metadata")
+    lines.append("=" * 40)
+    lines.append(f"Run timestamp : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(f"Samples       : {n_samples}")
+    if seed is None:
+        lines.append("Seed          : not set — run is not reproducible")
+    else:
+        lines.append(f"Seed          : {seed}")
+
+    lines.append("")
+    lines.append("Parameters always sampled")
+    lines.append("-" * 30)
+
+    # Soil uncertainty (sigma inferred from Q0.05/Q0.95, matching sampler logic)
+    cy0_sigma = (soil_params.Cy0_q95 - soil_params.Cy0_q05) / (2.0 * 1.645)
+    clay_sigma = (soil_params.clay_q95 - soil_params.clay_q05) / (2.0 * 1.645)
+    lines.append(f"  Soil Cy0  : mean={soil_params.Cy0:.4g}, sigma={cy0_sigma:.4g}"
+                 + (" (no uncertainty — fixed value)" if cy0_sigma == 0.0 else ""))
+    lines.append(f"  Soil clay : mean={soil_params.clay:.4g}%, sigma={clay_sigma:.4g}"
+                 + (" (no uncertainty — fixed value)" if clay_sigma == 0.0 else ""))
+
+    temp_std_mean = float(np.mean(climate.temperature_std))
+    rain_std_mean = float(np.mean(climate.rain_std))
+    evap_std_mean = float(np.mean(climate.evaporation_std))
+    lines.append(f"  Climate Temp : mean monthly std={temp_std_mean:.4g}"
+                 + (" (no uncertainty — fixed value)" if temp_std_mean == 0.0 else ""))
+    lines.append(f"  Climate Rain : mean monthly std={rain_std_mean:.4g}"
+                 + (" (no uncertainty — fixed value)" if rain_std_mean == 0.0 else ""))
+    lines.append(f"  Climate evap : mean monthly std={evap_std_mean:.4g}"
+                 + (" (no uncertainty — fixed value)" if evap_std_mean == 0.0 else ""))
+
+    lines.append("")
+    lines.append("Emission factors sampled")
+    lines.append("-" * 30)
+    lines.append(f"  {'Yes' if sample_emission_factors else 'No'}")
+
+    lines.append("")
+    lines.append("User-defined input distributions")
+    lines.append("-" * 30)
+    if not distribution_dict:
+        lines.append("  None — no distributions file supplied.")
+    else:
+        header = f"  {'Parameter':<30} {'Distribution':<20} {'Spread lower':>14} {'Spread upper':>14} {'Min abs':>10}"
+        lines.append(header)
+        lines.append("  " + "-" * (len(header) - 2))
+        for param, spec in distribution_dict.items():
+            min_abs_str = f"{spec.min_abs:.4g}" if spec.min_abs is not None else "—"
+            lines.append(
+                f"  {param:<30} {spec.distribution:<20} {spec.spread_lower:>14.4g}"
+                f" {spec.spread_upper:>14.4g} {min_abs_str:>10}"
+            )
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
