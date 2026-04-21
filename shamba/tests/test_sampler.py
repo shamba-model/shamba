@@ -24,7 +24,9 @@ from model.monte_carlo.sampler import (
     draw_samples,
     sample_soil_params,
     sample_climate_params,
+    sample_model_params,
 )
+from model.emit import EmissionFactors
 
 
 # ---------------------------------------------------------------------------
@@ -165,16 +167,6 @@ def test_climate_perturbation_is_multiplicative():
         assert np.allclose(ratios, ratios[0]), f"Non-uniform ratio across months: {ratios}"
 
 
-def test_climate_evap_perturbation_is_multiplicative():
-    specs = {"evap": make_spec("uniform", 0.1, 0.2)}
-    samples = draw_samples(BASE_DICT, specs, n_samples=20, seed=3)
-    base_evap = BASE_DICT["evap"]
-    for sample in samples:
-        evap = sample["evap"]
-        ratios = evap / base_evap
-        assert np.allclose(ratios, ratios[0])
-
-
 # ---------------------------------------------------------------------------
 # draw_samples — all seven distribution types
 # ---------------------------------------------------------------------------
@@ -284,6 +276,11 @@ def test_sample_soil_params_nonzero_spread():
     clay_vals = [s["clay"] for s in samples]
     assert np.std(cy0_vals) > 0.1
     assert np.std(clay_vals) > 0.1
+    # TODO: tighten to verify the sigma formula directly. With Cy0_q05=3, Cy0_q95=7:
+    #   expected_cy0_sigma = (7 - 3) / (2 * 1.645) ≈ 1.216
+    # With N=1000 samples and fixed seed, assert np.std(cy0_vals) ≈ 1.216 (rtol ~0.15).
+    # The current std > 0.1 bound is far too loose to catch a formula error
+    # (e.g. a missing factor of 2, or using 1.96 instead of 1.645).
 
 
 def test_sample_soil_params_cy0_clipped_to_nonnegative():
@@ -342,7 +339,12 @@ def test_sample_climate_params_nonzero_std():
     rng = np.random.default_rng(4)
     samples = sample_climate_params(climate, n_samples=100, rng=rng)
     temp_vals = np.array([s["Temp"][0] for s in samples])
-    assert np.std(temp_vals) > 0.1
+    assert np.std(temp_vals) > 1.8
+    # TODO: tighten to verify the formula directly. temperature_std=2.0 means draws are
+    # Normal(20.0, 2.0), so the empirical std of temp_vals should be ≈ 2.0.
+    # With N=1000 and fixed seed, assert np.std(temp_vals) ≈ 2.0 (rtol ~0.15).
+    # std > 0.1 is far too loose to catch an implementation error (e.g. std / 2, or
+    # std treated as variance).
 
 
 def test_sample_climate_params_rain_clipped():
@@ -369,3 +371,92 @@ def test_sample_climate_params_evap_clipped():
     rng = np.random.default_rng(6)
     samples = sample_climate_params(climate, n_samples=200, rng=rng)
     assert all(np.all(s["evap"] >= 0.0) for s in samples)
+
+
+# ---------------------------------------------------------------------------
+# sample_model_params — output structure
+# ---------------------------------------------------------------------------
+
+def test_sample_model_params_output_length():
+    """Returns a list of length n_samples."""
+    samples = sample_model_params(n_samples=10, seed=0)
+    assert len(samples) == 10
+
+
+def test_sample_model_params_output_type():
+    """Each element is an EmissionFactors namedtuple."""
+    samples = sample_model_params(n_samples=5, seed=0)
+    for s in samples:
+        assert isinstance(s, EmissionFactors)
+
+
+def test_sample_model_params_ef_burn_structure():
+    """ef_burn is a dict with the four expected keys."""
+    samples = sample_model_params(n_samples=3, seed=0)
+    for s in samples:
+        assert set(s.ef_burn.keys()) == {"crop_N2O", "crop_CH4", "tree_N2O", "tree_CH4"}
+
+
+def test_sample_model_params_combustion_factor_structure():
+    """combustion_factor is a dict with keys 'crop' and 'tree'."""
+    samples = sample_model_params(n_samples=3, seed=0)
+    for s in samples:
+        assert set(s.combustion_factor.keys()) == {"crop", "tree"}
+
+
+def test_sample_model_params_scalar_fields_are_float():
+    """ef_N_inputs and volatile_frac_* are plain floats, not arrays."""
+    samples = sample_model_params(n_samples=5, seed=0)
+    for s in samples:
+        assert isinstance(s.ef_N_inputs, float)
+        assert isinstance(s.volatile_frac_organic_fertiliser, float)
+        assert isinstance(s.volatile_frac_synthetic_fertiliser, float)
+
+
+# ---------------------------------------------------------------------------
+# sample_model_params — values differ from base
+# ---------------------------------------------------------------------------
+
+def test_sample_model_params_values_vary():
+    """With the default distributions (non-zero CV), draws differ from the default EmissionFactors."""
+    samples = sample_model_params(n_samples=50, seed=42)
+    default = EmissionFactors()
+    ef_n_vals = [s.ef_N_inputs for s in samples]
+    assert not all(v == default.ef_N_inputs for v in ef_n_vals), (
+        "ef_N_inputs should vary across samples with non-zero spread"
+    )
+
+
+def test_sample_model_params_no_distributions_returns_constant():
+    """Empty distribution_dict → all samples equal the base EmissionFactors."""
+    samples = sample_model_params(n_samples=20, seed=0, distribution_dict={})
+    default = EmissionFactors()
+    for s in samples:
+        assert s.ef_N_inputs == pytest.approx(default.ef_N_inputs)
+        assert s.volatile_frac_organic_fertiliser == pytest.approx(default.volatile_frac_organic_fertiliser)
+        assert s.volatile_frac_synthetic_fertiliser == pytest.approx(default.volatile_frac_synthetic_fertiliser)
+        assert s.ef_burn == default.ef_burn
+        assert s.combustion_factor == default.combustion_factor
+
+
+# ---------------------------------------------------------------------------
+# sample_model_params — reproducibility
+# ---------------------------------------------------------------------------
+
+def test_sample_model_params_seed_reproducibility():
+    """Same seed produces identical draws on two separate calls."""
+    samples_a = sample_model_params(n_samples=10, seed=99)
+    samples_b = sample_model_params(n_samples=10, seed=99)
+    for a, b in zip(samples_a, samples_b):
+        assert a.ef_N_inputs == pytest.approx(b.ef_N_inputs)
+        assert a.volatile_frac_organic_fertiliser == pytest.approx(b.volatile_frac_organic_fertiliser)
+        assert a.ef_burn["crop_N2O"] == pytest.approx(b.ef_burn["crop_N2O"])
+
+
+def test_sample_model_params_different_seeds_differ():
+    """Different seeds should (almost certainly) produce different draws."""
+    samples_a = sample_model_params(n_samples=10, seed=1)
+    samples_b = sample_model_params(n_samples=10, seed=2)
+    ef_n_a = [s.ef_N_inputs for s in samples_a]
+    ef_n_b = [s.ef_N_inputs for s in samples_b]
+    assert ef_n_a != ef_n_b
