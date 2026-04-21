@@ -428,10 +428,13 @@ def main(n, arguments):
 
     gwp = arguments["gwp"]
 
-    if arguments["n-samples"] and arguments["distribution-file-name"]:
+    if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
-        distribution_file_path = os.path.join(configuration.INPUT_DIR, arguments["distribution-file-name"])
-        distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
+        if arguments["distribution-file-name"]:
+            distribution_file_path = os.path.join(configuration.INPUT_DIR, arguments["distribution-file-name"])
+            distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
+        else:
+            distribution_dict = None
         # TODO: tidy the below up so that it isn't a duplicate of the code at the beginning of handle_intervention()
         use_api = arguments["use-api"]
         no_of_years = vector_input_data[CONSTANTS.NO_OF_YEARS_KEY]
@@ -462,6 +465,7 @@ def main(n, arguments):
             allometry=allometric_keys,
             gwp=gwp,
             use_api=arguments["use-api"],
+            seed=arguments["seed"],
         )
 
         st = 1
@@ -500,9 +504,6 @@ def main(n, arguments):
             f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
         )
         return
-    elif arguments["n-samples"] or arguments["distribution-file-name"]:
-        raise ValueError("Both # samples and distribution file name must be provided to run a Monte Carlo simulation.")
-    
     else:
         intervention_emissions = handle_intervention(
             intervention_input=vector_input_data,
