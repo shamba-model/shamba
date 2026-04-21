@@ -136,6 +136,8 @@ class TestInverseRothC:
         total_C = float(np.sum(inv.eq_C)) + soil.iom
         # The inverse solver uses a coarse 0.1-step grid search, so convergence
         # is approximate. 20% tolerance accounts for this grid resolution.
+        # TODO: tighten to <5% tolerance once the inverse solver is upgraded from
+        # a grid search to a proper root-finding algorithm (e.g. scipy.optimize.brentq).
         assert abs(total_C - soil.Ceq) / soil.Ceq < 0.20
 
     def test_equilibrium_pools_are_non_negative(self):
@@ -194,6 +196,10 @@ class TestForwardRothC:
         total_start = float(np.sum(fwd.SOC[0]))
         total_end = float(np.sum(fwd.SOC[-1]))
         relative_change = abs(total_end - total_start) / total_start
+        # TODO: tighten to <5% once the inverse solver uses a proper root-finding
+        # algorithm. The 30% tolerance here is a direct consequence of the coarse
+        # grid search: imprecise initial pools mean the forward run drifts even at
+        # "equilibrium". A better solver would make the round-trip nearly exact.
         assert relative_change < 0.30, (
             f"Carbon pools should be approximately stable near equilibrium; "
             f"relative change was {relative_change:.1%}"
