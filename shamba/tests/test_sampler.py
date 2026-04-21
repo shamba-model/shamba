@@ -47,6 +47,9 @@ class FakeSoilParams:
     def __init__(self, Cy0, clay, Cy0_q05, Cy0_q95, clay_q05, clay_q95):
         self.Cy0 = Cy0
         self.clay = clay
+        self.depth = 30.0
+        self.Ceq = 10.0
+        self.iom = 1.0
         self.Cy0_q05 = Cy0_q05
         self.Cy0_q95 = Cy0_q95
         self.clay_q05 = clay_q05
@@ -258,8 +261,8 @@ def test_sample_soil_params_zero_uncertainty():
     samples = sample_soil_params(soil, n_samples=20, rng=rng)
     assert len(samples) == 20
     for s in samples:
-        assert s["Cy0"] == pytest.approx(5.0)
-        assert s["clay"] == pytest.approx(30.0)
+        assert s.Cy0 == pytest.approx(5.0)
+        assert s.clay == pytest.approx(30.0)
 
 
 # ---------------------------------------------------------------------------
@@ -272,8 +275,8 @@ def test_sample_soil_params_nonzero_spread():
                           clay_q05=25.0, clay_q95=35.0)
     rng = np.random.default_rng(1)
     samples = sample_soil_params(soil, n_samples=100, rng=rng)
-    cy0_vals = [s["Cy0"] for s in samples]
-    clay_vals = [s["clay"] for s in samples]
+    cy0_vals = [s.Cy0 for s in samples]
+    clay_vals = [s.clay for s in samples]
     assert np.std(cy0_vals) > 0.1
     assert np.std(clay_vals) > 0.1
     # TODO: tighten to verify the sigma formula directly. With Cy0_q05=3, Cy0_q95=7:
@@ -290,7 +293,7 @@ def test_sample_soil_params_cy0_clipped_to_nonnegative():
                           clay_q05=25.0, clay_q95=35.0)
     rng = np.random.default_rng(2)
     samples = sample_soil_params(soil, n_samples=200, rng=rng)
-    assert all(s["Cy0"] >= 0.0 for s in samples)
+    assert all(s.Cy0 >= 0.0 for s in samples)
 
 
 def test_sample_soil_params_clay_clipped_to_valid_range():
@@ -299,7 +302,7 @@ def test_sample_soil_params_clay_clipped_to_valid_range():
                           clay_q05=90.0, clay_q95=106.0)  # q95 > 100 is invalid in real data, but tests clip
     rng = np.random.default_rng(3)
     samples = sample_soil_params(soil, n_samples=200, rng=rng)
-    assert all(0.0 <= s["clay"] <= 100.0 for s in samples)
+    assert all(0.0 <= s.clay <= 100.0 for s in samples)
 
 
 # ---------------------------------------------------------------------------

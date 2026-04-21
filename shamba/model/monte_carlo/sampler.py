@@ -15,6 +15,7 @@ from model.monte_carlo.distribution_handler import DistributionSpec
 from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS, expand_model_param_samples, flatten_model_param_sample
 from model.common.data_handler import get_header_type
+import model.soil_params as SoilParams
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
@@ -304,17 +305,18 @@ def draw_samples(
 
 
 def sample_soil_params(
-    soil,
+    soil: SoilParams.SoilParamsData,
     n_samples: int,
     rng: np.random.Generator,
-) -> List[Dict]:
-    """Draw N soil parameter dicts from the uncertainty stored in SoilParamsData.
+) -> List[SoilParams.SoilParamsData]:
+    """Draw N SoilParamsData objects from the uncertainty stored in a SoilParamsData.
 
     Fits a normal distribution to the stored quantiles:
       sigma = (q95 - q05) / (2 * 1.645)
     If q05 == q95 == mean, sigma = 0 and all samples equal the mean.
 
-    Cy0 is clipped to >= 0; clay is clipped to [0, 100].
+    Cy0 is clipped to >= 0; clay is clipped to [0, 100]. All other fields are
+    copied unchanged from the original soil object.
 
     Args:
         soil: SoilParamsData object with Cy0, clay and their quantile fields.
@@ -322,7 +324,7 @@ def sample_soil_params(
         rng: numpy random Generator.
 
     Returns:
-        list of n_samples dicts with keys: 'Cy0', 'clay'.
+        list of n_samples SoilParamsData objects with perturbed Cy0 and clay.
     """
     # Infer sigma from Q0.05/Q0.95 (1.645 is the z-score for the 95th percentile).
     cy0_sigma = (soil.Cy0_q95 - soil.Cy0_q05) / (2.0 * 1.645)
@@ -341,7 +343,17 @@ def sample_soil_params(
         clay_draws = np.clip(clay_draws, 0.0, 100.0)
 
     return [
-        {"Cy0": float(cy0_draws[i]), "clay": float(clay_draws[i])}
+        SoilParams.SoilParamsData(
+            Cy0=float(cy0_draws[i]),
+            clay=float(clay_draws[i]),
+            depth=soil.depth,
+            Ceq=soil.Ceq,
+            iom=soil.iom,
+            Cy0_q05=soil.Cy0_q05,
+            Cy0_q95=soil.Cy0_q95,
+            clay_q05=soil.clay_q05,
+            clay_q95=soil.clay_q95,
+        )
         for i in range(n_samples)
     ]
 

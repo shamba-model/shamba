@@ -42,6 +42,9 @@ class FakeSoilParams:
     def __init__(self):
         self.Cy0 = 5.0
         self.clay = 30.0
+        self.depth = 30.0
+        self.Ceq = 10.0
+        self.iom = 1.0
         self.Cy0_q05 = 5.0
         self.Cy0_q95 = 5.0
         self.clay_q05 = 30.0
