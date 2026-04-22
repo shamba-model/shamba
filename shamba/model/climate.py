@@ -82,20 +82,26 @@ class ClimateDataSchema(Schema):
         return ClimateData(**data)
 
 
-def from_vectors(temperature, rain, evaporation) -> ClimateData:
+def from_vectors(temperature, rain, evaporation,
+                 temperature_std=None, rain_std=None, evaporation_std=None) -> ClimateData:
     """Construct ClimateData directly from pre-validated arrays.
 
     Bypasses the length-12 schema check, so accepts multi-year arrays
     (e.g. length 12 * N_YEARS from split input files).
+    Std arrays are optional; absent → zero uncertainty.
     """
     return ClimateData(
         temperature=np.array(temperature),
         rain=np.array(rain),
         evaporation=np.array(evaporation),
+        temperature_std=temperature_std,
+        rain_std=rain_std,
+        evaporation_std=evaporation_std,
     )
 
 
-def from_location(location, use_api: bool, climate_vectors=None, n_years: int = 1) -> ClimateData:
+def from_location(location, use_api: bool, climate_vectors=None, climate_stds=None,
+                  n_years: int = 1) -> ClimateData:
     """Construct Climate object for a given location.
 
     Priority order:
@@ -108,6 +114,10 @@ def from_location(location, use_api: bool, climate_vectors=None, n_years: int = 
         use_api: whether to attempt the climate API
         climate_vectors: optional tuple of (temperature, rain, evaporation)
             arrays from the split _climate_cover_data.csv file
+        climate_stds: optional tuple of (temperature_std, rain_std, evaporation_std)
+            arrays from the split input file (Temp_std/Rain_std/evap_std columns).
+            Only used when climate_vectors is provided and the API is unavailable.
+            Absent → zero uncertainty.
         n_years: number of projection years; API and CSV results are tiled to
             12 * n_years so all climate sources return the same length array
     Returns:
@@ -157,6 +167,8 @@ def from_location(location, use_api: bool, climate_vectors=None, n_years: int = 
         print("Climate API unavailable — falling back to local climate data.")
 
     if climate_vectors is not None:
+        if climate_stds is not None:
+            return from_vectors(*climate_vectors, *climate_stds)
         return from_vectors(*climate_vectors)
 
     try:
