@@ -342,20 +342,25 @@ def sample_soil_params(
         clay_draws = rng.normal(loc=soil.clay, scale=clay_sigma, size=n_samples)
         clay_draws = np.clip(clay_draws, 0.0, 100.0)
 
-    return [
-        SoilParams.SoilParamsData(
-            Cy0=float(cy0_draws[i]),
-            clay=float(clay_draws[i]),
-            depth=soil.depth,
-            Ceq=soil.Ceq,
-            iom=soil.iom,
-            Cy0_q05=soil.Cy0_q05,
-            Cy0_q95=soil.Cy0_q95,
-            clay_q05=soil.clay_q05,
-            clay_q95=soil.clay_q95,
+    samples = []
+    for i in range(n_samples):
+        cy0 = float(cy0_draws[i])
+        ceq = 1.25 * cy0
+        iom = 0.049 * ceq**1.139
+        samples.append(
+            SoilParams.SoilParamsData(
+                Cy0=cy0,
+                clay=float(clay_draws[i]),
+                depth=soil.depth,
+                Ceq=ceq,
+                iom=iom,
+                Cy0_q05=soil.Cy0_q05,
+                Cy0_q95=soil.Cy0_q95,
+                clay_q05=soil.clay_q05,
+                clay_q95=soil.clay_q95,
+            )
         )
-        for i in range(n_samples)
-    ]
+    return samples
 
 
 def sample_climate_params(
