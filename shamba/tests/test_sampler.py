@@ -305,6 +305,19 @@ def test_sample_soil_params_clay_clipped_to_valid_range():
     assert all(0.0 <= s.clay <= 100.0 for s in samples)
 
 
+def test_sample_soil_params_derived_fields_consistent():
+    """Ceq and iom in each sample are computed from the drawn Cy0, not copied from the mean."""
+    soil = FakeSoilParams(Cy0=5.0, clay=30.0, Cy0_q05=3.0, Cy0_q95=7.0,
+                          clay_q05=25.0, clay_q95=35.0)
+    rng = np.random.default_rng(42)
+    samples = sample_soil_params(soil, n_samples=50, rng=rng)
+    for s in samples:
+        expected_ceq = 1.25 * s.Cy0
+        expected_iom = 0.049 * expected_ceq**1.139
+        assert s.Ceq == pytest.approx(expected_ceq)
+        assert s.iom == pytest.approx(expected_iom)
+
+
 # ---------------------------------------------------------------------------
 # sample_climate_params — zero std
 # ---------------------------------------------------------------------------
