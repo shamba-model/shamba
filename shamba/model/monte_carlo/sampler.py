@@ -11,7 +11,7 @@ import numpy as np
 import scipy.stats
 import scipy.optimize
 
-from model.monte_carlo.distribution_handler import DistributionSpec
+from model.monte_carlo.distribution_handler import DistributionSpec, _base_mean
 from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS, expand_model_param_samples, flatten_model_param_sample
 from model.common.data_handler import get_header_type
@@ -24,10 +24,10 @@ _CLIMATE_KEYS = frozenset({"Temp", "Rain", "evap"})
 _FRACTION_TYPES = frozenset({"proportion", "scalar proportion"})
 
 
-def _base_mean(base_value) -> float:
-    """Scalar mean of a base value — handles scalars and numpy arrays."""
-    arr = np.asarray(base_value, dtype=float).ravel()
-    return float(np.mean(arr))
+def _effective_spread(fraction: float, base_mean: float, min_abs: Optional[float]) -> float:
+    """Apply a relative spread fraction to a base mean, with an optional absolute floor."""
+    raw = base_mean * fraction
+    return max(raw, min_abs) if min_abs is not None else raw
 
 
 def _draw_one(
@@ -84,18 +84,18 @@ def _draw_one(
     min_abs = spec.min_abs
 
     if dist == "normal":
-        effective_std = max(base_mean * sl, min_abs) if min_abs is not None else base_mean * sl
+        effective_std = _effective_spread(sl, base_mean, min_abs)
         return float(rng.normal(loc=base_mean, scale=effective_std))
 
     if dist == "truncated_normal":
-        effective_std = max(base_mean * sl, min_abs) if min_abs is not None else base_mean * sl
+        effective_std = _effective_spread(sl, base_mean, min_abs)
         if effective_std == 0.0:
             return base_mean
         a = -base_mean / effective_std  # lower clip at 0
         return float(scipy.stats.truncnorm.rvs(a=a, b=np.inf, loc=base_mean, scale=effective_std, random_state=rng))
 
     if dist == "lognormal":
-        effective_std = max(base_mean * sl, min_abs) if min_abs is not None else base_mean * sl
+        effective_std = _effective_spread(sl, base_mean, min_abs)
         if base_mean == 0.0 or effective_std == 0.0:
             return base_mean
         # sigma ≈ std / mean (normal approximation, accurate for sigma < ~0.5)
@@ -103,15 +103,15 @@ def _draw_one(
         return float(scipy.stats.lognorm.rvs(s=effective_sigma, scale=base_mean, random_state=rng))
 
     if dist == "uniform":
-        effective_lower_hw = max(base_mean * sl, min_abs) if min_abs is not None else base_mean * sl
-        effective_upper_hw = max(base_mean * su, min_abs) if min_abs is not None else base_mean * su
+        effective_lower_hw = _effective_spread(sl, base_mean, min_abs)
+        effective_upper_hw = _effective_spread(su, base_mean, min_abs)
         low = base_mean - effective_lower_hw
         high = base_mean + effective_upper_hw
         return float(rng.uniform(low=low, high=high))
 
     if dist == "triangular":
-        effective_lower_hw = max(base_mean * sl, min_abs) if min_abs is not None else base_mean * sl
-        effective_upper_hw = max(base_mean * su, min_abs) if min_abs is not None else base_mean * su
+        effective_lower_hw = _effective_spread(sl, base_mean, min_abs)
+        effective_upper_hw = _effective_spread(su, base_mean, min_abs)
         low = base_mean - effective_lower_hw
         high = base_mean + effective_upper_hw
         # scipy.stats.triang: c is the fractional position of the mode within [low, high]
@@ -421,9 +421,11 @@ def sample_model_params(
     """Draw N model parameter dicts from the uncertainty stored in ModelParamsData.
 
     Args:
-        model_params: ModelParamsData object with model parameters and their quantile fields.
+        base_model_params: EmissionFactors namedtuple with default model parameters.
         n_samples: number of samples to draw.
-        rng: numpy random Generator.
+        seed: optional integer seed for reproducibility.
+        rng: numpy random Generator (overrides seed if supplied).
+        distribution_dict: mapping of parameter name to DistributionSpec.
 
     Returns:
         list of n_samples EmissionFactors namedtuples with perturbed model parameters.

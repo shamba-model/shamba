@@ -32,15 +32,21 @@ MODEL_PARAMETER_DISTRIBUTIONS = {
         ),
     }
 
+# EmissionFactors stores ef_burn and combustion_factor as nested dicts
+# (one sub-key per fuel type). MODEL_PARAMETER_DISTRIBUTIONS uses flat keys
+# (e.g. "ef_burn_crop_N2O") so the sampler can iterate over individual scalars.
+# flatten_model_param_sample converts EmissionFactors → flat dict for sampling;
+# expand_model_param_samples converts flat dict → nested dict for EmissionFactors
+# construction. Any new ef_burn or combustion_factor parameter must be added in
+# both functions and in MODEL_PARAMETER_DISTRIBUTIONS.
+
 def expand_model_param_samples(model_param_sample):
-    """Expand a model parameter sample with the parameters needed for the emit function."""
+    """Expand a flat sample dict into the nested structure expected by EmissionFactors."""
     model_param_sample_expanded = model_param_sample.copy()
-    # Add ef_burn parameters
     model_param_sample_expanded["ef_burn"] = {
         param: model_param_sample[f"ef_burn_{param}"]
         for param in ["crop_N2O", "crop_CH4", "tree_N2O", "tree_CH4"]
         }
-    # Add combustion_factor parameters
     model_param_sample_expanded["combustion_factor"] = {
         param: model_param_sample_expanded[f"combustion_factor_{param}"]
         for param in ["crop", "tree"]
@@ -48,13 +54,11 @@ def expand_model_param_samples(model_param_sample):
     return model_param_sample_expanded
 
 def flatten_model_param_sample(model_param_sample):
-    """Flatten a model parameter sample by removing the nested structure."""
+    """Flatten an EmissionFactors dict into scalar-keyed form for per-parameter sampling."""
     flat_sample = model_param_sample.copy()
-    # Remove ef_burn nested dict
     for param in ["crop_N2O", "crop_CH4", "tree_N2O", "tree_CH4"]:
         flat_sample[f"ef_burn_{param}"] = flat_sample["ef_burn"][param]
     del flat_sample["ef_burn"]
-    # Remove combustion_factor nested dict
     for param in ["crop", "tree"]:
         flat_sample[f"combustion_factor_{param}"] = flat_sample["combustion_factor"][param]
     del flat_sample["combustion_factor"]
