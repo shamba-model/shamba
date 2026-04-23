@@ -11,6 +11,10 @@ from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS
 from model.monte_carlo.distribution_handler import DistributionSpec
 
+class MCSummaries(NamedTuple):
+    base: Dict[str, np.ndarray]
+    project: Dict[str, np.ndarray]
+    diff: Dict[str, np.ndarray]
 
 class SampleArgs(NamedTuple):
     perturbed_intervention_input: Dict[str, Any]
@@ -57,6 +61,8 @@ def run_monte_carlo(
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
     use_api: bool = CONSTANTS.DEFAULT_USE_API,
     seed: Optional[int] = None,
+    checkpoint_every: int = 0,
+    on_checkpoint: Optional[Callable[[int, MCSummaries], None]] = None,
 ) -> List[Dict[str, Any]]:
 
     rng = np.random.default_rng(seed)
@@ -97,22 +103,37 @@ def run_monte_carlo(
     for i in range(n_samples):
         samples[i].update(climate_samples[i])
 
+    if checkpoint_every > 0:
+        batch_starts = range(0, n_samples, checkpoint_every)
+        batch_size = checkpoint_every
+    else:
+        batch_starts = [0]
+        batch_size = n_samples
+
+    results = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = list(executor.map(_run_single_sample, [
-            SampleArgs(
-                perturbed_intervention_input=samples[i],
-                emission_factors = emission_factor_samples[i],
-                create_forward_soil_model=create_forward_soil_model,
-                create_inverse_soil_model=create_inverse_soil_model,
-                n_cohorts=n_cohorts,
-                plot_index=plot_index,
-                soil_params=soil_samples[i],
-                allometry=allometry,
-                gwp=gwp,
-                use_api=use_api,
-            )
-            for i in range(n_samples)
-        ]))
+        for start in batch_starts:
+            stop = start + batch_size
+            samples_batch = samples[start:stop]
+            emission_factor_samples_batch = emission_factor_samples[start:stop]
+            soil_samples_batch = soil_samples[start:stop]
+            results.extend(list(executor.map(_run_single_sample, [
+                SampleArgs(
+                    perturbed_intervention_input=samples_batch[i],
+                    emission_factors=emission_factor_samples_batch[i],
+                    create_forward_soil_model=create_forward_soil_model,
+                    create_inverse_soil_model=create_inverse_soil_model,
+                    n_cohorts=n_cohorts,
+                    plot_index=plot_index,
+                    soil_params=soil_samples_batch[i],
+                    allometry=allometry,
+                    gwp=gwp,
+                    use_api=use_api,
+                )
+                for i in range(len(samples_batch))
+            ])))
+            if on_checkpoint:
+                on_checkpoint(len(results), summarise_mc_results(results))
 
     return results
 
@@ -148,12 +169,6 @@ _DIFF_GETTERS = {
     "crop":       lambda r: r.crop_difference,
     "emit":       lambda r: r.emit_project_emissions - r.emit_base_emissions,
 }
-
-
-class MCSummaries(NamedTuple):
-    base: Dict[str, np.ndarray]
-    project: Dict[str, np.ndarray]
-    diff: Dict[str, np.ndarray]
 
 
 def _compute_summary(
