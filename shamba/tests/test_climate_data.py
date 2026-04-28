@@ -12,7 +12,7 @@ import pytest
 from datetime import date
 
 from model.common.data_sources.climate import ClimateStats, compute_monthly_mean_std
-from model.climate import ClimateData, from_csv
+from model.climate import ClimateData, from_csv, from_vectors
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +168,9 @@ def test_from_csv_6col_std_populated(tmp_path, monkeypatch):
     assert np.all(climate.temperature_std == pytest.approx(2.0))
     assert np.all(climate.rain_std        == pytest.approx(8.0))
     assert np.all(climate.evaporation_std == pytest.approx(6.0))
+    assert len(climate.temperature_std) == 12
+    assert len(climate.rain_std)        == 12
+    assert len(climate.evaporation_std) == 12
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +178,7 @@ def test_from_csv_6col_std_populated(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_climate_data_std_defaults_to_zero():
-    """ClimateData constructed without std args: std arrays are all zero."""
+    """ClimateData constructed without std args: std arrays are all zero and 12 elements."""
     climate = ClimateData(
         temperature=[20.0] * 12,
         rain=[80.0] * 12,
@@ -185,6 +188,9 @@ def test_climate_data_std_defaults_to_zero():
     assert np.all(climate.temperature_std == pytest.approx(0.0))
     assert np.all(climate.rain_std        == pytest.approx(0.0))
     assert np.all(climate.evaporation_std == pytest.approx(0.0))
+    assert len(climate.temperature_std) == 12
+    assert len(climate.rain_std)        == 12
+    assert len(climate.evaporation_std) == 12
 
 
 def test_climate_data_std_stored_correctly():
@@ -201,3 +207,56 @@ def test_climate_data_std_stored_correctly():
     assert np.all(climate.temperature_std == pytest.approx(2.0))
     assert np.all(climate.rain_std        == pytest.approx(8.0))
     assert np.all(climate.evaporation_std == pytest.approx(6.0))
+
+
+# ---------------------------------------------------------------------------
+# from_vectors — single year
+# ---------------------------------------------------------------------------
+
+def test_from_vectors_single_year_means_equal_input():
+    """Single-year input: means equal the input values; stds all zero."""
+    temp = [float(10 + m) for m in range(12)]
+    rain = [float(80 + m) for m in range(12)]
+    evap = [float(50 + m) for m in range(12)]
+    climate = from_vectors(temp, rain, evap)
+
+    np.testing.assert_array_almost_equal(climate.temperature, temp)
+    np.testing.assert_array_almost_equal(climate.rain, rain)
+    np.testing.assert_array_almost_equal(climate.evaporation, evap)
+    assert np.all(climate.temperature_std == pytest.approx(0.0))
+    assert np.all(climate.rain_std        == pytest.approx(0.0))
+    assert np.all(climate.evaporation_std == pytest.approx(0.0))
+
+
+# ---------------------------------------------------------------------------
+# from_vectors — multi-year means
+# ---------------------------------------------------------------------------
+
+def test_from_vectors_multi_year_means_correct():
+    """2-year input: monthly means are the per-month average across years."""
+    # Year 1: all months = 10.0; Year 2: all months = 20.0 → mean = 15.0
+    climate = from_vectors([10.0] * 12 + [20.0] * 12, [80.0] * 24, [50.0] * 24)
+
+    assert np.all(climate.temperature == pytest.approx(15.0))
+    assert len(climate.temperature) == 12
+
+
+# ---------------------------------------------------------------------------
+# from_vectors — multi-year stds
+# ---------------------------------------------------------------------------
+
+def test_from_vectors_multi_year_stds_correct():
+    """2-year input with known values: stds match np.std(ddof=1) exactly."""
+    climate = from_vectors([10.0] * 12 + [20.0] * 12, [80.0] * 24, [50.0] * 24)
+
+    expected_std = np.std([10.0, 20.0], ddof=1)  # ≈ 7.071
+    assert np.all(climate.temperature_std == pytest.approx(expected_std))
+    assert len(climate.temperature_std) == 12
+
+
+def test_from_vectors_identical_years_std_zero():
+    """Multi-year input where all years are identical: stds are zero."""
+    climate = from_vectors([15.0] * 36, [80.0] * 36, [50.0] * 36)
+
+    assert np.all(climate.temperature_std == pytest.approx(0.0))
+    assert len(climate.temperature_std) == 12

@@ -84,16 +84,36 @@ class ClimateDataSchema(Schema):
 
 
 def from_vectors(temperature, rain, evaporation) -> ClimateData:
-    """Construct ClimateData directly from pre-validated arrays.
+    """Construct ClimateData from split-file monthly vectors.
 
-    Bypasses the length-12 schema check, so accepts multi-year arrays
-    (e.g. length 12 * N_YEARS from split input files).
-    Stds are not accepted here; they come only from the API or climate.csv.
+    Accepts a 12 * n_years array per variable. Reshapes to (n_years, 12)
+    and computes monthly means and inter-annual stds (ddof=1), mirroring
+    the API approach. If n_years == 1, or all years are identical, stds
+    are zero.
     """
+    n_years = len(temperature) // 12
+    temp_arr = np.array(temperature).reshape(n_years, 12)
+    rain_arr = np.array(rain).reshape(n_years, 12)
+    evap_arr = np.array(evaporation).reshape(n_years, 12)
+
+    temp_mean = np.mean(temp_arr, axis=0)
+    rain_mean = np.mean(rain_arr, axis=0)
+    evap_mean = np.mean(evap_arr, axis=0)
+
+    if n_years > 1:
+        temp_std = np.std(temp_arr, axis=0, ddof=1)
+        rain_std = np.std(rain_arr, axis=0, ddof=1)
+        evap_std = np.std(evap_arr, axis=0, ddof=1)
+    else:
+        temp_std = rain_std = evap_std = np.zeros(12)
+
     return ClimateData(
-        temperature=np.array(temperature),
-        rain=np.array(rain),
-        evaporation=np.array(evaporation),
+        temperature=temp_mean,
+        rain=rain_mean,
+        evaporation=evap_mean,
+        temperature_std=temp_std,
+        rain_std=rain_std,
+        evaporation_std=evap_std,
     )
 
 
