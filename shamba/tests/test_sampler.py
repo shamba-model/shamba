@@ -8,7 +8,7 @@ Covers:
 - sample_soil_params: zero uncertainty (q05=q95=mean) → all samples equal mean
 - sample_soil_params: non-zero uncertainty produces spread; clips Cy0 >= 0, clay in [0, 100]
 - sample_climate_params: zero std → all samples equal mean
-- sample_climate_params: non-zero std produces spread; rain clipped to >= 0
+- sample_climate_params: non-zero std produces spread matching Normal(mean, std); rain/evap clipped >= 0
 - Skew-normal with equal spread_lower/spread_upper produces draws centred on base
 - All seven distribution types produce the correct number of samples
 - Fraction parameters clamped to [0, 1] with a warning
@@ -62,9 +62,9 @@ class FakeClimateData:
         self.temperature = np.array(temperature)
         self.rain = np.array(rain)
         self.evaporation = np.array(evaporation)
-        self.temperature_std = np.zeros_like(self.temperature) if temperature_std is None else np.array(temperature_std)
-        self.rain_std = np.zeros_like(self.rain) if rain_std is None else np.array(rain_std)
-        self.evaporation_std = np.zeros_like(self.evaporation) if evaporation_std is None else np.array(evaporation_std)
+        self.temperature_std = np.zeros(12) if temperature_std is None else np.array(temperature_std)
+        self.rain_std = np.zeros(12) if rain_std is None else np.array(rain_std)
+        self.evaporation_std = np.zeros(12) if evaporation_std is None else np.array(evaporation_std)
 
 
 BASE_DICT = {
@@ -343,7 +343,7 @@ def test_sample_climate_params_zero_std():
 # ---------------------------------------------------------------------------
 
 def test_sample_climate_params_nonzero_std():
-    """Non-zero std produces spread in temperature draws."""
+    """Non-zero std produces draws matching Normal(mean, std) — mean and spread verified."""
     climate = FakeClimateData(
         temperature=[20.0] * 12,
         rain=[80.0] * 12,
@@ -355,12 +355,8 @@ def test_sample_climate_params_nonzero_std():
     rng = np.random.default_rng(4)
     samples = sample_climate_params(climate, n_samples=1000, rng=rng)
     temp_vals = np.array([s["Temp"][0] for s in samples])
-    assert np.std(temp_vals) > 1.8
-    # TODO: tighten to verify the formula directly. temperature_std=2.0 means draws are
-    # Normal(20.0, 2.0), so the empirical std of temp_vals should be ≈ 2.0.
-    # With N=1000 and fixed seed, assert np.std(temp_vals) ≈ 2.0 (rtol ~0.15).
-    # std > 0.1 is far too loose to catch an implementation error (e.g. std / 2, or
-    # std treated as variance).
+    assert np.mean(temp_vals) == pytest.approx(20.0, abs=0.3)
+    assert np.std(temp_vals)  == pytest.approx(2.0,  rel=0.15)
 
 
 def test_sample_climate_params_rain_clipped():

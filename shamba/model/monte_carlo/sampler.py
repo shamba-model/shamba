@@ -370,25 +370,22 @@ def sample_climate_params(
 ) -> List[Dict]:
     """Draw N climate parameter dicts from the uncertainty stored in ClimateData.
 
-    Draws from Normal(mean, std) for each monthly value independently.
-    Rain and evaporation are clipped to >= 0. If all stds are 0, all samples
-    equal the means.
+    ClimateData always holds 12-element monthly means and stds. Draws one value
+    per month from Normal(mean[m], std[m]). Rain and evaporation are clipped to
+    >= 0. If all stds are 0, all samples equal the means.
 
     Args:
-        climate: ClimateData object with temperature, rain, evaporation and their _std arrays.
+        climate: ClimateData object. All fields are 12-element monthly arrays.
         n_samples: number of samples to draw.
         rng: numpy random Generator.
 
     Returns:
         list of n_samples dicts with keys: 'Temp', 'Rain', 'evap'.
-        Each value is a numpy array of the same length as the base climate vectors.
+        Each value is a 12-element numpy array.
     """
-    temp_mean = climate.temperature
-    temp_std = climate.temperature_std
-    rain_mean = climate.rain
-    rain_std = climate.rain_std
-    evap_mean = climate.evaporation
-    evap_std = climate.evaporation_std
+    temp_mean, temp_std = climate.temperature, climate.temperature_std
+    rain_mean, rain_std = climate.rain, climate.rain_std
+    evap_mean, evap_std = climate.evaporation, climate.evaporation_std
 
     results = []
     for _ in range(n_samples):
