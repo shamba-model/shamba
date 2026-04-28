@@ -100,8 +100,15 @@ def run_monte_carlo(
             rng=rng,
         )
 
+    _CLIMATE_STD_ATTRS = {
+        "Temp": "temperature_std",
+        "Rain": "rain_std",
+        "evap": "evaporation_std",
+    }
     for i in range(n_samples):
-        samples[i].update(climate_samples[i])
+        for key, std_attr in _CLIMATE_STD_ATTRS.items():
+            if np.any(getattr(climate, std_attr) != 0.0):
+                samples[i][key] = climate_samples[i][key]
 
     if checkpoint_every > 0:
         batch_starts = range(0, n_samples, checkpoint_every)
