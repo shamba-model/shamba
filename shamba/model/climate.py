@@ -57,10 +57,11 @@ class ClimateData:
         self.rain = np.array(rain)
         self.evaporation = np.array(evaporation)
         # Std fields for Monte Carlo uncertainty.
-        # Default to zero arrays (no uncertainty) when not provided.
-        self.temperature_std = np.zeros_like(self.temperature) if temperature_std is None else np.array(temperature_std)
-        self.rain_std = np.zeros_like(self.rain) if rain_std is None else np.array(rain_std)
-        self.evaporation_std = np.zeros_like(self.evaporation) if evaporation_std is None else np.array(evaporation_std)
+        # Always 12 elements (one per calendar month) regardless of how many years
+        # the mean arrays span. Default to zeros when not provided.
+        self.temperature_std = np.zeros(12) if temperature_std is None else np.array(temperature_std)
+        self.rain_std = np.zeros(12) if rain_std is None else np.array(rain_std)
+        self.evaporation_std = np.zeros(12) if evaporation_std is None else np.array(evaporation_std)
 
 
 class ClimateDataSchema(Schema):
@@ -82,26 +83,21 @@ class ClimateDataSchema(Schema):
         return ClimateData(**data)
 
 
-def from_vectors(temperature, rain, evaporation,
-                 temperature_std=None, rain_std=None, evaporation_std=None) -> ClimateData:
+def from_vectors(temperature, rain, evaporation) -> ClimateData:
     """Construct ClimateData directly from pre-validated arrays.
 
     Bypasses the length-12 schema check, so accepts multi-year arrays
     (e.g. length 12 * N_YEARS from split input files).
-    Std arrays are optional; absent → zero uncertainty.
+    Stds are not accepted here; they come only from the API or climate.csv.
     """
     return ClimateData(
         temperature=np.array(temperature),
         rain=np.array(rain),
         evaporation=np.array(evaporation),
-        temperature_std=temperature_std,
-        rain_std=rain_std,
-        evaporation_std=evaporation_std,
     )
 
 
-def from_location(location, use_api: bool, climate_vectors=None, climate_stds=None,
-                  n_years: int = 1) -> ClimateData:
+def from_location(location, use_api: bool, climate_vectors=None) -> ClimateData:
     """Construct Climate object for a given location.
 
     Priority order:
@@ -114,12 +110,6 @@ def from_location(location, use_api: bool, climate_vectors=None, climate_stds=No
         use_api: whether to attempt the climate API
         climate_vectors: optional tuple of (temperature, rain, evaporation)
             arrays from the split _climate_cover_data.csv file
-        climate_stds: optional tuple of (temperature_std, rain_std, evaporation_std)
-            arrays from the split input file (Temp_std/Rain_std/evap_std columns).
-            Only used when climate_vectors is provided and the API is unavailable.
-            Absent → zero uncertainty.
-        n_years: number of projection years; API and CSV results are tiled to
-            12 * n_years so all climate sources return the same length array
     Returns:
         ClimateData object
     """
@@ -141,14 +131,6 @@ def from_location(location, use_api: bool, climate_vectors=None, climate_stds=No
             rain_std        = [s.std for s in rain_stats]
             evaporation_std = [s.std for s in evap_stats]
 
-            if n_years > 1:
-                temperature     = list(np.tile(temperature, n_years))
-                rain            = list(np.tile(rain, n_years))
-                evaporation     = list(np.tile(evaporation, n_years))
-                temperature_std = list(np.tile(temperature_std, n_years))
-                rain_std        = list(np.tile(rain_std, n_years))
-                evaporation_std = list(np.tile(evaporation_std, n_years))
-
             params = {"temperature": temperature, "rain": rain, "evaporation": evaporation}
             schema = ClimateDataSchema()
             errors = schema.validate(params)
@@ -167,23 +149,19 @@ def from_location(location, use_api: bool, climate_vectors=None, climate_stds=No
         print("Climate API unavailable — falling back to local climate data.")
 
     if climate_vectors is not None:
-        if climate_stds is not None:
-            return from_vectors(*climate_vectors, *climate_stds)
         return from_vectors(*climate_vectors)
 
     try:
-        return from_csv(n_years=n_years)
+        return from_csv()
     except ValueError:
         raise ValueError("Climate data not found in API, split input file, or local climate.csv.")
 
 
-def from_csv(filename="climate.csv", n_years: int = 1) -> ClimateData:
+def from_csv(filename="climate.csv") -> ClimateData:
     """Construct Climate object from a csv file.
 
     Args:
         filename: path to csv file containing climate data
-        n_years: number of projection years; the 12-row CSV is tiled to
-            12 * n_years so the result matches multi-year climate arrays
     Returns:
         Climate object
     Raises:
@@ -235,14 +213,6 @@ def from_csv(filename="climate.csv", n_years: int = 1) -> ClimateData:
             temperature_std = np.zeros_like(temperature)
             rain_std        = np.zeros_like(rain)
             evaporation_std = np.zeros_like(evaporation)
-
-        if n_years > 1:
-            temperature     = np.tile(temperature, n_years)
-            rain            = np.tile(rain, n_years)
-            evaporation     = np.tile(evaporation, n_years)
-            temperature_std = np.tile(temperature_std, n_years)
-            rain_std        = np.tile(rain_std, n_years)
-            evaporation_std = np.tile(evaporation_std, n_years)
 
         params = {"temperature": temperature, "rain": rain, "evaporation": evaporation}
         errors = ClimateDataSchema().validate(params)

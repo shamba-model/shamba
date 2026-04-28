@@ -446,7 +446,7 @@ def main(n, arguments):
                 vector_input_data["Temp"],
                 vector_input_data["Rain"],
                 vector_input_data["evap"],)
-        climate = Climate.from_location(location, use_api, climate_vectors=climate_vectors, n_years=no_of_years)
+        climate = Climate.from_location(location, use_api, climate_vectors=climate_vectors)
         soil_params = SoilParams.get_soil_params(
             location=location, use_api=use_api, plot_id=plot_id, plot_index=n
         )

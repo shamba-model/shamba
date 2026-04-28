@@ -23,11 +23,6 @@ REQUIRED_HEADER_DATATYPE = {
     "Temp": "float",
     "Rain": "non-negative float",
     "evap": "non-negative float",
-    # TODO: standardise std column naming — split-file uses Temp_std/Rain_std/evap_std
-    # (matching Temp/Rain/evap casing) while climate.csv uses temp_std/rain_std/evap_std.
-    "Temp_std": "non-negative float",
-    "Rain_std": "non-negative float",
-    "evap_std": "non-negative float",
     "pet": "non-negative float",
     "base_cover": "binary",
     "proj_cover": "binary",
