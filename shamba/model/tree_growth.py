@@ -669,6 +669,9 @@ def create_baseline_tree_growths(csv_input_data, tree_params, allometric_keys, c
     Defaults to one baseline cohort. Increase cohort_count when the baseline
     contains multiple tree species. Baseline allometry is always at index 0
     of allometric_keys.
+
+    TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
+    baselines are possible; cohort_count would need to be wired from input data if so.
     """
     return [
         get_growth(

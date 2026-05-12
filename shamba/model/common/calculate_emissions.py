@@ -1,4 +1,4 @@
-from typing import Dict, Union, List, NamedTuple, Tuple, Any, Callable
+from typing import Dict, Optional, Union, List, NamedTuple, Tuple, Any, Callable
 from toolz import get, compose  # type: ignore
 from copy import deepcopy
 import numpy as np
@@ -68,6 +68,8 @@ def get_tree_model_data(
     )
 
     # Thinning and mortality: read pre-built vectors directly from input.
+    # TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
+    # baselines are possible and, if so, loop over base cohorts as is done for project cohorts.
     # Baseline always has one cohort; project reads per-cohort arrays indexed 1..no_of_cohorts.
     thinning_base = intervention_input["thin_base_cohort1"]
     thinning_fraction_left_base = np.array([
@@ -316,6 +318,7 @@ def get_emissions_data(
     fire_project: np.ndarray,
     fire_off_project: bool,
     gwp: dict,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsReturnData:
     # Emissions stuff
     emit_base_emissions = Emit.create(
@@ -328,6 +331,8 @@ def get_emissions_data(
         fire=fire_base,
         burn_off=fire_off_base,
         gwp=gwp,
+        emission_factors=emission_factors
+
     )
     emit_project_emissions = Emit.create(
         no_of_years=no_of_years,
@@ -339,6 +344,7 @@ def get_emissions_data(
         fire=fire_project,
         burn_off=fire_off_project,
         gwp=gwp,
+        emission_factors=emission_factors
     )
 
     return GetEmissionsReturnData(
@@ -362,6 +368,7 @@ def get_crop_emissions(
     burn_off_base: bool,
     burn_off_project: bool,
     gwp: dict,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsWithDifferenceReturnData:
     crop_base_emissions = Emit.create(
         no_of_years=no_of_years,
@@ -369,6 +376,7 @@ def get_crop_emissions(
         fire=fire_base,
         gwp=gwp,
         burn_off=burn_off_base,
+        emission_factors=emission_factors        
     )
     crop_project_emissions = Emit.create(
         no_of_years=no_of_years,
@@ -376,6 +384,7 @@ def get_crop_emissions(
         fire=fire_project,
         gwp=gwp,
         burn_off=burn_off_project,
+        emission_factors=emission_factors
     )
     crop_difference = crop_project_emissions - crop_base_emissions
 
@@ -391,16 +400,19 @@ def get_fertiliser_emissions(
     synthetic_fertiliser_base: LitterModel.LitterModelData,
     synthetic_fertiliser_project: LitterModel.LitterModelData,
     gwp: dict,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsWithDifferenceReturnData:
     fertiliser_base_emissions = Emit.create(
         no_of_years=no_of_years,
         fert=[synthetic_fertiliser_base],
         gwp=gwp,
+        emission_factors=emission_factors
     )
     fertiliser_project_emissions = Emit.create(
         no_of_years=no_of_years,
         fert=[synthetic_fertiliser_project],
         gwp=gwp,
+        emission_factors=emission_factors
     )
     fertiliser_difference = fertiliser_project_emissions - fertiliser_base_emissions
 
@@ -418,18 +430,21 @@ def get_litter_emissions(
     litter_external_base: LitterModel.LitterModelData,
     litter_external_project: LitterModel.LitterModelData,
     gwp: dict,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsWithDifferenceReturnData:
     litter_base_emissions = Emit.create(
         no_of_years=no_of_years,
         litter=[litter_external_base],
         fire=fire_base,
         gwp=gwp,
+        emission_factors=emission_factors
     )
     litter_project_emissions = Emit.create(
         no_of_years=no_of_years,
         litter=[litter_external_project],
         fire=fire_project,
         gwp=gwp,
+        emission_factors=emission_factors
     )
     litter_difference = litter_project_emissions - litter_base_emissions
 
@@ -445,16 +460,19 @@ def get_fire_emissions(
     fire_base: np.ndarray,
     fire_project: np.ndarray,
     gwp: dict,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsWithDifferenceReturnData:
     fire_base_emissions = Emit.create(
         no_of_years=no_of_years,
         fire=fire_base,
         gwp=gwp,
+        emission_factors=emission_factors
     )
     fire_project_emissions = Emit.create(
         no_of_years=no_of_years,
         fire=fire_project,
         gwp=gwp,
+        emission_factors=emission_factors
     )
     fire_difference = fire_project_emissions - fire_base_emissions
 
@@ -472,18 +490,21 @@ def get_tree_emissions(
     tree_base: TreeModel.TreeModel,
     tree_projects: List[TreeModel.TreeModel],
     gwp: dict,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsWithDifferenceReturnData:
     tree_base_emissions = Emit.create(
         no_of_years=no_of_years,
         tree=[tree_base],
         fire=fire_base,
         gwp=gwp,
+        emission_factors=emission_factors
     )
     tree_project_emissions = Emit.create(
         no_of_years=no_of_years,
         tree=tree_projects,
         fire=fire_project,
         gwp=gwp,
+        emission_factors=emission_factors
     )
     tree_difference = tree_project_emissions - tree_base_emissions
 
@@ -535,9 +556,11 @@ def handle_intervention(
     create_inverse_soil_model,
     n_cohorts: int,
     plot_index: int,
+    soil_override: Optional[SoilParams.SoilParamsData] = None,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
     use_api: bool = CONSTANTS.DEFAULT_USE_API,
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors()
 ):
     no_of_years = get_int(CONSTANTS.NO_OF_YEARS_KEY, intervention_input)
     plot_id = get_int("plot_name", intervention_input)
@@ -553,14 +576,17 @@ def handle_intervention(
             intervention_input["Rain"],
             intervention_input["evap"],
         )
-    climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors, n_years=no_of_years)
+    climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors)
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
     # ----------
-    soil = SoilParams.get_soil_params(
-        location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
-    )
+    if soil_override is not None:
+        soil = soil_override
+    else:
+        soil = SoilParams.get_soil_params(
+            location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
+        )
 
     # inverse uses one monthly vector of climate data, but climate is a 12 * years vector, so average:
     inverse_climate = deepcopy(climate)
@@ -606,6 +632,7 @@ def handle_intervention(
         burn_off_base=fire_model_data.fire_off_base,
         burn_off_project=fire_model_data.fire_off_proj,
         gwp=gwp,
+        emission_factors=emission_factors
     )
 
     fertiliser_emissions = get_fertiliser_emissions(
@@ -613,6 +640,7 @@ def handle_intervention(
         synthetic_fertiliser_base=litter_model_data.synthetic_fertiliser_base,
         synthetic_fertiliser_project=litter_model_data.synthetic_fertiliser_project,
         gwp=gwp,
+        emission_factors=emission_factors
     )
 
     litter_emissions = get_litter_emissions(
@@ -622,6 +650,7 @@ def handle_intervention(
         litter_external_base=litter_model_data.litter_external_base,
         litter_external_project=litter_model_data.litter_external_project,
         gwp=gwp,
+        emission_factors=emission_factors
     )
 
     fire_emissions = get_fire_emissions(
@@ -629,6 +658,8 @@ def handle_intervention(
         fire_base=fire_model_data.fire_base,
         fire_project=fire_model_data.fire_project,
         gwp=gwp,
+        emission_factors=emission_factors
+
     )
 
     tree_emissions = get_tree_emissions(
@@ -638,6 +669,7 @@ def handle_intervention(
         tree_base=tree_model_data.tree_base,
         tree_projects=tree_model_data.tree_projects,
         gwp=gwp,
+        emission_factors=emission_factors
     )
 
     # ----------
@@ -679,6 +711,7 @@ def handle_intervention(
         fire_project=fire_model_data.fire_project,
         fire_off_project=fire_model_data.fire_off_proj,
         gwp=gwp,
+        emission_factors=emission_factors,
     )
 
     soil_base_emissions = emissions.emit_base_emissions - (

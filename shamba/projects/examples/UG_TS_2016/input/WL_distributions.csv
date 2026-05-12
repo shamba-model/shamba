@@ -1,0 +1,2 @@
+parameter,distribution,spread_lower,spread_upper,min_abs
+crop_proj_yd1,lognormal,0.5,0.5,0.1

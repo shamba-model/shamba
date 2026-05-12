@@ -29,10 +29,13 @@ import model.soil_params as SoilParams
 import model.tree_growth as TreeGrowth
 import model.tree_model as TreeModel
 from model import configuration
-from model.common.calculate_emissions import handle_intervention
+from model.common.calculate_emissions import get_location, handle_intervention
+import model.common.constants as CONSTANTS
 
 import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
+from model.monte_carlo import distribution_handler
+from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv, write_mc_metadata
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(_dir))
@@ -425,16 +428,99 @@ def main(n, arguments):
 
     gwp = arguments["gwp"]
 
-    intervention_emissions = handle_intervention(
-        intervention_input=vector_input_data,
-        n_cohorts=N_COHORTS,
-        plot_index=n,
-        allometry=allometric_keys,
-        gwp=gwp,
-        use_api=arguments["use-api"],
-        create_forward_soil_model=ForwardSoilModel.create,
-        create_inverse_soil_model=InverseSoilModel.create,
-    )
+    if arguments["n-samples"]:
+        n_samples = arguments["n-samples"]
+        if arguments["distribution-file-name"]:
+            distribution_file_path = os.path.join(configuration.INPUT_DIR, arguments["distribution-file-name"])
+            distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
+        else:
+            distribution_dict = None
+        # TODO: tidy the below up so that it isn't a duplicate of the code at the beginning of handle_intervention()
+        use_api = arguments["use-api"]
+        no_of_years = int(np.atleast_1d(vector_input_data[CONSTANTS.NO_OF_YEARS_KEY])[0])
+        plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
+        location = get_location(vector_input_data)
+        climate_vectors = None
+        if "Temp" in vector_input_data:
+            climate_vectors = (
+                vector_input_data["Temp"],
+                vector_input_data["Rain"],
+                vector_input_data["evap"],)
+        climate = Climate.from_location(location, use_api, climate_vectors=climate_vectors)
+        soil_params = SoilParams.get_soil_params(
+            location=location, use_api=use_api, plot_id=plot_id, plot_index=n
+        )
+
+        mc_results = run_monte_carlo(
+            base_input_dict=vector_input_data,
+            soil_params=soil_params,
+            climate=climate,
+            n_samples=n_samples,
+            create_forward_soil_model=ForwardSoilModel.create,
+            create_inverse_soil_model=InverseSoilModel.create,
+            n_cohorts=N_COHORTS,
+            plot_index=n,
+            sample_emission_factors=arguments["sample-emission-factors"],
+            distribution_dict=distribution_dict,
+            allometry=allometric_keys,
+            gwp=gwp,
+            use_api=arguments["use-api"],
+            seed=arguments["seed"],
+        )
+
+        st = 1
+        output_dir = Path(configuration.OUTPUT_DIR + f"_{mod_run}") / f"plot_{n + st}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        mc_summary = summarise_mc_results(mc_results)
+        for scenario, label in [
+            (mc_summary.base,    "baseline"),
+            (mc_summary.project, "project"),
+            (mc_summary.diff,    "diff"),
+        ]:
+            write_mc_summary_csv(scenario, str(output_dir / f"plot_{n + st}_mc_{label}.csv"))
+
+        write_mc_metadata(
+            output_path=str(output_dir / "mc_run_metadata.txt"),
+            n_samples=n_samples,
+            seed=arguments["seed"],
+            soil_params=soil_params,
+            climate=climate,
+            distribution_dict=distribution_dict,
+            sample_emission_factors=arguments["sample-emission-factors"],
+        )
+
+        # TODO: the MC path currently writes only the quantile summary CSV.  The
+        # deterministic path (below) also writes validated input CSVs, per-pool
+        # emissions CSVs, soil model CSVs, tree/crop data CSVs, and plots.  Decide
+        # which of those outputs are meaningful for an MC run and add them here.
+        # Candidates: validated input CSVs (same for all samples — write once);
+        # soil/climate CSVs from the base run (representative inputs); plots of the
+        # emission distribution (e.g. per-year credible interval fan chart).
+
+
+        emit_diffs = [
+            r.emit_project_emissions - r.emit_base_emissions for r in mc_results
+        ]
+        total_diffs = np.array([float(np.sum(d)) for d in emit_diffs])
+        print(
+            f"\nMonte Carlo complete: {len(mc_results)} samples\n"
+            f"  Summaries written to: {output_dir}\n"
+            f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1  "
+            f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
+        )
+        return
+    else:
+        intervention_emissions = handle_intervention(
+            intervention_input=vector_input_data,
+            n_cohorts=N_COHORTS,
+            plot_index=n,
+            allometry=allometric_keys,
+            gwp=gwp,
+            use_api=arguments["use-api"],
+            create_forward_soil_model=ForwardSoilModel.create,
+            create_inverse_soil_model=InverseSoilModel.create,
+        )
 
     # ----------
     # Printing to stdout

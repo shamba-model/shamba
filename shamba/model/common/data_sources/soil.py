@@ -6,30 +6,60 @@ import numpy as np
 import socket
 from enum import Enum
 from copy import deepcopy
-from statistics import mean
 from model.common import csv_handler
 from model.common.data_sources.helpers import return_none_on_exception
+
+
+class SoilQuantiles(NamedTuple):
+    """Depth-weighted mean plus Q0.05/Q0.95 quantiles for a single soil property."""
+    mean: float
+    q05: float
+    q95: float
+
+
+class SoilData(NamedTuple):
+    """Soil organic carbon and clay content with quantiles."""
+    soc: SoilQuantiles   # t C ha⁻¹
+    clay: SoilQuantiles  # %
 
 
 API_URL = "https://rest.isric.org/soilgrids/v2.0/"
 
 
-def read_soil_table(filename: str, plot_index: int, plot_id: int):
+def read_soil_table(filename: str, plot_index: int, plot_id: int) -> SoilData:
     """Read the soil data from user CSV file.
-    Data values are validated in soil_params.py."""
-    data = csv_handler.read_csv(
-        filename,
-    )
 
+    Accepts two CSV formats:
+    - 3-column: plot_name, Cy0, clay
+      Quantiles are set equal to the mean (no uncertainty).
+    - 7-column: plot_name, Cy0, clay, Cy0_q05, Cy0_q95, clay_q05, clay_q95
+      Quantiles are read from columns 3–6.
+
+    Data values are validated in soil_params.py.
+    """
+    data = csv_handler.read_csv(filename)
     data = np.atleast_2d(data)
 
     if int(data[plot_index, 0]) != int(plot_id):
         raise ValueError("Plot order in soil data does not match input data")
 
-    cy0 = data[plot_index, 1]
-    clay = data[plot_index, 2]
+    cy0_mean = data[plot_index, 1]
+    clay_mean = data[plot_index, 2]
 
-    return cy0, clay
+    if data.shape[1] >= 7:
+        cy0_q05  = data[plot_index, 3]
+        cy0_q95  = data[plot_index, 4]
+        clay_q05 = data[plot_index, 5]
+        clay_q95 = data[plot_index, 6]
+    else:
+        # No quantile columns: represent zero uncertainty as q05 = q95 = mean.
+        cy0_q05 = cy0_q95 = cy0_mean
+        clay_q05 = clay_q95 = clay_mean
+
+    return SoilData(
+        soc=SoilQuantiles(mean=cy0_mean, q05=cy0_q05, q95=cy0_q95),
+        clay=SoilQuantiles(mean=clay_mean, q05=clay_q05, q95=clay_q95),
+    )
 
 
 def get_soil_data(
@@ -38,7 +68,7 @@ def get_soil_data(
     plot_index: int,
     plot_id: int,
     filename: str,
-) -> Optional[Tuple[float, float]]:
+) -> Optional[SoilData]:
     """Get soil data from soilgrids api or from local csv file."""
     api_response: Optional[Dict[str, Any]] = (
         None
@@ -211,42 +241,52 @@ def get_properties_from_soilgrids_api(
     return response.json()
 
 
-def get_soc_and_clay(
-    api_response: List[Tuple[str, float]],
-) -> Optional[Tuple[float, float]]:
-    soc_value = next((value for name, value in api_response if name == "soc"), None)
-    if soc_value is None:
-        raise ValueError(f"SOC (soil organic carbon) property not found in API soil data, please provide csv soil data")
-    
-    clay_value = next((value for name, value in api_response if name == "clay"), None)
-    if clay_value is None:
-        raise ValueError(f"Clay content property not found in API soil data, please provide csv soil data")
-    
-    return soc_value, clay_value
+def get_soc_and_clay(api_response: List[Tuple[str, SoilQuantiles]]) -> SoilData:
+    soc = next((q for name, q in api_response if name == "soc"), None)
+    if soc is None:
+        raise ValueError(
+            "SOC (soil organic carbon) property not found in API soil data, please provide csv soil data"
+        )
+
+    clay = next((q for name, q in api_response if name == "clay"), None)
+    if clay is None:
+        raise ValueError(
+            "Clay content property not found in API soil data, please provide csv soil data"
+        )
+
+    return SoilData(soc=soc, clay=clay)
 
 
-def process_data(api_response: Dict[str, Any]) -> List[Tuple[str, float]]:
+def process_data(api_response: Dict[str, Any]) -> List[Tuple[str, SoilQuantiles]]:
     """
     In the SoilGrids API response, data are either available for 0-5, 5-15, 15-30 cm OR for
     0-30 cm (SOC stocks only).
-    This function calculates the overall values for 0-30cm.
+    This function calculates the depth-weighted values for 0-30cm for the mean, Q0.05, and Q0.95.
     """
     data = api_response["properties"]["layers"]
 
-    zero_to_thirty_cm = [
+    def depth_weighted(depths: List[Any], value_key: str) -> float:
+        return (
+            sum(
+                depth["values"][value_key]
+                * (depth["range"]["bottom_depth"] - depth["range"]["top_depth"])
+                for depth in depths
+                if value_key in depth["values"]
+            )
+            / 30
+        )
+
+    return [
         (
             layer["name"],
-            sum(
-                depth["values"]["mean"]
-                * (depth["range"]["bottom_depth"] - depth["range"]["top_depth"])
-                for depth in layer["depths"]
-            )
-            / 30,
+            SoilQuantiles(
+                mean=depth_weighted(layer["depths"], "mean"),
+                q05=depth_weighted(layer["depths"], "Q0.05"),
+                q95=depth_weighted(layer["depths"], "Q0.95"),
+            ),
         )
         for layer in data
     ]
-
-    return zero_to_thirty_cm
 
 
 def convert_value(value: float, conversion_factor: float) -> float:

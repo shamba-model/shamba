@@ -257,6 +257,28 @@ ________________________________________________________________________________
         ).ask()
         arguments["input-file-name"] = input_file_name
 
+    monte_carlo = questionary.confirm("Do you want to run a Monte Carlo analysis?", default=False).ask()
+    
+    if monte_carlo:
+        n_samples = questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000").ask() # TODO: derive a sensible default through analysis
+        arguments["n-samples"] = int(n_samples)
+        distribution_filename = questionary.text(
+            "Enter the name of the distribution file (leave blank to use only soil/climate uncertainty):",
+            default="", # TODO: consider clearer wording of the prompt.
+        ).ask()
+        arguments["distribution-file-name"] = distribution_filename if distribution_filename.strip() else None
+        arguments["sample-emission-factors"] = questionary.confirm("Do you want to include uncertainty of emission factors?", default=False).ask()
+        seed_str = questionary.text(
+            "Enter a random seed for reproducibility (leave blank for a random run):",
+            default="",
+        ).ask()
+        arguments["seed"] = int(seed_str) if seed_str.strip() else None
+    else:
+        arguments["n-samples"] = None
+        arguments["distribution-file-name"] = None
+        arguments["sample-emission-factors"] = False
+        arguments["seed"] = None
+
     # Prompt for output title
     output_title = questionary.text(
         "Enter the title of the output file:", default="WL"

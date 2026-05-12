@@ -115,7 +115,10 @@ WL_expected_project_emissions = [5.476539,
 
 TESTB_N_COHORTS = 1
 testB_allometric_keys = ["chave dry","chave dry", "ryan", "markhamia"]
-testB_expected_base_emissions = [0.008940113898396357, # not yet confirmed in Excel, but calculated separately and hard coded here
+# TODO: confirm testB_expected_base_emissions against the SHAMBA Excel reference model.
+# Values were calculated separately from the code but have not yet been verified in Excel.
+# This is the highest-priority independent check needed for the tree sub-model.
+testB_expected_base_emissions = [0.008940113898396357,
    -0.005289552029268359,
    -0.006570496126139579,
    -0.007452309050098124,
@@ -156,6 +159,8 @@ testB_expected_base_emissions = [0.008940113898396357, # not yet confirmed in Ex
    -0.14046859974582754,
   -0.12592835465828683,
 ]
+# TODO: confirm testB_expected_project_emissions against the SHAMBA Excel reference model.
+# Same status as base emissions above — calculated separately, not yet Excel-verified.
 testB_expected_project_emissions = [0.000000,
 0.000000,
 0.000000,
