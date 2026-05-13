@@ -160,7 +160,7 @@ def get_crop_data(
 ) -> Tuple[CropModelData, CropParamsData]:
     scenario = "baseline" if "base" in prefix else "project"
     try:
-        spp = int(input_data[f"{prefix}_spp{index}"])
+        spp = int(input_data[f"{prefix}_spp{index}"].item())
         crop_yield = input_data[f"{prefix}_yd{index}"]
         left_in_field = input_data[f"{prefix}_left{index}"]
     except KeyError as e:

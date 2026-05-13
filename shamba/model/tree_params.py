@@ -219,7 +219,7 @@ def create_tree_params_from_species_index(
     for i in range(cohort_count):
         key = f"species{i + 1}"
         try:
-            species_index = int(csv_input_data[key])
+            species_index = int(csv_input_data[key].item())
             tree_params.append(from_species_index(species_index))
         except KeyError:
             raise KeyError(f"Warning: Missing key '{key}' in input data.")

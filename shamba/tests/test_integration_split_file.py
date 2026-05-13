@@ -98,7 +98,7 @@ def test_split_file_data_pipeline_matches_single_row(tmp_path):
     """Reading split-file CSVs must produce the same keys and values as
     expand_single_row_data_input for the same scenario."""
     scalar, tree_size, mgmt, cover = expand_single_row_data_input(WL_SINGLE_ROW)
-    n_years = int(scalar["yrs_proj"][0])
+    n_years = int(scalar["yrs_proj"].item())
     reference = scalar | mgmt | tree_size | cover
 
     _write_split_files(tmp_path, scalar, tree_size, mgmt, cover)
@@ -127,7 +127,7 @@ def test_split_file_full_run_matches_single_row(tmp_path, monkeypatch):
     monkeypatch.setattr(configuration, "INPUT_DIR", FIXTURES_DIR)
 
     scalar, tree_size, mgmt, cover = expand_single_row_data_input(WL_SINGLE_ROW)
-    n_years = int(scalar["yrs_proj"][0])
+    n_years = int(scalar["yrs_proj"].item())
     single_row_dict = scalar | mgmt | tree_size | cover
 
     _write_split_files(tmp_path, scalar, tree_size, mgmt, cover)

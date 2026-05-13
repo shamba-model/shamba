@@ -27,7 +27,7 @@ testB_expected_project_emissions = [0.7636 if i % 3 == 0 else 0.0 for i in range
 def test_fertiliser_model(csv_input_file, expected_base_emissions, expected_project_emissions):
     file_path = os.path.join(configuration.TESTS_DIR, "fixtures", csv_input_file)
     scalar_input_data, _, mgmt_input_data, _ = expand_single_row_data_input(file_path)
-    N_YEARS = int(scalar_input_data["yrs_proj"])
+    N_YEARS = int(scalar_input_data["yrs_proj"].item())
 
     synthetic_fertiliser_base = LitterModel.synthetic_fertiliser(
         quantity_vector=mgmt_input_data["base_sf_qty1"],

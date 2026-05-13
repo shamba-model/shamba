@@ -68,7 +68,7 @@ testB_expected_project_emissions = [0.00000,
 def test_crop_fire_model(csv_input_file, expected_base_emissions, expected_project_emissions):
     file_path = os.path.join(configuration.TESTS_DIR, "fixtures", csv_input_file)
     scalar_input_data, _, mgmt_input_data, _ = expand_single_row_data_input(file_path)
-    N_YEARS = int(scalar_input_data["yrs_proj"])
+    N_YEARS = int(scalar_input_data["yrs_proj"].item())
     input_data = {**scalar_input_data, **mgmt_input_data}
 
     crop_base, _crop_par_base = get_crop_bases(

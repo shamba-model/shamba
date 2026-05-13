@@ -215,7 +215,7 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
     file_path = os.path.join(configuration.TESTS_DIR, "fixtures", csv_input_file)
 
     scalar_input_data, tree_size_data, mgmt_input_data, _ = expand_single_row_data_input(file_path)
-    N_YEARS = int(scalar_input_data["yrs_proj"][0])
+    N_YEARS = int(scalar_input_data["yrs_proj"].item())
 
     fire_base = mgmt_input_data["fire_on_base"]
     fire_project = mgmt_input_data["fire_on_proj"]
@@ -311,7 +311,7 @@ def test_create_tree_projects_uses_per_cohort_thinning():
     """Each project cohort must receive its own thinning array, not a shared one."""
     file_path = os.path.join(configuration.TESTS_DIR, "fixtures", "WL_input.csv")
     scalar_input_data, tree_size_data, mgmt_input_data, _ = expand_single_row_data_input(file_path)
-    N_YEARS = int(scalar_input_data["yrs_proj"][0])
+    N_YEARS = int(scalar_input_data["yrs_proj"].item())
 
     # Build a two-cohort scenario reusing WL species for both cohorts.
     # create_tree_params_from_species_index reads "species{N}";
