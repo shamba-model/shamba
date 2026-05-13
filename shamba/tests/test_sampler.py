@@ -274,16 +274,13 @@ def test_sample_soil_params_nonzero_spread():
     soil = FakeSoilParams(Cy0=5.0, clay=30.0, Cy0_q05=3.0, Cy0_q95=7.0,
                           clay_q05=25.0, clay_q95=35.0)
     rng = np.random.default_rng(1)
-    samples = sample_soil_params(soil, n_samples=100, rng=rng)
+    samples = sample_soil_params(soil, n_samples=1000, rng=rng)
     cy0_vals = [s.Cy0 for s in samples]
     clay_vals = [s.clay for s in samples]
-    assert np.std(cy0_vals) > 0.1
-    assert np.std(clay_vals) > 0.1
-    # TODO: tighten to verify the sigma formula directly. With Cy0_q05=3, Cy0_q95=7:
-    #   expected_cy0_sigma = (7 - 3) / (2 * 1.645) ≈ 1.216
-    # With N=1000 samples and fixed seed, assert np.std(cy0_vals) ≈ 1.216 (rtol ~0.15).
-    # The current std > 0.1 bound is far too loose to catch a formula error
-    # (e.g. a missing factor of 2, or using 1.96 instead of 1.645).
+    # sigma = (q95 - q05) / (2 * 1.645); Cy0: (7 - 3) / 3.29 ≈ 1.216
+    # (90% of the probability mass lies within ±1.645 standard deviations of the mean)
+    np.testing.assert_allclose(np.std(cy0_vals), (7 - 3) / (2 * 1.645), rtol=0.15)
+    np.testing.assert_allclose(np.std(clay_vals), (35 - 25) / (2 * 1.645), rtol=0.15)
 
 
 def test_sample_soil_params_cy0_clipped_to_nonnegative():
