@@ -20,8 +20,8 @@ REQUIRED_HEADER_DATATYPE = {
     "analysis_no": "non-negative scalar integer",
     "plot_name": "non-negative scalar integer",
     "year": "non-negative integer",
-    "Temp": "float",
-    "Rain": "non-negative float",
+    "temp": "float",
+    "rain": "non-negative float",
     "evap": "non-negative float",
     "pet": "non-negative float",
     "base_cover": "binary",
@@ -231,7 +231,8 @@ def read_and_validate_timeseries_by_header(file_path: str, permitted_vector_leng
         file_name (str): The name of the CSV file to read."""
     
     headers = np.genfromtxt(file_path, delimiter=",", max_rows=1, dtype=str, encoding = None)
-    headers = np.char.strip(headers)  # Remove leading/trailing whitespace from headers
+    headers = np.char.strip(headers)
+    headers = np.char.lower(headers)
 
     data = np.genfromtxt(file_path, delimiter=",", skip_header=1, dtype=float)
     data = np.atleast_2d(data)

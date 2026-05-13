@@ -101,8 +101,8 @@ def run_monte_carlo(
         )
 
     _CLIMATE_STD_ATTRS = {
-        "Temp": "temperature_std",
-        "Rain": "rain_std",
+        "temp": "temperature_std",
+        "rain": "rain_std",
         "evap": "evaporation_std",
     }
     for i in range(n_samples):

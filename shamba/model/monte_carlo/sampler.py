@@ -19,7 +19,7 @@ import model.soil_params as SoilParams
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
-_CLIMATE_KEYS = frozenset({"Temp", "Rain", "evap"})
+_CLIMATE_KEYS = frozenset({"temp", "rain", "evap"})
 
 _FRACTION_TYPES = frozenset({"proportion", "scalar proportion"})
 
@@ -380,7 +380,7 @@ def sample_climate_params(
         rng: numpy random Generator.
 
     Returns:
-        list of n_samples dicts with keys: 'Temp', 'Rain', 'evap'.
+        list of n_samples dicts with keys: 'temp', 'rain', 'evap'.
         Each value is a 12-element numpy array.
     """
     temp_mean, temp_std = climate.temperature, climate.temperature_std
@@ -404,7 +404,7 @@ def sample_climate_params(
         else:
             evap_draw = np.clip(rng.normal(loc=evap_mean, scale=evap_std), 0.0, None)
 
-        results.append({"Temp": temp_draw, "Rain": rain_draw, "evap": evap_draw})
+        results.append({"temp": temp_draw, "rain": rain_draw, "evap": evap_draw})
 
     return results
 

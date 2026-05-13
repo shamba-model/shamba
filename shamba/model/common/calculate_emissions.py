@@ -575,10 +575,10 @@ def handle_intervention(
     # ----------
     location = get_location(intervention_input)
     climate_vectors = None
-    if "Temp" in intervention_input:
+    if "temp" in intervention_input:
         climate_vectors = (
-            intervention_input["Temp"],
-            intervention_input["Rain"],
+            intervention_input["temp"],
+            intervention_input["rain"],
             intervention_input["evap"],
         )
     climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors)
