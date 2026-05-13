@@ -1,16 +1,16 @@
-export const climateData: { Temp: number; Rain: number; evap: number }[] = [
-  { Temp: 27.7, Rain: 184.37, evap: 218.24 },
-  { Temp: 27.3, Rain: 173.72, evap: 184.43 },
-  { Temp: 26.9, Rain: 97.89, evap: 190.13 },
-  { Temp: 25.2, Rain: 48.63, evap: 156.8 },
-  { Temp: 22.9, Rain: 19.61, evap: 134.75 },
-  { Temp: 20.8, Rain: 16.49, evap: 112.8 },
-  { Temp: 20.4, Rain: 10.37, evap: 120.28 },
-  { Temp: 21.8, Rain: 18.44, evap: 153.35 },
-  { Temp: 24.0, Rain: 4.3, evap: 190.8 },
-  { Temp: 25.7, Rain: 15.9, evap: 225.68 },
-  { Temp: 26.8, Rain: 82.95, evap: 223.6 },
-  { Temp: 27.4, Rain: 167.72, evap: 216.59 },
+export const climateData: { temp: number; rain: number; evap: number }[] = [
+  { temp: 27.7, rain: 184.37, evap: 218.24 },
+  { temp: 27.3, rain: 173.72, evap: 184.43 },
+  { temp: 26.9, rain: 97.89, evap: 190.13 },
+  { temp: 25.2, rain: 48.63, evap: 156.8 },
+  { temp: 22.9, rain: 19.61, evap: 134.75 },
+  { temp: 20.8, rain: 16.49, evap: 112.8 },
+  { temp: 20.4, rain: 10.37, evap: 120.28 },
+  { temp: 21.8, rain: 18.44, evap: 153.35 },
+  { temp: 24.0, rain: 4.3, evap: 190.8 },
+  { temp: 25.7, rain: 15.9, evap: 225.68 },
+  { temp: 26.8, rain: 82.95, evap: 223.6 },
+  { temp: 27.4, rain: 167.72, evap: 216.59 },
 ];
 
 export const cropIpccBaselineData: { Sc: number; YI: number; F: number }[] = [

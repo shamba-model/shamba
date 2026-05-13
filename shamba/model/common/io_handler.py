@@ -96,7 +96,7 @@ source directory, and be named:
   {prefix}_climate_cover_data.csv
     Monthly climate data and land cover fractions. proj_cover and base_cover
     are required; base_cover may be a single value (broadcast to all months).
-    When NOT using the API, also include monthly Temp, Rain, and evap/pet columns
+    When NOT using the API, also include monthly temp, rain, and evap/pet columns
     (12 * yrs_proj rows, or a single row to broadcast). When using the API,
     only proj_cover and base_cover are needed.
 

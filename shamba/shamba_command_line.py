@@ -404,7 +404,7 @@ def main(n, arguments):
         )
         vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
         # _climate_cover_data.csv always provides base_cover and proj_cover.
-        # It may also contain climate data (Temp, Rain, evap/pet) regardless of use_api,
+        # It may also contain climate data (temp, rain, evap/pet) regardless of use_api,
         # since these are used as a fallback if the API is unavailable. The logic assumes
         # that the file either contains all climate data or none.
         climate_cover_data = data_handler.read_and_validate_timeseries_by_header(

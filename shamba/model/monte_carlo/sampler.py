@@ -239,7 +239,7 @@ def draw_samples(
     stds of [1.0, 1.2, 1.4] respectively — higher-yield years have wider
     absolute uncertainty but the same relative uncertainty.
 
-    Climate keys (Temp, Rain, evap) are the exception: a single multiplicative
+    Climate keys (temp, rain, evap) are the exception: a single multiplicative
     scalar is drawn from the vector mean and applied to the whole monthly vector,
     preserving the seasonal structure. A climate uncertainty of 10% shifts all
     months up or down together rather than perturbing each month independently.
