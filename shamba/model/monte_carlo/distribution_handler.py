@@ -261,9 +261,9 @@ def load_distributions(
                         stacklevel=2,
                     )
 
-            if parameter == "Temp" and min_abs is None:
+            if parameter == "temp" and min_abs is None:
                 warnings.warn(
-                    f"{row_label}: 'Temp' uses a relative spread, but temperature can "
+                    f"{row_label}: 'temp' uses a relative spread, but temperature can "
                     f"be near 0°C where relative spread is physically odd. "
                     f"Consider adding a min_abs floor (e.g. 1.0°C).",
                     UserWarning,

@@ -40,7 +40,7 @@ def read_soil_table(filename: str, plot_index: int, plot_id: int) -> SoilData:
     data = csv_handler.read_csv(filename)
     data = np.atleast_2d(data)
 
-    if int(data[plot_index, 0]) != int(plot_id):
+    if int(data[plot_index, 0].item()) != int(plot_id):
         raise ValueError("Plot order in soil data does not match input data")
 
     cy0_mean = data[plot_index, 1]

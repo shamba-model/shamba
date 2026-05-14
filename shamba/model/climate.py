@@ -122,7 +122,7 @@ def from_location(location, use_api: bool, climate_vectors=None) -> ClimateData:
 
     Priority order:
       1. Climate API (if use_api=True and call succeeds)
-      2. climate_vectors from split input file (Temp/Rain/evap columns)
+      2. climate_vectors from split input file (temp/rain/evap columns)
       3. Local climate.csv file
 
     Args:

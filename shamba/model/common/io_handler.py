@@ -4,6 +4,7 @@
 
 import logging as log
 import os
+import sys
 from datetime import datetime
 import questionary
 from questionary import Validator, ValidationError
@@ -19,6 +20,51 @@ from model.common.constants import (
     GWP_list,
 )
 from model.common.validations import validate_integer, validate_numerical
+
+
+def _ask(prompt_obj):
+    """Exit cleanly if the user cancels a prompt (Ctrl+C returns None from questionary)."""
+    result = prompt_obj.ask()
+    if result is None:
+        print("\nRun cancelled.")
+        sys.exit(0)
+    return result
+
+
+def _print_run_summary(arguments):
+    gwp_label = next((k for k, v in GWP_list.items() if v == arguments["gwp"]), "unknown")
+    rows = [
+        ("Project name", arguments["project-name"]),
+        ("Source directory", arguments["source-directory"]),
+        ("Input format", "Split files" if arguments.get("split-input-file-id") else "Single file"),
+    ]
+    if arguments.get("split-input-file-id"):
+        rows.append(("Split input prefix", arguments["split-input-file-id"]))
+    else:
+        rows.append(("Input file", arguments.get("input-file-name", "")))
+    rows += [
+        ("Use API", arguments["use-api"]),
+        ("Tree cohorts", arguments["n-cohorts"]),
+        ("Allometric keys", ", ".join(str(k) for k in arguments["allometric-keys"])),
+        ("GWP", gwp_label),
+        ("Print to stdout", arguments["print-to-stdout"]),
+        ("Output title", arguments["output-title"]),
+    ]
+    if arguments.get("n-samples"):
+        rows += [
+            ("Monte Carlo samples", arguments["n-samples"]),
+            ("Distribution file", arguments.get("distribution-file-name") or "(none)"),
+            ("Sample emission factors", arguments["sample-emission-factors"]),
+            ("Seed", arguments["seed"] if arguments["seed"] is not None else "(random)"),
+        ]
+    else:
+        rows.append(("Monte Carlo", "No"))
+
+    print("\n--- Run settings ---")
+    key_width = max(len(k) for k, _ in rows)
+    for key, val in rows:
+        print(f"  {key:<{key_width}}  {val}")
+    print()
 
 
 def get_arguments_interactively():
@@ -99,7 +145,7 @@ source directory, and be named:
   {prefix}_climate_cover_data.csv
     Monthly climate data and land cover fractions. proj_cover and base_cover
     are required; base_cover may be a single value (broadcast to all months).
-    When NOT using the API, also include monthly Temp, Rain, and evap/pet columns
+    When NOT using the API, also include monthly temp, rain, and evap/pet columns
     (12 * yrs_proj rows, or a single row to broadcast). When using the API,
     only proj_cover and base_cover are needed.
 
@@ -177,39 +223,38 @@ ________________________________________________________________________________
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Prompt for project name
-    project_name = questionary.text(
+    project_name = _ask(questionary.text(
         "Enter project name (or use auto-generated name)",
         default=f"project_{timestamp}",
-    ).ask()
+    ))
     arguments["project-name"] = project_name
 
     # Prompt for source directory
-    source_directory = questionary.text(
+    source_directory = _ask(questionary.text(
         "Enter source directory path relative to /projects/" " (or use example)",
         default=f"examples/UG_TS_2016/input",
-    ).ask()
+    ))
     arguments["source-directory"] = source_directory
 
-    split_input_data_presence = questionary.confirm(
+    split_input_data_presence = _ask(questionary.confirm(
         "Do you have split vector data saved in the source directory?", default=False
-    ).ask()
+    ))
 
     # Prompt for use-api (boolean)
-    use_api = questionary.confirm("Use API for climate and soil data?", default=DEFAULT_USE_API).ask()
+    use_api = _ask(questionary.confirm("Use API for climate and soil data?", default=DEFAULT_USE_API))
     arguments["use-api"] = use_api
 
     # Prompt for n_cohorts
     # Default to 1 if integer not provided
-    n_cohorts = questionary.text("Enter number of tree cohorts (defaults to 1): ", validate=validate_integer, default="1").ask()
+    n_cohorts = _ask(questionary.text("Enter number of tree cohorts (defaults to 1): ", validate=validate_integer, default="1"))
     arguments["n-cohorts"] = int(n_cohorts)
 
     # Prompt for allometric key list
-    own_allometry = questionary.confirm(
-        "Do you have allometric functions to use that are not in SHAMBA's default list? (if yes, please see instructions):", default=False).ask()
+    own_allometry = _ask(questionary.confirm(
+        "Do you have allometric functions to use that are not in SHAMBA's default list? (if yes, please see instructions):", default=False))
     own_allometric_keys = []
     allometric_keys = list(TreeGrowth.allometric.keys())
     if own_allometry == True:
-        import sys
         import importlib
         
         source_dir = os.path.join(configuration.PROJECT_DIR, arguments["source-directory"])
@@ -223,24 +268,25 @@ ________________________________________________________________________________
     # Prompt for allometric key, cohort by cohort
     cohort_allometric_keys = []
 
-    base_selected_allometric_key = questionary.select(
+    base_selected_allometric_key = _ask(questionary.select(
         "Select an Allometric Key for the baseline species:", choices=all_allometric_keys, default=DEFAULT_ALLOMORPHY
-        ).ask()
-    
+    ))
+
     cohort_allometric_keys.append(base_selected_allometric_key)
 
     for i in range(int(n_cohorts)):
-        selected_allometric_key = questionary.select(
-        "Select an Allometric Key for each species in the cohort, in the same order as the input file:", 
-        choices=all_allometric_keys, default=DEFAULT_ALLOMORPHY).ask()
+        selected_allometric_key = _ask(questionary.select(
+            "Select an Allometric Key for each species in the cohort, in the same order as the input file:",
+            choices=all_allometric_keys, default=DEFAULT_ALLOMORPHY,
+        ))
         cohort_allometric_keys.append(selected_allometric_key)
     arguments["allometric-keys"] = cohort_allometric_keys
 
     # Prompt for GWP
     gwp_keys = list(GWP_list.keys())
-    selected_gwp_key = questionary.select(
+    selected_gwp_key = _ask(questionary.select(
         "Select Global Warming Potential values:", choices=gwp_keys, default=DEFAULT_GWP
-    ).ask()
+    ))
     arguments["gwp"] = GWP_list[selected_gwp_key]
 
     # Prompt for soil model
@@ -257,36 +303,36 @@ ________________________________________________________________________________
     arguments["soil-model"] = SoilModelType.ROTH_C
 
     # Prompt for whether to print to stdout
-    print_to_stdout = questionary.confirm("Results will be saved to csv files. Do you also want to print all to stdout?", default=False).ask()
+    print_to_stdout = _ask(questionary.confirm("Results will be saved to csv files. Do you also want to print all to stdout?", default=False))
     arguments["print-to-stdout"] = print_to_stdout
 
     # Prompt for input file name with default
     if split_input_data_presence:
-        split_input_file_id = questionary.text(
+        split_input_file_id = _ask(questionary.text(
             "Enter the prefix of the split input data files:", default="WL"
-        ).ask()
+        ))
         arguments["split-input-file-id"] = split_input_file_id
     else:
-        input_file_name = questionary.text(
+        input_file_name = _ask(questionary.text(
             "Enter the name of the single input file:", default="WL_input.csv"
-        ).ask()
+        ))
         arguments["input-file-name"] = input_file_name
 
-    monte_carlo = questionary.confirm("Do you want to run a Monte Carlo analysis?", default=False).ask()
-    
+    monte_carlo = _ask(questionary.confirm("Do you want to run a Monte Carlo analysis?", default=False))
+
     if monte_carlo:
-        n_samples = questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000").ask() # TODO: derive a sensible default through analysis
+        n_samples = _ask(questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000"))  # TODO: derive a sensible default through analysis
         arguments["n-samples"] = int(n_samples)
-        distribution_filename = questionary.text(
-            "Enter the name of the distribution file (leave blank to use only soil/climate uncertainty):",
-            default="", # TODO: consider clearer wording of the prompt.
-        ).ask()
+        distribution_filename = _ask(questionary.text(
+            "If you want to use user-specified distributions, enter the name of your file:",
+            default="",
+        ))
         arguments["distribution-file-name"] = distribution_filename if distribution_filename.strip() else None
-        arguments["sample-emission-factors"] = questionary.confirm("Do you want to include uncertainty of emission factors?", default=False).ask()
-        seed_str = questionary.text(
+        arguments["sample-emission-factors"] = _ask(questionary.confirm("Do you want to include uncertainty of emission factors?", default=False))
+        seed_str = _ask(questionary.text(
             "Enter a random seed for reproducibility (leave blank for a random run):",
             default="",
-        ).ask()
+        ))
         arguments["seed"] = int(seed_str) if seed_str.strip() else None
     else:
         arguments["n-samples"] = None
@@ -295,10 +341,17 @@ ________________________________________________________________________________
         arguments["seed"] = None
 
     # Prompt for output title
-    output_title = questionary.text(
+    output_title = _ask(questionary.text(
         "Enter the title of the output file:", default="WL"
-    ).ask()
+    ))
     arguments["output-title"] = output_title
+
+    # Show summary and ask for confirmation before starting the model run
+    _print_run_summary(arguments)
+    confirmed = _ask(questionary.confirm("Proceed with these settings?", default=True))
+    if not confirmed:
+        print("Run cancelled.")
+        sys.exit(0)
 
     # Set logging configuration
     log.basicConfig(format="%(levelname)s: %(message)s", level=log.INFO)

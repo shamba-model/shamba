@@ -16,6 +16,7 @@ from model.common.constants import (
     combustion_factor_default,
     ef_burn_default,
     ef_N_inputs_default,
+    N_to_N2O_conversion_factor,
     volatile_frac_organic_fertiliser_default,
     volatile_frac_synthetic_fertiliser_default,
     GWP_list,
@@ -198,15 +199,17 @@ class TestEmissionFactorsInjection:
             litter=litter, fert=[], no_of_years=n, gwp=GWP,
             volatile_frac_organic_fertiliser=volatile_frac_organic_fertiliser_default * 2,
         )
-        assert not np.allclose(default_result, custom_result), (
-            "fert_emit should use the supplied volatile_frac_organic_fertiliser"
+        ef_scale = ef_N_inputs_default * N_to_N2O_conversion_factor * GWP["N2O"]
+        np.testing.assert_allclose(
+            default_result,
+            np.full(n, (1 - volatile_frac_organic_fertiliser_default) * ef_scale),
+            rtol=1e-6,
         )
-        # TODO: replace "not allclose" with exact expected values. With N=[1,1,1] and
-        # volatile_frac_organic=0.21 (default):
-        #   emit_per_year = 1 * (1 - 0.21) * ef_N_inputs * N_to_N2O_conv * gwp["N2O"]
-        #                 = 0.79 * 0.01 * (44/28) * 273
-        # Assert default_result ≈ [emit_per_year, ...] and custom_result ≈ [custom_emit, ...]
-        # where custom_emit uses volatile_frac=0.42.
+        np.testing.assert_allclose(
+            custom_result,
+            np.full(n, (1 - volatile_frac_organic_fertiliser_default * 2) * ef_scale),
+            rtol=1e-6,
+        )
 
     def test_fert_emit_synthetic_volatile_frac(self):
         """Doubling volatile_frac_synthetic_fertiliser changes fert_emit output."""
@@ -217,14 +220,17 @@ class TestEmissionFactorsInjection:
             litter=[], fert=fert, no_of_years=n, gwp=GWP,
             volatile_frac_synthetic_fertiliser=volatile_frac_synthetic_fertiliser_default * 2,
         )
-        assert not np.allclose(default_result, custom_result), (
-            "fert_emit should use the supplied volatile_frac_synthetic_fertiliser"
+        ef_scale = ef_N_inputs_default * N_to_N2O_conversion_factor * GWP["N2O"]
+        np.testing.assert_allclose(
+            default_result,
+            np.full(n, (1 - volatile_frac_synthetic_fertiliser_default) * ef_scale),
+            rtol=1e-6,
         )
-        # TODO: replace "not allclose" with exact expected values. With N=[1,1,1] and
-        # volatile_frac_synthetic=0.11 (default):
-        #   emit_per_year = 1 * (1 - 0.11) * ef_N_inputs * N_to_N2O_conv * gwp["N2O"]
-        #                 = 0.89 * 0.01 * (44/28) * 273
-        # Assert default_result ≈ [emit_per_year, ...] and custom_result uses 0.22.
+        np.testing.assert_allclose(
+            custom_result,
+            np.full(n, (1 - volatile_frac_synthetic_fertiliser_default * 2) * ef_scale),
+            rtol=1e-6,
+        )
 
     def test_nitrogen_emit_ef_N_inputs(self):
         """Doubling ef_N_inputs doubles nitrogen_emit output."""
@@ -253,16 +259,24 @@ class TestEmissionFactorsInjection:
             crop=crop, tree=[], litter=[], fire=fire, no_of_years=n, gwp=GWP,
             ef_burn=custom_ef,
         )
-        assert not np.allclose(default_result, custom_result), (
-            "fire_emit should use the supplied ef_burn"
+        crop_CO2_ef_default = (
+            ef_burn_default["crop_CH4"] * GWP["CH4"]
+            + ef_burn_default["crop_N2O"] * GWP["N2O"]
         )
-        # TODO: replace "not allclose" with exact expected values. With DMon=[10,10,10],
-        # fire=ones, combustion_factor["crop"]=0.85, DMoff=zeros (burn_off path is zero):
-        #   crop_CO2_ef = ef_burn["crop_CH4"] * gwp["CH4"] + ef_burn["crop_N2O"] * gwp["N2O"]
-        #               = 2.7 * 27 + 0.07 * 273 = 72.9 + 19.11 = 92.01
-        #   emit_per_year = 10 * 1 * 0.85 * 92.01 * 0.001 = 0.782085
-        # Assert default_result ≈ [0.782085, 0.782085, 0.782085].
-        # Assert custom_result uses doubled crop_N2O=0.14 and calculate accordingly.
+        crop_CO2_ef_custom = (
+            ef_burn_default["crop_CH4"] * GWP["CH4"]
+            + ef_burn_default["crop_N2O"] * 2 * GWP["N2O"]
+        )
+        np.testing.assert_allclose(
+            default_result,
+            np.full(n, 10.0 * combustion_factor_default["crop"] * crop_CO2_ef_default * 0.001),
+            rtol=1e-6,
+        )
+        np.testing.assert_allclose(
+            custom_result,
+            np.full(n, 10.0 * combustion_factor_default["crop"] * crop_CO2_ef_custom * 0.001),
+            rtol=1e-6,
+        )
 
     def test_fire_emit_combustion_factor(self):
         """Changing combustion_factor changes fire_emit output when fire is present."""
@@ -277,12 +291,16 @@ class TestEmissionFactorsInjection:
             crop=crop, tree=[], litter=[], fire=fire, no_of_years=n, gwp=GWP,
             combustion_factor=custom_cf,
         )
-        assert not np.allclose(default_result, custom_result), (
-            "fire_emit should use the supplied combustion_factor"
+        crop_CO2_ef = (
+            ef_burn_default["crop_CH4"] * GWP["CH4"]
+            + ef_burn_default["crop_N2O"] * GWP["N2O"]
         )
-        # TODO: replace "not allclose" with exact expected values. combustion_factor is
-        # linear in fire_emit, so halving crop combustion_factor (0.85 → 0.425) should
-        # halve the on-farm fire emission term. Assert custom_result ≈ default_result * 0.5.
+        np.testing.assert_allclose(
+            default_result,
+            np.full(n, 10.0 * combustion_factor_default["crop"] * crop_CO2_ef * 0.001),
+            rtol=1e-6,
+        )
+        np.testing.assert_allclose(custom_result, default_result * 0.5, rtol=1e-6)
 
     def test_emit_create_with_custom_emission_factors(self):
         """emit.create() with a custom EmissionFactors produces a different result
@@ -294,12 +312,14 @@ class TestEmissionFactorsInjection:
             volatile_frac_synthetic_fertiliser=volatile_frac_synthetic_fertiliser_default * 3,
         )
         custom_result = Emit.create(no_of_years=n, fert=fert, gwp=GWP, emission_factors=custom_ef)
-        assert not np.allclose(default_result, custom_result), (
-            "emit.create() should pass emission_factors through to fert_emit"
+        ef_scale = ef_N_inputs_default * N_to_N2O_conversion_factor * GWP["N2O"]
+        np.testing.assert_allclose(
+            default_result,
+            np.full(n, (1 - volatile_frac_synthetic_fertiliser_default) * ef_scale),
+            rtol=1e-6,
         )
-        # TODO: replace "not allclose" with exact expected values. This is an integration
-        # check that emission_factors routes through create() to fert_emit. With fert N=[1,1,1]
-        # and volatile_frac_synthetic=0.11 (default), the expected per-year value is:
-        #   1 * (1 - 0.11) * ef_N_inputs * N_to_N2O_conv * gwp["N2O"]
-        #   = 0.89 * 0.01 * (44/28) * 273
-        # With tripled volatile_frac=0.33, compute the analogous value and assert exactly.
+        np.testing.assert_allclose(
+            custom_result,
+            np.full(n, (1 - volatile_frac_synthetic_fertiliser_default * 3) * ef_scale),
+            rtol=1e-6,
+        )

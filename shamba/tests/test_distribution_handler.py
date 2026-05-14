@@ -31,8 +31,8 @@ BASE_DICT = {
     "crop_proj_yd1":  np.array([5.0, 6.0, 7.0]),   # vector, non-fraction
     "base_lit_qty1":  np.array([2.0, 2.0, 2.0]),   # vector, non-fraction
     "base_sf_qty1":   np.array([1.0, 1.0, 1.0]),   # vector, non-fraction
-    "Rain":           np.array([80.0] * 12),        # vector, non-fraction
-    "Temp":           np.array([20.0] * 12),        # vector, non-fraction (may be near 0)
+    "rain":           np.array([80.0] * 12),        # vector, non-fraction
+    "temp":           np.array([20.0] * 12),        # vector, non-fraction (may be near 0)
     "crop_base_left1": np.array([0.3, 0.3, 0.3]),  # fraction parameter [0, 1]
     "thin_proj_cohort1": np.array([0.0, 0.2, 0.0]), # fraction parameter
 }
@@ -55,7 +55,7 @@ def test_load_all_seven_distributions(tmp_path):
         "crop_proj_yd1,normal,0.3,0.3,\n"
         "base_lit_qty1,truncated_normal,0.4,0.4,\n"
         "base_sf_qty1,lognormal,0.35,0.35,\n"
-        "Rain,uniform,0.2,0.3,\n"
+        "rain,uniform,0.2,0.3,\n"
         "base_lit_qty1,triangular,0.15,0.25,\n"
         "crop_proj_yd1,skew_normal,0.2,0.5,\n"
         "crop_base_left1,beta,2.0,5.0,\n"
@@ -65,7 +65,7 @@ def test_load_all_seven_distributions(tmp_path):
     specs = load_distributions(csv, BASE_DICT)
     assert "crop_proj_yd1" in specs
     assert "crop_base_left1" in specs
-    assert specs["Rain"].distribution == "uniform"
+    assert specs["rain"].distribution == "uniform"
 
 
 def test_load_returns_correct_spec_values(tmp_path):
@@ -272,15 +272,15 @@ def test_warning_fraction_parameter_can_breach_unit_interval(tmp_path):
 
 
 def test_warning_temp_without_min_abs(tmp_path):
-    """Temp parameter without min_abs triggers a warning."""
+    """temp parameter without min_abs triggers a warning."""
     csv = write_csv(tmp_path,
         "parameter,distribution,spread_lower,spread_upper\n"
-        "Temp,normal,0.1,0.1\n"
+        "temp,normal,0.1,0.1\n"
     )
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         load_distributions(csv, BASE_DICT)
-    assert any("Temp" in str(w.message) for w in caught)
+    assert any("temp" in str(w.message) for w in caught)
 
 
 def test_warning_skew_normal_nearly_symmetric(tmp_path):

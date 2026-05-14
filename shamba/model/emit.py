@@ -72,7 +72,7 @@ def reduce_from_fire(
             log.exception("Invalid output_type parameter in reduce_from_fire")
 
     # Reduce above-ground inputs from fire
-    for i in np.where(fire == 1):
+    for i in np.where(np.atleast_1d(fire) == 1):
         crop_inputs["above"][i] *= 1 - combustion_factor["crop"]
         tree_inputs["above"][i] *= 1 - combustion_factor["tree"]
 

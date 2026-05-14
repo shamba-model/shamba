@@ -70,8 +70,8 @@ class FakeClimateData:
 BASE_DICT = {
     "crop_proj_yd1": np.array([5.0, 6.0, 7.0]),    # vector, non-fraction
     "base_lit_qty1": np.array([2.0, 2.0, 2.0]),    # vector, non-fraction
-    "Rain":          np.array([80.0] * 12),          # climate key, vector
-    "Temp":          np.array([20.0] * 12),          # climate key, vector
+    "rain":          np.array([80.0] * 12),          # climate key, vector
+    "temp":          np.array([20.0] * 12),          # climate key, vector
     "evap":          np.array([50.0] * 12),          # climate key, vector
     "crop_base_left1": np.array([0.3, 0.3, 0.3]),  # fraction parameter
 }
@@ -160,11 +160,11 @@ def test_base_dict_not_mutated():
 
 def test_climate_perturbation_is_multiplicative():
     """Rain perturbation: the ratio of drawn to base is a scalar uniform across months."""
-    specs = {"Rain": make_spec("normal", 0.2, 0.2)}
+    specs = {"rain": make_spec("normal", 0.2, 0.2)}
     samples = draw_samples(BASE_DICT, specs, n_samples=30, seed=7)
-    base_rain = BASE_DICT["Rain"]
+    base_rain = BASE_DICT["rain"]
     for sample in samples:
-        rain = sample["Rain"]
+        rain = sample["rain"]
         ratios = rain / base_rain
         # All ratios should be equal (within floating point) — the same scalar was applied
         assert np.allclose(ratios, ratios[0]), f"Non-uniform ratio across months: {ratios}"
@@ -274,16 +274,13 @@ def test_sample_soil_params_nonzero_spread():
     soil = FakeSoilParams(Cy0=5.0, clay=30.0, Cy0_q05=3.0, Cy0_q95=7.0,
                           clay_q05=25.0, clay_q95=35.0)
     rng = np.random.default_rng(1)
-    samples = sample_soil_params(soil, n_samples=100, rng=rng)
+    samples = sample_soil_params(soil, n_samples=1000, rng=rng)
     cy0_vals = [s.Cy0 for s in samples]
     clay_vals = [s.clay for s in samples]
-    assert np.std(cy0_vals) > 0.1
-    assert np.std(clay_vals) > 0.1
-    # TODO: tighten to verify the sigma formula directly. With Cy0_q05=3, Cy0_q95=7:
-    #   expected_cy0_sigma = (7 - 3) / (2 * 1.645) ≈ 1.216
-    # With N=1000 samples and fixed seed, assert np.std(cy0_vals) ≈ 1.216 (rtol ~0.15).
-    # The current std > 0.1 bound is far too loose to catch a formula error
-    # (e.g. a missing factor of 2, or using 1.96 instead of 1.645).
+    # sigma = (q95 - q05) / (2 * 1.645); Cy0: (7 - 3) / 3.29 ≈ 1.216
+    # (90% of the probability mass lies within ±1.645 standard deviations of the mean)
+    np.testing.assert_allclose(np.std(cy0_vals), (7 - 3) / (2 * 1.645), rtol=0.15)
+    np.testing.assert_allclose(np.std(clay_vals), (35 - 25) / (2 * 1.645), rtol=0.15)
 
 
 def test_sample_soil_params_cy0_clipped_to_nonnegative():
@@ -333,8 +330,8 @@ def test_sample_climate_params_zero_std():
     samples = sample_climate_params(climate, n_samples=10, rng=rng)
     assert len(samples) == 10
     for s in samples:
-        np.testing.assert_array_equal(s["Temp"], climate.temperature)
-        np.testing.assert_array_equal(s["Rain"], climate.rain)
+        np.testing.assert_array_equal(s["temp"], climate.temperature)
+        np.testing.assert_array_equal(s["rain"], climate.rain)
         np.testing.assert_array_equal(s["evap"], climate.evaporation)
 
 
@@ -354,7 +351,7 @@ def test_sample_climate_params_nonzero_std():
     )
     rng = np.random.default_rng(4)
     samples = sample_climate_params(climate, n_samples=1000, rng=rng)
-    temp_vals = np.array([s["Temp"][0] for s in samples])
+    temp_vals = np.array([s["temp"][0] for s in samples])
     assert np.mean(temp_vals) == pytest.approx(20.0, abs=0.3)
     assert np.std(temp_vals)  == pytest.approx(2.0,  rel=0.15)
 
@@ -369,7 +366,7 @@ def test_sample_climate_params_rain_clipped():
     )
     rng = np.random.default_rng(5)
     samples = sample_climate_params(climate, n_samples=200, rng=rng)
-    assert all(np.all(s["Rain"] >= 0.0) for s in samples)
+    assert all(np.all(s["rain"] >= 0.0) for s in samples)
 
 
 def test_sample_climate_params_evap_clipped():

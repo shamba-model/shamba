@@ -62,8 +62,8 @@ class FakeClimateData:
 
 
 BASE_INPUT = {
-    "Temp": np.array([20.0] * 12),
-    "Rain": np.array([80.0] * 12),
+    "temp": np.array([20.0] * 12),
+    "rain": np.array([80.0] * 12),
     "evap": np.array([50.0] * 12),
     "crop_proj_yd1": np.array([5.0, 6.0, 7.0]),
 }

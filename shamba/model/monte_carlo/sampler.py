@@ -19,7 +19,7 @@ import model.soil_params as SoilParams
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
-_CLIMATE_KEYS = frozenset({"Temp", "Rain", "evap"})
+_CLIMATE_KEYS = frozenset({"temp", "rain", "evap"})
 
 _FRACTION_TYPES = frozenset({"proportion", "scalar proportion"})
 
@@ -239,7 +239,7 @@ def draw_samples(
     stds of [1.0, 1.2, 1.4] respectively — higher-yield years have wider
     absolute uncertainty but the same relative uncertainty.
 
-    Climate keys (Temp, Rain, evap) are the exception: a single multiplicative
+    Climate keys (temp, rain, evap) are the exception: a single multiplicative
     scalar is drawn from the vector mean and applied to the whole monthly vector,
     preserving the seasonal structure. A climate uncertainty of 10% shifts all
     months up or down together rather than perturbing each month independently.
@@ -380,7 +380,7 @@ def sample_climate_params(
         rng: numpy random Generator.
 
     Returns:
-        list of n_samples dicts with keys: 'Temp', 'Rain', 'evap'.
+        list of n_samples dicts with keys: 'temp', 'rain', 'evap'.
         Each value is a 12-element numpy array.
     """
     temp_mean, temp_std = climate.temperature, climate.temperature_std
@@ -404,7 +404,7 @@ def sample_climate_params(
         else:
             evap_draw = np.clip(rng.normal(loc=evap_mean, scale=evap_std), 0.0, None)
 
-        results.append({"Temp": temp_draw, "Rain": rain_draw, "evap": evap_draw})
+        results.append({"temp": temp_draw, "rain": rain_draw, "evap": evap_draw})
 
     return results
 

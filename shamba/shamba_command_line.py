@@ -404,7 +404,7 @@ def main(n, arguments):
         )
         vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
         # _climate_cover_data.csv always provides base_cover and proj_cover.
-        # It may also contain climate data (Temp, Rain, evap/pet) regardless of use_api,
+        # It may also contain climate data (temp, rain, evap/pet) regardless of use_api,
         # since these are used as a fallback if the API is unavailable. The logic assumes
         # that the file either contains all climate data or none.
         climate_cover_data = data_handler.read_and_validate_timeseries_by_header(
@@ -412,7 +412,7 @@ def main(n, arguments):
             permitted_vector_lengths=[1] + [i * 12 for i in range(1, N_YEARS + 1)],
             target_vector_length=12 * N_YEARS,
         )
-        if "Temp" in climate_cover_data:
+        if "temp" in climate_cover_data:
             climate_cover_data = data_handler.resolve_evap_pet(climate_cover_data)
         vector_input_data = vector_input_data | climate_cover_data
 
@@ -441,10 +441,10 @@ def main(n, arguments):
         plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
         location = get_location(vector_input_data)
         climate_vectors = None
-        if "Temp" in vector_input_data:
+        if "temp" in vector_input_data:
             climate_vectors = (
-                vector_input_data["Temp"],
-                vector_input_data["Rain"],
+                vector_input_data["temp"],
+                vector_input_data["rain"],
                 vector_input_data["evap"],)
         climate = Climate.from_location(location, use_api, climate_vectors=climate_vectors)
         soil_params = SoilParams.get_soil_params(

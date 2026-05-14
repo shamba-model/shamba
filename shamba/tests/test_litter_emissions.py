@@ -36,7 +36,7 @@ testB_expected_project_emissions = [2.57349, 0, 0, 0, 0,
 def test_litter_model(csv_input_file, expected_base_emissions, expected_project_emissions):
     file_path = os.path.join(configuration.TESTS_DIR, "fixtures", csv_input_file)
     scalar_input_data, _, mgmt_input_data, _ = expand_single_row_data_input(file_path)
-    N_YEARS = int(scalar_input_data["yrs_proj"])
+    N_YEARS = int(scalar_input_data["yrs_proj"].item())
 
     litter_external_base = LitterModel.from_defaults(litter_vector=mgmt_input_data["base_lit_qty1"])
     litter_external_project = LitterModel.from_defaults(litter_vector=mgmt_input_data["proj_lit_qty1"])

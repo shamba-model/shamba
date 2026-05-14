@@ -22,8 +22,13 @@ from model.soil_models.soil_model_types import (
     InverseSoilModelData,
 )
 
-get_float: Callable[[str, Dict[str, Any]], float] = compose(float, get)  # type: ignore
-get_int: Callable[[str, Dict[str, Any]], int] = compose(int, get)  # type: ignore
+def _extract_scalar(val: Any) -> Any:
+    if isinstance(val, np.ndarray):
+        return val.item()
+    return val
+
+get_float: Callable[[str, Dict[str, Any]], float] = compose(float, _extract_scalar, get)  # type: ignore
+get_int: Callable[[str, Dict[str, Any]], int] = compose(int, _extract_scalar, get)  # type: ignore
 
 
 def get_location(year_input: Dict[str, Any]) -> Tuple[float, float]:
@@ -570,10 +575,10 @@ def handle_intervention(
     # ----------
     location = get_location(intervention_input)
     climate_vectors = None
-    if "Temp" in intervention_input:
+    if "temp" in intervention_input:
         climate_vectors = (
-            intervention_input["Temp"],
-            intervention_input["Rain"],
+            intervention_input["temp"],
+            intervention_input["rain"],
             intervention_input["evap"],
         )
     climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors)
