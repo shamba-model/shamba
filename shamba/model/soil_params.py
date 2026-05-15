@@ -112,7 +112,7 @@ def create(soil_params: Dict[str, Any]) -> SoilParamsData:
 
 def get_soil_params(
     location: Tuple[float, float],
-    use_api: bool,
+    use_soil_api: bool,
     plot_index,
     plot_id,
     filename="soil-info.csv",
@@ -122,7 +122,7 @@ def get_soil_params(
 
     Args:
         location: Tuple of (latitude, longitude) coordinates
-        use_api: Whether to use SoilGrids API or local CSV file
+        use_soil_api: Whether to use SoilGrids API or local CSV file
         plot_index: Index of the plot in the data (0-based)
         plot_id: Identifier of the plot
         filename: Name of local CSV file (default: "soil-info.csv")
@@ -131,7 +131,7 @@ def get_soil_params(
         SoilParamsData: Soil parameters object
     """
 
-    result: SoilData = get_soil_data(location, use_api, plot_index, plot_id, filename)
+    result: SoilData = get_soil_data(location, use_soil_api, plot_index, plot_id, filename)
 
     if result is None:
         raise ValueError("Soil data not found in API or local file. Please provide a local soil file.")

@@ -14,7 +14,8 @@ from model import configuration
 import model.tree_growth as TreeGrowth
 from model.soil_models.soil_model_types import SoilModelType
 from model.common.constants import (
-    DEFAULT_USE_API,
+    DEFAULT_USE_CLIMATE_API,
+    DEFAULT_USE_SOIL_API,
     DEFAULT_ALLOMORPHY,
     DEFAULT_GWP,
     GWP_list,
@@ -43,7 +44,8 @@ def _print_run_summary(arguments):
     else:
         rows.append(("Input file", arguments.get("input-file-name", "")))
     rows += [
-        ("Use API", arguments["use-api"]),
+        ("Use climate API", arguments["use-climate-api"]),
+        ("Use soil API", arguments["use-soil-api"]),
         ("Tree cohorts", arguments["n-cohorts"]),
         ("Allometric keys", ", ".join(str(k) for k in arguments["allometric-keys"])),
         ("GWP", gwp_label),
@@ -240,9 +242,11 @@ ________________________________________________________________________________
         "Do you have split vector data saved in the source directory?", default=False
     ))
 
-    # Prompt for use-api (boolean)
-    use_api = _ask(questionary.confirm("Use API for climate and soil data?", default=DEFAULT_USE_API))
-    arguments["use-api"] = use_api
+    # Prompt for use-{climate|soil}-api (boolean)
+    use_climate_api = _ask(questionary.confirm("Use API for climate data?", default=DEFAULT_USE_CLIMATE_API))
+    use_soil_api = _ask(questionary.confirm("Use API for soil data?", default=DEFAULT_USE_SOIL_API))
+    arguments["use-climate-api"] = use_climate_api
+    arguments["use-soil-api"] = use_soil_api
 
     # Prompt for n_cohorts
     # Default to 1 if integer not provided

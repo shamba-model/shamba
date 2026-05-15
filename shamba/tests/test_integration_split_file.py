@@ -140,7 +140,8 @@ def test_split_file_full_run_matches_single_row(tmp_path, monkeypatch):
         n_cohorts=N_COHORTS,
         plot_index=0,
         allometry=ALLOMETRIC_KEYS,
-        use_api=False,
+        use_climate_api=False,
+        use_soil_api=False,
         create_forward_soil_model=forward_model.create,
         create_inverse_soil_model=inverse_model.create,
     )

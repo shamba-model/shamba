@@ -26,7 +26,8 @@ class SampleArgs(NamedTuple):
     emission_factors: EmissionFactors = EmissionFactors()
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP]
-    use_api: bool = CONSTANTS.DEFAULT_USE_API
+    use_climate_api: bool = CONSTANTS.DEFAULT_USE_CLIMATE_API
+    use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API
 
 
 def _run_single_sample(arguments: SampleArgs):
@@ -39,7 +40,8 @@ def _run_single_sample(arguments: SampleArgs):
         soil_override=arguments.soil_params,
         allometry=arguments.allometry,
         gwp=arguments.gwp,
-        use_api=arguments.use_api,
+        use_climate_api=arguments.use_climate_api,
+        use_soil_api=arguments.use_soil_api,
         emission_factors=arguments.emission_factors
     )
 
@@ -59,7 +61,8 @@ def run_monte_carlo(
     emission_distribution_dict: Dict[str, DistributionSpec] = MODEL_PARAMETER_DISTRIBUTIONS,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    use_api: bool = CONSTANTS.DEFAULT_USE_API,
+    use_climate_api: bool = CONSTANTS.DEFAULT_USE_CLIMATE_API,
+    use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API,
     seed: Optional[int] = None,
     checkpoint_every: int = 0,
     on_checkpoint: Optional[Callable[[int, MCSummaries], None]] = None,
@@ -135,7 +138,8 @@ def run_monte_carlo(
                     soil_params=soil_samples_batch[i],
                     allometry=allometry,
                     gwp=gwp,
-                    use_api=use_api,
+                    use_climate_api=use_climate_api,
+                    use_soil_api=use_soil_api,
                 )
                 for i in range(len(samples_batch))
             ])))

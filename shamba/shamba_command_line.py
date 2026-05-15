@@ -404,7 +404,7 @@ def main(n, arguments):
         )
         vector_input_data = scalar_input_data | mgmt_input_data | tree_size_data
         # _climate_cover_data.csv always provides base_cover and proj_cover.
-        # It may also contain climate data (temp, rain, evap/pet) regardless of use_api,
+        # It may also contain climate data (temp, rain, evap/pet) regardless of use_climate_api,
         # since these are used as a fallback if the API is unavailable. The logic assumes
         # that the file either contains all climate data or none.
         climate_cover_data = data_handler.read_and_validate_timeseries_by_header(
@@ -436,7 +436,8 @@ def main(n, arguments):
         else:
             distribution_dict = None
         # TODO: tidy the below up so that it isn't a duplicate of the code at the beginning of handle_intervention()
-        use_api = arguments["use-api"]
+        use_climate_api = arguments["use-climate-api"]
+        use_soil_api = arguments["use-soil-api"]
         no_of_years = int(np.atleast_1d(vector_input_data[CONSTANTS.NO_OF_YEARS_KEY])[0])
         plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
         location = get_location(vector_input_data)
@@ -446,9 +447,9 @@ def main(n, arguments):
                 vector_input_data["temp"],
                 vector_input_data["rain"],
                 vector_input_data["evap"],)
-        climate = Climate.from_location(location, use_api, climate_vectors=climate_vectors)
+        climate = Climate.from_location(location, use_climate_api=use_climate_api, climate_vectors=climate_vectors)
         soil_params = SoilParams.get_soil_params(
-            location=location, use_api=use_api, plot_id=plot_id, plot_index=n
+            location=location, use_soil_api=use_soil_api, plot_id=plot_id, plot_index=n
         )
 
         mc_results = run_monte_carlo(
@@ -464,7 +465,8 @@ def main(n, arguments):
             distribution_dict=distribution_dict,
             allometry=allometric_keys,
             gwp=gwp,
-            use_api=arguments["use-api"],
+            use_climate_api=arguments["use-climate-api"],
+            use_soil_api=arguments["use-soil-api"],
             seed=arguments["seed"],
         )
 
@@ -517,7 +519,8 @@ def main(n, arguments):
             plot_index=n,
             allometry=allometric_keys,
             gwp=gwp,
-            use_api=arguments["use-api"],
+            use_climate_api=arguments["use-climate-api"],
+            use_soil_api=arguments["use-soil-api"],
             create_forward_soil_model=ForwardSoilModel.create,
             create_inverse_soil_model=InverseSoilModel.create,
         )

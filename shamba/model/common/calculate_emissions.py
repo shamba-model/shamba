@@ -564,7 +564,8 @@ def handle_intervention(
     soil_override: Optional[SoilParams.SoilParamsData] = None,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    use_api: bool = CONSTANTS.DEFAULT_USE_API,
+    use_climate_api: bool = CONSTANTS.DEFAULT_USE_CLIMATE_API,
+    use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API,
     emission_factors: Emit.EmissionFactors = Emit.EmissionFactors()
 ):
     no_of_years = get_int(CONSTANTS.NO_OF_YEARS_KEY, intervention_input)
@@ -581,7 +582,7 @@ def handle_intervention(
             intervention_input["rain"],
             intervention_input["evap"],
         )
-    climate = Climate.from_location(location, use_api=use_api, climate_vectors=climate_vectors)
+    climate = Climate.from_location(location, use_climate_api=use_climate_api, climate_vectors=climate_vectors)
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
@@ -590,7 +591,7 @@ def handle_intervention(
         soil = soil_override
     else:
         soil = SoilParams.get_soil_params(
-            location=location, use_api=use_api, plot_index=plot_index, plot_id=plot_id
+            location=location, use_soil_api=use_soil_api, plot_index=plot_index, plot_id=plot_id
         )
 
     # inverse uses one monthly vector of climate data, but climate is a 12 * years vector, so average:

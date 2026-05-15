@@ -117,17 +117,17 @@ def from_vectors(temperature, rain, evaporation) -> ClimateData:
     )
 
 
-def from_location(location, use_api: bool, climate_vectors=None) -> ClimateData:
+def from_location(location, use_climate_api: bool, climate_vectors=None) -> ClimateData:
     """Construct Climate object for a given location.
 
     Priority order:
-      1. Climate API (if use_api=True and call succeeds)
+      1. Climate API (if use_climate_api=True and call succeeds)
       2. climate_vectors from split input file (temp/rain/evap columns)
       3. Local climate.csv file
 
     Args:
         location: (latitude, longitude) tuple
-        use_api: whether to attempt the climate API
+        use_climate_api: whether to attempt the climate API
         climate_vectors: optional tuple of (temperature, rain, evaporation)
             arrays from the split _climate_cover_data.csv file
     Returns:
@@ -136,7 +136,7 @@ def from_location(location, use_api: bool, climate_vectors=None) -> ClimateData:
     latitude = location[0]
     longitude = location[1]
 
-    if use_api:
+    if use_climate_api:
         climate_result = get_climate_data(latitude=latitude, longitude=longitude)
 
         if climate_result is not None:
