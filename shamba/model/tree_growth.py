@@ -343,18 +343,11 @@ def from_csv(
     diam_key = f"diam_sp{sp_index}"
     diam = input_data.get(diam_key, np.array([]))
 
-    if all(key in csv_input_data for key in biomass_input):
-        biomass = np.array([csv_input_data[k] for k in biomass_input]).astype(float)
-        params = {"age": age, "diam": np.array([]), "biomass": biomass}
-    else:
-        diam_base = ["diam1", "diam2", "diam3", "diam4", "diam5", "diam6"]
-        diam_input = [f"{species_prefix}{key}" for key in diam_base]
-        diam = np.array([csv_input_data[k] for k in diam_input]).astype(float)
-        params = {"age": age, "diam": diam}
-
     biomass_key = f"biomass_sp{sp_index}"
     if biomass_key in input_data:
-        params["biomass"] = input_data[biomass_key]
+        params = {"age": age, "diam": np.array([]), "biomass": input_data[biomass_key]}
+    else:
+        params = {"age": age, "diam": diam}
 
     growth = create(tree_params, params, allometric_key)
 
