@@ -95,13 +95,13 @@ GROUPED_HEADER_VALIDATIONS = [
     (r"^(base|proj)_species", [r"^(base|proj)_plant_yr", r"^(base|proj)_plant_dens"]),
     # If a project cohort species N is given, per-cohort thinning/mortality is required.
     # (Cohort 1 is also covered by REQUIRED_MGMT_KEYS; this catches cohorts 2 and above.)
-    (r"^proj_species", [
-        r"^thin_proj_cohort",
-        r"^thin_proj_br_cohort",
-        r"^thin_proj_st_cohort",
-        r"^mort_proj_cohort",
-        r"^mort_proj_br_cohort",
-        r"^mort_proj_st_cohort",
+    (r"^(base|proj)_species", [
+        r"^thin_(base|proj)_cohort",
+        r"^thin_(base|proj)_br_cohort",
+        r"^thin_(base|proj)_st_cohort",
+        r"^mort_(base|proj)_cohort",
+        r"^mort_(base|proj)_br_cohort",
+        r"^mort_(base|proj)_st_cohort",
     ]),
 ]
 
@@ -110,12 +110,8 @@ REQUIRED_MGMT_KEYS = [
     "fire_on_base", "fire_off_base", "fire_on_proj", "fire_off_proj",
     "base_lit_qty1", "proj_lit_qty1",
     "base_sf_qty1", "base_sf_n1", "proj_sf_qty1", "proj_sf_n1",
-    # TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
-    # baselines are possible and, if so, extend validation and input formats accordingly.
-    # Thinning/mortality — baseline always has one cohort; project requires at least cohort 1.
+    # Thinning/mortality — project always has at least one cohort, baseline may have none.
     # Supply zeros for thinning arrays if no thinning events occur.
-    "thin_base_cohort1", "thin_base_br_cohort1", "thin_base_st_cohort1",
-    "mort_base_cohort1", "mort_base_br_cohort1", "mort_base_st_cohort1",
     "thin_proj_cohort1", "thin_proj_br_cohort1", "thin_proj_st_cohort1",
     "mort_proj_cohort1", "mort_proj_br_cohort1", "mort_proj_st_cohort1",
 ]
@@ -556,10 +552,7 @@ def expand_single_row_data_input(file_path: str):
 
     # --- Tree management ---
     # Build thinning/mortality arrays and copy them to every cohort present in
-    # this scenario.  Base is assumed to have exactly one cohort in the single-row
-    # format; proj can have up to three (species1–species3).
-    # TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
-    # baselines are possible and, if so, extend this to read base_species2/3 like proj.
+    # this scenario.  Base and proj can each have up to three cohorts (species1–species3).
     tree_data = {}
     for mgmt in ("base", "proj"):
         thinning_array = np.zeros(no_of_years + 1)
@@ -569,10 +562,7 @@ def expand_single_row_data_input(file_path: str):
             if yr > 0:
                 thinning_array[yr] = pc
 
-        if mgmt == "base":
-            cohort_indices = [1]
-        else:
-            cohort_indices = [i for i in range(1, 4) if f"proj_species{i}" in raw] or [1]
+        cohort_indices = [i for i in range(1, 4) if f"{mgmt}_species{i}" in raw] or [1]
 
         for c in cohort_indices:
             tree_data[f"thin_{mgmt}_cohort{c}"] = thinning_array

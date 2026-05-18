@@ -108,7 +108,8 @@ def test_run_monte_carlo_returns_n_samples():
             n_samples=5,
             create_forward_soil_model=fake_forward,
             create_inverse_soil_model=fake_inverse,
-            n_cohorts=1,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
             plot_index=0,
             seed=0,
         )
@@ -133,7 +134,8 @@ def test_run_monte_carlo_deterministic_no_distributions():
             n_samples=4,
             create_forward_soil_model=fake_forward,
             create_inverse_soil_model=fake_inverse,
-            n_cohorts=1,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
             plot_index=0,
             seed=42,
         )
@@ -161,7 +163,8 @@ def test_run_monte_carlo_uses_soil_override():
             n_samples=3,
             create_forward_soil_model=fake_forward,
             create_inverse_soil_model=fake_inverse,
-            n_cohorts=1,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
             plot_index=0,
             seed=0,
         )

@@ -42,7 +42,7 @@ def get_location(year_input: Dict[str, Any]) -> Tuple[float, float]:
 # TREE MODEL
 # ----------
 class GetTreeModelReturnData(NamedTuple):
-    tree_base: TreeModel.TreeModel
+    tree_base: List[TreeModel.TreeModel]
     tree_projects: List[TreeModel.TreeModel]
     tree_growths: List[TreeGrowth.TreeGrowth]
 
@@ -50,49 +50,61 @@ class GetTreeModelReturnData(NamedTuple):
 def get_tree_model_data(
     intervention_input: Dict[str, Union[float, int]],
     no_of_years: int,
-    no_of_cohorts: int,
+    no_of_base_cohorts: int,
+    no_of_proj_cohorts: int,
     allometry: List[str],
 ) -> GetTreeModelReturnData:
     # Tree params: read species codes directly from vector-format keys
-    tree_par_base = TreeParams.from_species_index(
-        int(np.atleast_1d(intervention_input["base_species1"])[0])
-    )
-    tree_params = [
+    base_tree_params = [
+        TreeParams.from_species_index(
+            int(np.atleast_1d(intervention_input[f"base_species{i + 1}"])[0])
+        )
+        for i in range(no_of_base_cohorts)
+    ]
+    proj_tree_params = [
         TreeParams.from_species_index(
             int(np.atleast_1d(intervention_input[f"proj_species{i + 1}"])[0])
         )
-        for i in range(no_of_cohorts)
+        for i in range(no_of_proj_cohorts)
     ]
 
     # Tree growth
-    growth_base = TreeGrowth.create_baseline_tree_growths(
-        intervention_input, [tree_par_base], allometry, cohort_count=1
-    )[0]
-    tree_growths = TreeGrowth.create_tree_growths(
-        intervention_input, tree_params, allometry, no_of_cohorts
+    base_tree_growths = TreeGrowth.create_baseline_tree_growths(
+        intervention_input, base_tree_params, allometry, cohort_count=no_of_base_cohorts
+    )
+    proj_tree_growths = TreeGrowth.create_tree_growths(
+        intervention_input, proj_tree_params, allometry, no_of_proj_cohorts
     )
 
     # Thinning and mortality: read pre-built vectors directly from input.
-    # TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
-    # baselines are possible and, if so, loop over base cohorts as is done for project cohorts.
-    # Baseline always has one cohort; project reads per-cohort arrays indexed 1..no_of_cohorts.
-    thinning_base = intervention_input["thin_base_cohort1"]
-    thinning_fraction_left_base = np.array([
-        1,
-        float(np.atleast_1d(intervention_input["thin_base_br_cohort1"])[0]),
-        float(np.atleast_1d(intervention_input["thin_base_st_cohort1"])[0]),
-        1, 1,
-    ])
-    mortality_base = intervention_input["mort_base_cohort1"]
-    mortality_fraction_left_base = np.array([
-        1,
-        float(np.atleast_1d(intervention_input["mort_base_br_cohort1"])[0]),
-        float(np.atleast_1d(intervention_input["mort_base_st_cohort1"])[0]),
-        1, 1,
-    ])
+
+    thinnings_base = [
+        intervention_input[f"thin_base_cohort{i + 1}"] for i in range(no_of_base_cohorts)
+    ]
+    thinning_fractions_left_base = [
+        np.array([
+            1,
+            float(np.atleast_1d(intervention_input[f"thin_base_br_cohort{i + 1}"])[0]),
+            float(np.atleast_1d(intervention_input[f"thin_base_st_cohort{i + 1}"])[0]),
+            1, 1,
+        ])
+        for i in range(no_of_base_cohorts)
+    ]
+    mortalities_base = [
+        intervention_input[f"mort_base_cohort{i + 1}"] for i in range(no_of_base_cohorts)
+    ]
+    mortality_fractions_left_base = [
+        np.array([
+            1,
+            float(np.atleast_1d(intervention_input[f"mort_base_br_cohort{i + 1}"])[0]),
+            float(np.atleast_1d(intervention_input[f"mort_base_st_cohort{i + 1}"])[0]),
+            1, 1,
+        ])
+        for i in range(no_of_base_cohorts)
+    ]
 
     thinnings_project = [
-        intervention_input[f"thin_proj_cohort{i + 1}"] for i in range(no_of_cohorts)
+        intervention_input[f"thin_proj_cohort{i + 1}"] for i in range(no_of_proj_cohorts)
     ]
     thinning_fractions_project = [
         np.array([
@@ -101,10 +113,10 @@ def get_tree_model_data(
             float(np.atleast_1d(intervention_input[f"thin_proj_st_cohort{i + 1}"])[0]),
             1, 1,
         ])
-        for i in range(no_of_cohorts)
+        for i in range(no_of_proj_cohorts)
     ]
     mortalities_project = [
-        intervention_input[f"mort_proj_cohort{i + 1}"] for i in range(no_of_cohorts)
+        intervention_input[f"mort_proj_cohort{i + 1}"] for i in range(no_of_proj_cohorts)
     ]
     mortality_fractions_project = [
         np.array([
@@ -113,35 +125,37 @@ def get_tree_model_data(
             float(np.atleast_1d(intervention_input[f"mort_proj_st_cohort{i + 1}"])[0]),
             1, 1,
         ])
-        for i in range(no_of_cohorts)
+        for i in range(no_of_proj_cohorts)
     ]
 
-    tree_base = TreeModel.from_defaults(
-        tree_params=tree_par_base,
-        tree_growth=growth_base,
-        year_planted=int(np.atleast_1d(intervention_input["base_plant_yr1"])[0]),
-        stand_density=int(np.atleast_1d(intervention_input["base_plant_dens1"])[0]),
-        thinning=thinning_base,
-        thinning_fraction=thinning_fraction_left_base,
-        mortality=mortality_base,
-        mortality_fraction=mortality_fraction_left_base,
+    tree_bases = TreeModel.create_tree_projects(
+        csv_input_data=intervention_input,
+        tree_params=base_tree_params,
+        growths=base_tree_growths,
+        thinnings_project=thinnings_base,
+        thinning_fractions_project=thinning_fractions_left_base,
+        mortalities_project=mortalities_base,
+        mortality_fractions_project=mortality_fractions_left_base,
         no_of_years=no_of_years,
+        cohort_count=no_of_base_cohorts,
+        type = "base"
     )
 
     tree_projects = TreeModel.create_tree_projects(
         csv_input_data=intervention_input,
-        tree_params=tree_params,
-        growths=tree_growths,
+        tree_params=proj_tree_params,
+        growths=proj_tree_growths,
         thinnings_project=thinnings_project,
         thinning_fractions_project=thinning_fractions_project,
         mortalities_project=mortalities_project,
         mortality_fractions_project=mortality_fractions_project,
         no_of_years=no_of_years,
-        cohort_count=no_of_cohorts,
+        cohort_count=no_of_proj_cohorts,
+        type = "proj"
     )
 
     return GetTreeModelReturnData(
-        tree_base=tree_base, tree_projects=tree_projects, tree_growths=tree_growths
+        tree_base=tree_bases, tree_projects=tree_projects, tree_growths=proj_tree_growths
     )
 
 
@@ -248,7 +262,7 @@ def get_soil_carbon_data(
     fire_project: np.ndarray,
     crop_base: List[CropModel.CropModelData],
     crop_project: List[CropModel.CropModelData],
-    tree_base: TreeModel.TreeModel,
+    tree_base: List[TreeModel.TreeModel],
     tree_projects: List[TreeModel.TreeModel],
     litter_external_base: LitterModel.LitterModelData,
     litter_external_project: LitterModel.LitterModelData,
@@ -277,7 +291,7 @@ def get_soil_carbon_data(
         Ci=for_soil.SOC[-1],
         no_of_years=no_of_years,
         crop=crop_base,
-        tree=[tree_base],
+        tree=tree_base,
         litter=[litter_external_base],
         fire=fire_base,
     )
@@ -312,7 +326,7 @@ def get_emissions_data(
     project_forward_soil_data: ForwardSoilModelData,
     crop_base: List[CropModel.CropModelData],
     crop_project: List[CropModel.CropModelData],
-    tree_base: TreeModel.TreeModel,
+    tree_base: List[TreeModel.TreeModel],
     tree_projects: List[TreeModel.TreeModel],
     litter_external_base: LitterModel.LitterModelData,
     litter_external_project: LitterModel.LitterModelData,
@@ -330,7 +344,7 @@ def get_emissions_data(
         no_of_years=no_of_years,
         forward_soil_model=base_forward_soil_data,
         crop=crop_base,
-        tree=[tree_base],
+        tree=tree_base,
         litter=[litter_external_base],
         fert=[synthetic_fertiliser_base],
         fire=fire_base,
@@ -492,14 +506,14 @@ def get_tree_emissions(
     no_of_years: int,
     fire_base: np.ndarray,
     fire_project: np.ndarray,
-    tree_base: TreeModel.TreeModel,
+    tree_base: List[TreeModel.TreeModel],
     tree_projects: List[TreeModel.TreeModel],
     gwp: dict,
     emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
 ) -> GetEmissionsWithDifferenceReturnData:
     tree_base_emissions = Emit.create(
         no_of_years=no_of_years,
-        tree=[tree_base],
+        tree=tree_base,
         fire=fire_base,
         gwp=gwp,
         emission_factors=emission_factors
@@ -559,7 +573,8 @@ def handle_intervention(
     intervention_input: Dict[str, Union[float, int]],
     create_forward_soil_model,
     create_inverse_soil_model,
-    n_cohorts: int,
+    n_proj_cohorts: int,
+    n_base_cohorts: int,
     plot_index: int,
     soil_override: Optional[SoilParams.SoilParamsData] = None,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
@@ -622,7 +637,8 @@ def handle_intervention(
     tree_model_data = get_tree_model_data(
         no_of_years=no_of_years,
         intervention_input=intervention_input,
-        no_of_cohorts=n_cohorts,
+        no_of_base_cohorts=n_base_cohorts,
+        no_of_proj_cohorts=n_proj_cohorts,
         allometry=allometry
     )
 

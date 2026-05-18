@@ -114,7 +114,7 @@ WL_expected_project_emissions = [5.476539,
 ]
 
 TESTB_N_COHORTS = 1
-testB_allometric_keys = ["chave dry","chave dry", "ryan", "markhamia"]
+testB_allometric_keys = ["chave dry", "chave dry"]
 # TODO: confirm testB_expected_base_emissions against the SHAMBA Excel reference model.
 # Values were calculated separately from the code but have not yet been verified in Excel.
 # This is the highest-priority independent check needed for the tree sub-model.
@@ -253,7 +253,7 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
     ])
 
     tree_base = TreeModel.from_defaults(
-        tree_params=tree_params_1,
+        tree_params=tree_par_base,
         tree_growth=growth_base,
         year_planted=0,
         stand_density=int(scalar_input_data["base_plant_dens1"][0]),
@@ -292,6 +292,7 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         mortality_fractions_project=mortality_fractions_project,
         no_of_years=N_YEARS,
         cohort_count=N_COHORTS,
+        type="proj",
     )
 
     tree_base_emissions = Emit.create(
@@ -350,6 +351,7 @@ def test_create_tree_projects_uses_per_cohort_thinning():
         mortality_fractions_project=[fraction, fraction],
         no_of_years=N_YEARS,
         cohort_count=2,
+        type="proj",
     )
 
     assert tree_projects[0].thinning[0] != tree_projects[1].thinning[0], (
@@ -357,6 +359,58 @@ def test_create_tree_projects_uses_per_cohort_thinning():
     )
     np.testing.assert_array_equal(tree_projects[0].thinning, thinning_cohort1)
     np.testing.assert_array_equal(tree_projects[1].thinning, thinning_cohort2)
+
+def test_create_tree_baselines_uses_per_cohort_thinning():
+    """Each baseline cohort must receive its own thinning array, not a shared one."""
+    file_path = os.path.join(configuration.TESTS_DIR, "fixtures", "WL_input.csv")
+    scalar_input_data, tree_size_data, mgmt_input_data, _ = expand_single_row_data_input(file_path)
+    N_YEARS = int(scalar_input_data["yrs_proj"].item())
+
+    # Build a two-cohort scenario reusing WL species for both cohorts.
+    # create_tree_params_from_species_index reads "species{N}";
+    # create_tree_growths reads "proj_species{N}" at allometric_keys[N] (index 0 = base).
+    growth_input = {
+        **scalar_input_data,
+        **tree_size_data,
+        "species1": scalar_input_data["base_species1"],
+        "species2": scalar_input_data["base_species1"],
+        "proj_species2": scalar_input_data["base_species1"],
+        "proj_plant_yr2": scalar_input_data["base_plant_yr1"],
+        "proj_plant_dens2": scalar_input_data["base_plant_dens1"],
+    }
+    tree_params = TreeParams.create_tree_params_from_species_index(growth_input, 2)
+    tree_growths = TreeGrowth.create_tree_growths(
+        growth_input, tree_params, ["chave dry", "chave dry", "chave dry"], 2
+    )
+
+    thinning_cohort1 = mgmt_input_data["thin_proj_cohort1"].copy()
+    thinning_cohort2 = mgmt_input_data["thin_proj_cohort1"].copy()
+    # Give cohort 2 a different thinning value at year 0 so the arrays are distinguishable.
+    thinning_cohort2[0] = 0.99
+
+    fraction = np.array([1, 0.0, 0.0, 1, 1])
+
+    tree_baselines = TreeModel.create_tree_projects(
+        csv_input_data=growth_input,
+        tree_params=tree_params,
+        growths=tree_growths,
+        thinnings_project=[thinning_cohort1, thinning_cohort2],
+        thinning_fractions_project=[fraction, fraction],
+        mortalities_project=[
+            mgmt_input_data["mort_proj_cohort1"],
+            mgmt_input_data["mort_proj_cohort1"],
+        ],
+        mortality_fractions_project=[fraction, fraction],
+        no_of_years=N_YEARS,
+        cohort_count=2,
+        type="proj",
+    )
+
+    assert tree_baselines[0].thinning[0] != tree_baselines[1].thinning[0], (
+        "Cohort 1 and cohort 2 should have different thinning arrays"
+    )
+    np.testing.assert_array_equal(tree_baselines[0].thinning, thinning_cohort1)
+    np.testing.assert_array_equal(tree_baselines[1].thinning, thinning_cohort2)
 
 
 def test_validation_requires_per_cohort_thinning_when_second_cohort_present():

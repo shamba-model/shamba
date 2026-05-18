@@ -20,7 +20,8 @@ class SampleArgs(NamedTuple):
     perturbed_intervention_input: Dict[str, Any]
     create_forward_soil_model: Callable
     create_inverse_soil_model: Callable
-    n_cohorts: int
+    n_proj_cohorts: int
+    n_base_cohorts: int
     plot_index: int
     soil_params: Optional[SoilParams.SoilParamsData] = None
     emission_factors: EmissionFactors = EmissionFactors()
@@ -35,7 +36,8 @@ def _run_single_sample(arguments: SampleArgs):
         intervention_input=arguments.perturbed_intervention_input,
         create_forward_soil_model=arguments.create_forward_soil_model,
         create_inverse_soil_model=arguments.create_inverse_soil_model,
-        n_cohorts=arguments.n_cohorts,
+        n_proj_cohorts=arguments.n_proj_cohorts,
+        n_base_cohorts=arguments.n_base_cohorts,
         plot_index=arguments.plot_index,
         soil_override=arguments.soil_params,
         allometry=arguments.allometry,
@@ -53,7 +55,8 @@ def run_monte_carlo(
     n_samples: int,
     create_forward_soil_model: Callable,
     create_inverse_soil_model: Callable,
-    n_cohorts: int,
+    n_proj_cohorts: int,
+    n_base_cohorts: int,
     plot_index: int,
     sample_emission_factors: bool = False,
     distribution_dict: Optional[Dict] = None,
@@ -133,7 +136,8 @@ def run_monte_carlo(
                     emission_factors=emission_factor_samples_batch[i],
                     create_forward_soil_model=create_forward_soil_model,
                     create_inverse_soil_model=create_inverse_soil_model,
-                    n_cohorts=n_cohorts,
+                    n_proj_cohorts=n_proj_cohorts,
+                    n_base_cohorts=n_base_cohorts,
                     plot_index=plot_index,
                     soil_params=soil_samples_batch[i],
                     allometry=allometry,

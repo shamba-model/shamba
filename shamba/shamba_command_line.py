@@ -373,7 +373,8 @@ def main(n, arguments):
     configuration.INPUT_DIR = os.path.join(configuration.SAVE_DIR, "input")
     configuration.OUTPUT_DIR = os.path.join(configuration.SAVE_DIR, "output")
 
-    N_COHORTS = arguments["n-cohorts"]
+    N_PROJ_COHORTS = arguments["n-proj-cohorts"]
+    N_BASE_COHORTS = arguments["n-base-cohorts"]
 
     if arguments.get("input-file-name") is not None:
         file_path = os.path.join(configuration.INPUT_DIR, arguments["input-file-name"])
@@ -459,7 +460,8 @@ def main(n, arguments):
             n_samples=n_samples,
             create_forward_soil_model=ForwardSoilModel.create,
             create_inverse_soil_model=InverseSoilModel.create,
-            n_cohorts=N_COHORTS,
+            n_proj_cohorts=N_PROJ_COHORTS,
+            n_base_cohorts=N_BASE_COHORTS,
             plot_index=n,
             sample_emission_factors=arguments["sample-emission-factors"],
             distribution_dict=distribution_dict,
@@ -515,7 +517,8 @@ def main(n, arguments):
     else:
         intervention_emissions = handle_intervention(
             intervention_input=vector_input_data,
-            n_cohorts=N_COHORTS,
+            n_proj_cohorts=N_PROJ_COHORTS,
+            n_base_cohorts=N_BASE_COHORTS,
             plot_index=n,
             allometry=allometric_keys,
             gwp=gwp,

@@ -46,7 +46,7 @@ def _print_run_summary(arguments):
     rows += [
         ("Use climate API", arguments["use-climate-api"]),
         ("Use soil API", arguments["use-soil-api"]),
-        ("Tree cohorts", arguments["n-cohorts"]),
+        ("Tree cohorts", arguments["n-proj-cohorts"]),
         ("Allometric keys", ", ".join(str(k) for k in arguments["allometric-keys"])),
         ("GWP", gwp_label),
         ("Print to stdout", arguments["print-to-stdout"]),
@@ -248,10 +248,12 @@ ________________________________________________________________________________
     arguments["use-climate-api"] = use_climate_api
     arguments["use-soil-api"] = use_soil_api
 
-    # Prompt for n_cohorts
+    # Prompt for n_{}_cohorts
+    n_base_cohorts = _ask(questionary.text("Enter number of baseline tree cohorts (defaults to 0): ", validate=validate_integer, default="0"))
+    arguments["n-base-cohorts"] = int(n_base_cohorts)
     # Default to 1 if integer not provided
-    n_cohorts = _ask(questionary.text("Enter number of tree cohorts (defaults to 1): ", validate=validate_integer, default="1"))
-    arguments["n-cohorts"] = int(n_cohorts)
+    n_proj_cohorts = _ask(questionary.text("Enter number of project tree cohorts (defaults to 1): ", validate=validate_integer, default="1"))
+    arguments["n-proj-cohorts"] = int(n_proj_cohorts)
 
     # Prompt for allometric key list
     own_allometry = _ask(questionary.confirm(
@@ -272,15 +274,16 @@ ________________________________________________________________________________
     # Prompt for allometric key, cohort by cohort
     cohort_allometric_keys = []
 
-    base_selected_allometric_key = _ask(questionary.select(
-        "Select an Allometric Key for the baseline species:", choices=all_allometric_keys, default=DEFAULT_ALLOMORPHY
-    ))
-
-    cohort_allometric_keys.append(base_selected_allometric_key)
-
-    for i in range(int(n_cohorts)):
+    for i in range(int(n_base_cohorts)):
         selected_allometric_key = _ask(questionary.select(
-            "Select an Allometric Key for each species in the cohort, in the same order as the input file:",
+            "Select an Allometric Key for baseline cohort {i}:".format(i=i+1),
+            choices=all_allometric_keys, default=DEFAULT_ALLOMORPHY,
+        ))
+        cohort_allometric_keys.append(selected_allometric_key)
+
+    for i in range(int(n_proj_cohorts)):
+        selected_allometric_key = _ask(questionary.select(
+            "Select an Allometric Key for project cohort {i}:".format(i=i+1),
             choices=all_allometric_keys, default=DEFAULT_ALLOMORPHY,
         ))
         cohort_allometric_keys.append(selected_allometric_key)

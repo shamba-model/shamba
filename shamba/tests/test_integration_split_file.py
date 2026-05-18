@@ -137,7 +137,8 @@ def test_split_file_full_run_matches_single_row(tmp_path, monkeypatch):
     inverse_model = InverseSoilModule.get_soil_model(SoilModelType.ROTH_C)
 
     common_kwargs = dict(
-        n_cohorts=N_COHORTS,
+        n_proj_cohorts=N_COHORTS,
+        n_base_cohorts=N_COHORTS,
         plot_index=0,
         allometry=ALLOMETRIC_KEYS,
         use_climate_api=False,
