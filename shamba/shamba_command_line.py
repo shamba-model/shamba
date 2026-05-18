@@ -314,7 +314,7 @@ def setup_project_directory(project_name, arguments):
         files_to_copy.append(str(prefix + "_plot_data.csv"))
         files_to_copy.append(str(prefix + "_mgmt_data.csv"))
         files_to_copy.append(str(prefix + "_tree_size_data.csv"))
-        if arguments["use-api"] is False:
+        if arguments["use-climate-api"] is False:
             files_to_copy.append(str(prefix + "_climate_cover_data.csv"))
     else:
         files_to_copy.append(arguments["input-file-name"])
