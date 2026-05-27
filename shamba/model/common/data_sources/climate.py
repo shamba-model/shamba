@@ -3,7 +3,7 @@ from datetime import datetime
 from collections import defaultdict
 import requests
 import socket
-from typing import List, Any, Dict, Optional, Tuple, NamedTuple
+from typing import List, Any, Dict, Optional, Tuple
 
 from model.common.data_sources.helpers import return_none_on_exception
 
@@ -12,80 +12,52 @@ MONTHS_COUNT = 12
 API_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 
-class ClimateStats(NamedTuple):
-    """Inter-annual mean and standard deviation for one calendar month."""
-    mean: float
-    std: float
-
-
-def compute_monthly_mean_std(
+def aggregate_daily_to_monthly(
     daily_values: np.ndarray,
     date_strings: List[str],
     aggregate_fn,
-) -> List[ClimateStats]:
-    """
-    Compute inter-annual mean and standard deviation for each calendar month.
+) -> np.ndarray:
+    """Aggregate daily values to monthly scalars, returning a flat 12*n_years array.
 
-    For each calendar month (1–12):
-      1. For each year, aggregate the daily values within that (year, month)
-         using aggregate_fn — np.mean for temperature, np.sum for rain/ET.
-      2. Collect the resulting annual scalars across all years (~30 values).
-      3. Return ClimateStats(mean, std) across those annual scalars.
-
-    std uses ddof=1 (sample standard deviation). Returns std=0.0 if fewer than
-    two years of data are present for a month.
+    Values are ordered year-major: [Jan_y1, Feb_y1, ..., Dec_y1, Jan_y2, ...].
 
     Args:
         daily_values: 1-D array of daily values, aligned with date_strings.
         date_strings: list of ISO date strings (e.g. "1995-01-15") from the API.
-        aggregate_fn: function applied to a list of daily values within one
-            (year, month) to produce an annual scalar, e.g. np.mean or np.sum.
+        aggregate_fn: applied to daily values within each (year, month), e.g.
+            np.mean for temperature, np.sum for rain/ET.
 
     Returns:
-        List of 12 ClimateStats, one per calendar month (January first).
+        Flat array of length 12 * n_years.
     """
     year_month_vals: Dict[Tuple[int, int], List[float]] = defaultdict(list)
     for date_str, val in zip(date_strings, daily_values):
         year, month = int(date_str[:4]), int(date_str[5:7])
         year_month_vals[(year, month)].append(float(val))
 
+    years = sorted({y for y, m in year_month_vals})
     result = []
-    for month in range(1, 13):
-        annual_scalars = [
-            aggregate_fn(vals)
-            for (y, m), vals in sorted(year_month_vals.items())
-            if m == month
-        ]
-        if len(annual_scalars) > 1:
-            result.append(ClimateStats(
-                mean=float(np.mean(annual_scalars)),
-                std=float(np.std(annual_scalars, ddof=1)),
-            ))
-        else:
-            mean_val = float(np.mean(annual_scalars)) if annual_scalars else 0.0
-            result.append(ClimateStats(mean=mean_val, std=0.0))
+    for year in years:
+        for month in range(1, 13):
+            vals = year_month_vals.get((year, month), [])
+            result.append(float(aggregate_fn(vals)) if vals else 0.0)
 
-    return result
+    return np.array(result)
 
 
 def get_climate_data(
     longitude: float, latitude: float
-) -> Optional[Tuple[List[ClimateStats], List[ClimateStats], List[ClimateStats]]]:
+) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Get climate data for a given location from the Open-Meteo archive API.
 
-    Returns a 3-tuple of (temperature_stats, rain_stats, evap_stats), each a list
-    of 12 ClimateStats objects (one per calendar month). Each ClimateStats holds
-    the inter-annual mean and standard deviation across ~30 years of daily data.
-
-    The standard deviation captures inter-annual variability: for each month, daily
-    values within each (year, month) are aggregated first, and then std is taken
-    across the ~30 resulting annual scalars.
+    Returns a 3-tuple of (temperature, rain, evap), each a flat array of length
+    12 * 30 = 360, in year-major month order: [Jan_y1, Feb_y1, ..., Dec_y30].
 
     Returns None if the API call fails.
 
     Note: PET-to-evaporation conversion (/ 0.75) is applied in climate.py
-    from_location(), so both mean and std are in PET units here.
+    from_location(), so evap values here are in PET units.
     """
     current_year = datetime.now().year
     last_full_year = current_year - 1
@@ -112,17 +84,17 @@ def get_climate_data(
     daily_data = api_response["daily"]
     date_strings: List[str] = daily_data["time"]
 
-    temp_stats = compute_monthly_mean_std(
+    temp = aggregate_daily_to_monthly(
         np.array(daily_data["temperature_2m_mean"]), date_strings, np.mean
     )
-    rain_stats = compute_monthly_mean_std(
+    rain = aggregate_daily_to_monthly(
         np.array(daily_data["rain_sum"]), date_strings, np.sum
     )
-    evap_stats = compute_monthly_mean_std(
+    evap = aggregate_daily_to_monthly(
         np.array(daily_data["et0_fao_evapotranspiration"]), date_strings, np.sum
     )
 
-    return temp_stats, rain_stats, evap_stats
+    return temp, rain, evap
 
 
 @return_none_on_exception(requests.RequestException, socket.gaierror)
