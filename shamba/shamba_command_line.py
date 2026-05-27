@@ -429,6 +429,16 @@ def main(n, arguments):
 
     gwp = arguments["gwp"]
 
+    climate_vectors = None
+
+    if "temp" in vector_input_data:
+        climate_vectors = (
+                vector_input_data["temp"],
+                vector_input_data["rain"],
+                vector_input_data["evap"],)
+    
+    climate = Climate.from_location(get_location(vector_input_data), use_climate_api=arguments["use-climate-api"], climate_vectors=climate_vectors)
+
     if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
         if arguments["distribution-file-name"]:
@@ -436,19 +446,11 @@ def main(n, arguments):
             distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
         else:
             distribution_dict = None
-        # TODO: tidy the below up so that it isn't a duplicate of the code at the beginning of handle_intervention()
+
         use_climate_api = arguments["use-climate-api"]
         use_soil_api = arguments["use-soil-api"]
-        no_of_years = int(np.atleast_1d(vector_input_data[CONSTANTS.NO_OF_YEARS_KEY])[0])
         plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
         location = get_location(vector_input_data)
-        climate_vectors = None
-        if "temp" in vector_input_data:
-            climate_vectors = (
-                vector_input_data["temp"],
-                vector_input_data["rain"],
-                vector_input_data["evap"],)
-        climate = Climate.from_location(location, use_climate_api=use_climate_api, climate_vectors=climate_vectors)
         soil_params = SoilParams.get_soil_params(
             location=location, use_soil_api=use_soil_api, plot_id=plot_id, plot_index=n
         )
@@ -517,12 +519,12 @@ def main(n, arguments):
     else:
         intervention_emissions = handle_intervention(
             intervention_input=vector_input_data,
+            climate=climate,
             n_proj_cohorts=N_PROJ_COHORTS,
             n_base_cohorts=N_BASE_COHORTS,
             plot_index=n,
             allometry=allometric_keys,
             gwp=gwp,
-            use_climate_api=arguments["use-climate-api"],
             use_soil_api=arguments["use-soil-api"],
             create_forward_soil_model=ForwardSoilModel.create,
             create_inverse_soil_model=InverseSoilModel.create,

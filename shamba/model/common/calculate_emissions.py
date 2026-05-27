@@ -571,6 +571,7 @@ class InterventionReturnData(NamedTuple):
 
 def handle_intervention(
     intervention_input: Dict[str, Union[float, int]],
+    climate: Climate.ClimateData,
     create_forward_soil_model,
     create_inverse_soil_model,
     n_proj_cohorts: int,
@@ -579,7 +580,6 @@ def handle_intervention(
     soil_override: Optional[SoilParams.SoilParamsData] = None,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    use_climate_api: bool = CONSTANTS.DEFAULT_USE_CLIMATE_API,
     use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API,
     emission_factors: Emit.EmissionFactors = Emit.EmissionFactors()
 ):
@@ -590,14 +590,6 @@ def handle_intervention(
     # LOCATION INFORMATION
     # ----------
     location = get_location(intervention_input)
-    climate_vectors = None
-    if "temp" in intervention_input:
-        climate_vectors = (
-            intervention_input["temp"],
-            intervention_input["rain"],
-            intervention_input["evap"],
-        )
-    climate = Climate.from_location(location, use_climate_api=use_climate_api, climate_vectors=climate_vectors)
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
@@ -609,13 +601,7 @@ def handle_intervention(
             location=location, use_soil_api=use_soil_api, plot_index=plot_index, plot_id=plot_id
         )
 
-    # inverse uses one monthly vector of climate data, but climate is a 12 * years vector, so average:
-    inverse_climate = deepcopy(climate)
-    inverse_climate.evaporation = np.mean(inverse_climate.evaporation.reshape(-1, 12), axis=0)
-    inverse_climate.temperature = np.mean(inverse_climate.temperature.reshape(-1, 12), axis=0)
-    inverse_climate.rain = np.mean(inverse_climate.rain.reshape(-1, 12), axis=0)
-
-    inverse_soil_model = create_inverse_soil_model(soil, inverse_climate)
+    inverse_soil_model = create_inverse_soil_model(soil, climate)
 
     # ----------
     # MODEL DATA
