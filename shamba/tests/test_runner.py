@@ -152,8 +152,8 @@ def test_run_monte_carlo_deterministic_no_distributions():
             )
 
 
-def test_run_monte_carlo_uses_soil_override():
-    """handle_intervention is called with soil_override set (not None) on every call."""
+def test_run_monte_carlo_uses_soil():
+    """handle_intervention is called with soil set (not None) on every call."""
     with patch("model.monte_carlo.runner.handle_intervention", return_value=FIXED_RESULT) as mock_handle, \
          patch("model.monte_carlo.runner.concurrent.futures.ProcessPoolExecutor", _InProcessExecutor):
         run_monte_carlo(
@@ -171,8 +171,8 @@ def test_run_monte_carlo_uses_soil_override():
 
     assert mock_handle.call_count == 3
     for call in mock_handle.call_args_list:
-        soil_override = call.kwargs.get("soil_override")
-        assert soil_override is not None, "soil_override should be set on every call"
+        soil = call.kwargs.get("soil")
+        assert soil is not None, "soil should be set on every call"
 
 
 # ---------------------------------------------------------------------------

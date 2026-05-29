@@ -10,6 +10,7 @@ import numpy as np
 from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS
 from model.monte_carlo.distribution_handler import DistributionSpec
+from model.climate import ClimateData
 
 class MCSummaries(NamedTuple):
     base: Dict[str, np.ndarray]
@@ -23,27 +24,26 @@ class SampleArgs(NamedTuple):
     n_proj_cohorts: int
     n_base_cohorts: int
     plot_index: int
-    soil_params: Optional[SoilParams.SoilParamsData] = None
+    soil_params: SoilParams.SoilParamsData
+    climate: ClimateData
     emission_factors: EmissionFactors = EmissionFactors()
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP]
-    use_climate_api: bool = CONSTANTS.DEFAULT_USE_CLIMATE_API
-    use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API
+
 
 
 def _run_single_sample(arguments: SampleArgs):
     return handle_intervention(
         intervention_input=arguments.perturbed_intervention_input,
+        climate = arguments.climate,
+        soil = arguments.soil_params,
         create_forward_soil_model=arguments.create_forward_soil_model,
         create_inverse_soil_model=arguments.create_inverse_soil_model,
         n_proj_cohorts=arguments.n_proj_cohorts,
         n_base_cohorts=arguments.n_base_cohorts,
         plot_index=arguments.plot_index,
-        soil_override=arguments.soil_params,
         allometry=arguments.allometry,
         gwp=arguments.gwp,
-        use_climate_api=arguments.use_climate_api,
-        use_soil_api=arguments.use_soil_api,
         emission_factors=arguments.emission_factors
     )
 
@@ -64,8 +64,6 @@ def run_monte_carlo(
     emission_distribution_dict: Dict[str, DistributionSpec] = MODEL_PARAMETER_DISTRIBUTIONS,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    use_climate_api: bool = CONSTANTS.DEFAULT_USE_CLIMATE_API,
-    use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API,
     seed: Optional[int] = None,
     checkpoint_every: int = 0,
     on_checkpoint: Optional[Callable[[int, MCSummaries], None]] = None,
@@ -106,16 +104,6 @@ def run_monte_carlo(
             rng=rng,
         )
 
-    _CLIMATE_STD_ATTRS = {
-        "temp": "temperature_std",
-        "rain": "rain_std",
-        "evap": "evaporation_std",
-    }
-    for i in range(n_samples):
-        for key, std_attr in _CLIMATE_STD_ATTRS.items():
-            if np.any(getattr(climate, std_attr) != 0.0):
-                samples[i][key] = climate_samples[i][key]
-
     if checkpoint_every > 0:
         batch_starts = range(0, n_samples, checkpoint_every)
         batch_size = checkpoint_every
@@ -140,10 +128,9 @@ def run_monte_carlo(
                     n_base_cohorts=n_base_cohorts,
                     plot_index=plot_index,
                     soil_params=soil_samples_batch[i],
+                    climate=climate_samples[i],
                     allometry=allometry,
                     gwp=gwp,
-                    use_climate_api=use_climate_api,
-                    use_soil_api=use_soil_api,
                 )
                 for i in range(len(samples_batch))
             ])))

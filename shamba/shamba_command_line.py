@@ -469,8 +469,6 @@ def main(n, arguments):
             distribution_dict=distribution_dict,
             allometry=allometric_keys,
             gwp=gwp,
-            use_climate_api=arguments["use-climate-api"],
-            use_soil_api=arguments["use-soil-api"],
             seed=arguments["seed"],
         )
 
