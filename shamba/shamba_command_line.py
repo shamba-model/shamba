@@ -385,9 +385,12 @@ def main(n, arguments):
             target_vector_length=1,
         )
         N_YEARS = int(np.atleast_1d(scalar_input_data["yrs_proj"])[0])
-        # TODO: thinning and mortality arrays use N_YEARS+1 entries (year 0 included);
-        # other management arrays use N_YEARS. N_YEARS+1 is included here to accommodate
-        # both. See the same TODO in broadcast_to_length for full context.
+        # N_YEARS+1 is included for thinning and mortality arrays. Unlike other management
+        # inputs (fire, fertiliser, etc.) which are interval-valued — one value per year —
+        # thinning and mortality are point events that act on a specific biomass state.
+        # The simulation passes through N_YEARS+1 states (initial state plus one after each
+        # year of growth), so these arrays need N_YEARS+1 entries to cover every attachment
+        # point: state_0 → [grow] → state_1 → ... → state_N_YEARS.
         mgmt_input_data = data_handler.read_and_validate_timeseries_by_header(
             file_path=os.path.join(configuration.INPUT_DIR, f"{prefix}_mgmt_data.csv"),
             permitted_vector_lengths=[1, N_YEARS, N_YEARS + 1],

@@ -182,18 +182,15 @@ _THINNING_MORTALITY_PATTERN = re.compile(r"^(thin|mort)_(base|proj)_")
 def broadcast_to_length(data: dict, target_length: int, keys_to_broadcast: list[str]) -> np.ndarray:
     """Broadcasts or truncates each broadcastable array to target_length.
 
-    Thinning and mortality arrays are exempt from truncation: they carry
-    N_YEARS+1 entries (year 0 through year N) because the tree model
-    indexes them by year number rather than sequentially.  All other
-    management arrays must be exactly target_length after this call.
+    Most management arrays are interval-valued (one value per year, N_YEARS entries).
+    Thinning and mortality are point events that act on a specific biomass state, so they
+    carry N_YEARS+1 entries — one per simulation state (initial state plus one after each
+    year of growth). These arrays are exempt from truncation here; all others must be
+    exactly target_length after this call.
     """
     for key, arr in data.items():
         if key in keys_to_broadcast and arr.size < target_length:
             data[key] = np.tile(arr, target_length // arr.size + 1)[:target_length]
-            # TODO: thinning and mortality arrays use N_YEARS+1 entries (including year 0),
-            # while other management arrays use N_YEARS. This inconsistency should be resolved
-            # in a future branch — either standardise on N_YEARS throughout, or split
-            # thinning/mortality into a separate file with its own permitted_vector_lengths.
         elif key in keys_to_broadcast and arr.size > target_length:
             if _THINNING_MORTALITY_PATTERN.match(key):
                 pass  # year-indexed; must keep N_YEARS+1 entries
