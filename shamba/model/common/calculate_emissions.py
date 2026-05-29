@@ -572,34 +572,21 @@ class InterventionReturnData(NamedTuple):
 def handle_intervention(
     intervention_input: Dict[str, Union[float, int]],
     climate: Climate.ClimateData,
+    soil: SoilParams.SoilParamsData,
     create_forward_soil_model,
     create_inverse_soil_model,
     n_proj_cohorts: int,
     n_base_cohorts: int,
     plot_index: int,
-    soil_override: Optional[SoilParams.SoilParamsData] = None,
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    use_soil_api: bool = CONSTANTS.DEFAULT_USE_SOIL_API,
     emission_factors: Emit.EmissionFactors = Emit.EmissionFactors()
 ):
     no_of_years = get_int(CONSTANTS.NO_OF_YEARS_KEY, intervention_input)
-    plot_id = get_int("plot_name", intervention_input)
-
-    # ----------
-    # LOCATION INFORMATION
-    # ----------
-    location = get_location(intervention_input)
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
     # ----------
-    if soil_override is not None:
-        soil = soil_override
-    else:
-        soil = SoilParams.get_soil_params(
-            location=location, use_soil_api=use_soil_api, plot_index=plot_index, plot_id=plot_id
-        )
 
     inverse_soil_model = create_inverse_soil_model(soil, climate)
 

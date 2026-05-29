@@ -437,7 +437,15 @@ def main(n, arguments):
                 vector_input_data["rain"],
                 vector_input_data["evap"],)
     
-    climate = Climate.from_location(get_location(vector_input_data), use_climate_api=arguments["use-climate-api"], climate_vectors=climate_vectors)
+    use_climate_api = arguments["use-climate-api"]
+    climate = Climate.from_location(get_location(vector_input_data), use_climate_api=use_climate_api, climate_vectors=climate_vectors)
+
+    use_soil_api = arguments["use-soil-api"]
+    plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
+    location = get_location(vector_input_data)
+    soil_params = SoilParams.get_soil_params(
+        location=location, use_soil_api=use_soil_api, plot_id=plot_id, plot_index=n)
+
 
     if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
@@ -446,14 +454,6 @@ def main(n, arguments):
             distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
         else:
             distribution_dict = None
-
-        use_climate_api = arguments["use-climate-api"]
-        use_soil_api = arguments["use-soil-api"]
-        plot_id = vector_input_data["plot_name"] if "plot_name" in vector_input_data else None
-        location = get_location(vector_input_data)
-        soil_params = SoilParams.get_soil_params(
-            location=location, use_soil_api=use_soil_api, plot_id=plot_id, plot_index=n
-        )
 
         mc_results = run_monte_carlo(
             base_input_dict=vector_input_data,
@@ -520,12 +520,12 @@ def main(n, arguments):
         intervention_emissions = handle_intervention(
             intervention_input=vector_input_data,
             climate=climate,
+            soil=soil_params,
             n_proj_cohorts=N_PROJ_COHORTS,
             n_base_cohorts=N_BASE_COHORTS,
             plot_index=n,
             allometry=allometric_keys,
             gwp=gwp,
-            use_soil_api=arguments["use-soil-api"],
             create_forward_soil_model=ForwardSoilModel.create,
             create_inverse_soil_model=InverseSoilModel.create,
         )
