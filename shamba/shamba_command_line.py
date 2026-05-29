@@ -235,13 +235,8 @@ def save_crop_data(base_data, project_data, plot_name, model_type):
             CropParams.save(project, str(project_filename))
 
 
-def write_emissions_csv(configuration, mod_run, n, st, data):
-    # Define the output directory and file name
-    output_dir = Path(configuration.OUTPUT_DIR + f"_{mod_run}/plot_{n+st}")
+def write_emissions_csv(output_dir, n, st, data):
     output_file = output_dir / f"plot_{n+st}_emissions_all_pools_per_year.csv"
-
-    # Ensure the directory exists
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Define the header and data rows
     header = [
@@ -446,6 +441,48 @@ def main(n, arguments):
     soil_params = SoilParams.get_soil_params(
         location=location, use_soil_api=use_soil_api, plot_id=plot_id, plot_index=n)
 
+    # Save stuff
+
+    # starting plot output number
+    st = 1
+
+    dir = Path(configuration.OUTPUT_DIR + "_" + mod_run + "\plot_" + str(n + st))
+
+    if os.path.exists(dir):
+        shutil.rmtree(dir)
+    os.makedirs(dir)
+
+    plot_name = str(dir / f"plot_{n + st}")
+
+    datasets = [
+        ("plot", scalar_input_data),
+        ("mgmt", mgmt_input_data),
+        ("tree_size", tree_size_data),
+    ]
+
+    for name, d in datasets:
+        cols = list(d.keys())
+
+        arrays = [np.atleast_1d(np.asarray(d[k], dtype=float)) for k in cols]
+
+        # All columns must be the same length
+        target_len = max(a.size for a in arrays)
+        padded = []
+        for a in arrays:
+            if a.size < target_len:
+                a = np.pad(a, (0, target_len - a.size), constant_values=np.nan)
+            padded.append(a)
+
+        data_to_save = np.column_stack(padded)
+
+        out_path = os.path.join(dir, f"validated_{name}_input_data_{st}.csv")
+        csv_handler.print_csv(file_out=out_path, array=data_to_save, col_names=cols)
+
+    if arguments.get("split-input-file-id") is not None:
+        cols = list(climate_cover_data.keys())
+        data_to_save = np.column_stack([np.asarray(climate_cover_data[k], dtype=float) for k in cols])
+        csv_handler.print_csv(file_out=os.path.join(dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols)
+
 
     if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
@@ -472,20 +509,16 @@ def main(n, arguments):
             seed=arguments["seed"],
         )
 
-        st = 1
-        output_dir = Path(configuration.OUTPUT_DIR + f"_{mod_run}") / f"plot_{n + st}"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
         mc_summary = summarise_mc_results(mc_results)
         for scenario, label in [
             (mc_summary.base,    "baseline"),
             (mc_summary.project, "project"),
             (mc_summary.diff,    "diff"),
         ]:
-            write_mc_summary_csv(scenario, str(output_dir / f"plot_{n + st}_mc_{label}.csv"))
+            write_mc_summary_csv(scenario, str(dir / f"plot_{n + st}_mc_{label}.csv"))
 
         write_mc_metadata(
-            output_path=str(output_dir / "mc_run_metadata.txt"),
+            output_path=str(dir / "mc_run_metadata.txt"),
             n_samples=n_samples,
             seed=arguments["seed"],
             soil_params=soil_params,
@@ -495,12 +528,11 @@ def main(n, arguments):
         )
 
         # TODO: the MC path currently writes only the quantile summary CSV.  The
-        # deterministic path (below) also writes validated input CSVs, per-pool
+        # deterministic path (below) also writes per-pool
         # emissions CSVs, soil model CSVs, tree/crop data CSVs, and plots.  Decide
         # which of those outputs are meaningful for an MC run and add them here.
-        # Candidates: validated input CSVs (same for all samples — write once);
-        # soil/climate CSVs from the base run (representative inputs); plots of the
-        # emission distribution (e.g. per-year credible interval fan chart).
+        # Candidates: soil/climate CSVs from the base run (representative inputs); 
+        # plots of the emission distribution (e.g. per-year credible interval fan chart).
 
 
         emit_diffs = [
@@ -509,7 +541,7 @@ def main(n, arguments):
         total_diffs = np.array([float(np.sum(d)) for d in emit_diffs])
         print(
             f"\nMonte Carlo complete: {len(mc_results)} samples\n"
-            f"  Summaries written to: {output_dir}\n"
+            f"  Summaries written to: {dir}\n"
             f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1  "
             f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
         )
@@ -673,46 +705,6 @@ def main(n, arguments):
 
     # Save stuff
 
-    # starting plot output number
-    st = 1
-
-    dir = configuration.OUTPUT_DIR + "_" + mod_run + "\plot_" + str(n + st)
-
-    if os.path.exists(dir):
-        shutil.rmtree(dir)
-    os.makedirs(dir)
-
-    plot_name = dir + "\plot_" + str(n + st)
-
-    datasets = [
-        ("plot", scalar_input_data),
-        ("mgmt", mgmt_input_data),
-        ("tree_size", tree_size_data),
-    ]
-
-    for name, d in datasets:
-        cols = list(d.keys())
-
-        arrays = [np.atleast_1d(np.asarray(d[k], dtype=float)) for k in cols]
-
-        # All columns must be the same length
-        target_len = max(a.size for a in arrays)
-        padded = []
-        for a in arrays:
-            if a.size < target_len:
-                a = np.pad(a, (0, target_len - a.size), constant_values=np.nan)
-            padded.append(a)
-
-        data_to_save = np.column_stack(padded)
-
-        out_path = os.path.join(dir, f"validated_{name}_input_data_{st}.csv")
-        csv_handler.print_csv(file_out=out_path, array=data_to_save, col_names=cols)
-
-    if arguments.get("split-input-file-id") is not None:
-        cols = list(climate_cover_data.keys())
-        data_to_save = np.column_stack([np.asarray(climate_cover_data[k], dtype=float) for k in cols])
-        csv_handler.print_csv(file_out=os.path.join(dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols)
-
     Climate.save(intervention_emissions.climate, plot_name + "_climate.csv")
 
     SoilParams.save(intervention_emissions.soil, plot_name + "_soil.csv")
@@ -784,7 +776,7 @@ def main(n, arguments):
         "crop_difference": intervention_emissions.crop_difference,
     }
 
-    write_emissions_csv(configuration, mod_run, n, st, data)
+    write_emissions_csv(dir, n, st, data)
 
     # Plot stuff
     plot_tree_projects(intervention_emissions.tree_projects, plot_name)
@@ -814,7 +806,7 @@ def main(n, arguments):
     Emit.plot(intervention_emissions.emit_base_emissions, legend_string="baseline")
     Emit.plot(intervention_emissions.emit_project_emissions, legend_string="project")
 
-    plt.savefig(os.path.join(configuration.OUTPUT_DIR, plot_name + "_emissions.png"))
+    plt.savefig(plot_name + "_emissions.png")
     plt.close()
 
     Emit.save(
