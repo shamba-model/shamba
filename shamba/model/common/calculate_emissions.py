@@ -1,6 +1,5 @@
 from typing import Dict, Optional, Union, List, NamedTuple, Tuple, Any, Callable
 from toolz import get, compose  # type: ignore
-from copy import deepcopy
 import numpy as np
 
 import model.climate as Climate
