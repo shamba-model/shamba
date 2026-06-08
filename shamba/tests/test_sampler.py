@@ -330,9 +330,9 @@ def test_sample_climate_params_zero_std():
     samples = sample_climate_params(climate, n_samples=10, rng=rng)
     assert len(samples) == 10
     for s in samples:
-        np.testing.assert_array_equal(s["temp"], climate.temperature)
-        np.testing.assert_array_equal(s["rain"], climate.rain)
-        np.testing.assert_array_equal(s["evap"], climate.evaporation)
+        np.testing.assert_array_equal(s.temperature, climate.temperature)
+        np.testing.assert_array_equal(s.rain, climate.rain)
+        np.testing.assert_array_equal(s.evaporation, climate.evaporation)
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +351,7 @@ def test_sample_climate_params_nonzero_std():
     )
     rng = np.random.default_rng(4)
     samples = sample_climate_params(climate, n_samples=1000, rng=rng)
-    temp_vals = np.array([s["temp"][0] for s in samples])
+    temp_vals = np.array([s.temperature[0] for s in samples])
     assert np.mean(temp_vals) == pytest.approx(20.0, abs=0.3)
     assert np.std(temp_vals)  == pytest.approx(2.0,  rel=0.15)
 
@@ -366,7 +366,7 @@ def test_sample_climate_params_rain_clipped():
     )
     rng = np.random.default_rng(5)
     samples = sample_climate_params(climate, n_samples=200, rng=rng)
-    assert all(np.all(s["rain"] >= 0.0) for s in samples)
+    assert all(np.all(s.rain >= 0.0) for s in samples)
 
 
 def test_sample_climate_params_evap_clipped():
@@ -379,7 +379,7 @@ def test_sample_climate_params_evap_clipped():
     )
     rng = np.random.default_rng(6)
     samples = sample_climate_params(climate, n_samples=200, rng=rng)
-    assert all(np.all(s["evap"] >= 0.0) for s in samples)
+    assert all(np.all(s.evaporation >= 0.0) for s in samples)
 
 
 # ---------------------------------------------------------------------------

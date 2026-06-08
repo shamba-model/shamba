@@ -2,8 +2,7 @@
 
 Covers:
 - run_monte_carlo returns a list of length n_samples
-- When no distribution_dict and zero climate/soil uncertainty, all results are identical
-- handle_intervention is called with soil_override set (not None) on every call
+- When no distribution_dict, every handle_intervention call receives identical inputs
 - summarise_mc_results: correct column names, array shapes, and numeric values
 - write_mc_summary_csv: produces a readable CSV with correct headers and year column
 """
@@ -108,7 +107,8 @@ def test_run_monte_carlo_returns_n_samples():
             n_samples=5,
             create_forward_soil_model=fake_forward,
             create_inverse_soil_model=fake_inverse,
-            n_cohorts=1,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
             plot_index=0,
             seed=0,
         )
@@ -116,8 +116,8 @@ def test_run_monte_carlo_returns_n_samples():
 
 
 def test_run_monte_carlo_deterministic_no_distributions():
-    """With no distributions and zero soil/climate uncertainty, every call to
-    handle_intervention receives identical inputs."""
+    """With no distribution_dict, every call to handle_intervention receives
+    identical intervention_input dicts."""
     captured_inputs = []
 
     def capture(**kwargs):
@@ -133,7 +133,8 @@ def test_run_monte_carlo_deterministic_no_distributions():
             n_samples=4,
             create_forward_soil_model=fake_forward,
             create_inverse_soil_model=fake_inverse,
-            n_cohorts=1,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
             plot_index=0,
             seed=42,
         )
@@ -148,28 +149,6 @@ def test_run_monte_carlo_deterministic_no_distributions():
                 np.asarray(subsequent[key]),
                 err_msg=f"Input '{key}' differs between samples despite zero uncertainty",
             )
-
-
-def test_run_monte_carlo_uses_soil_override():
-    """handle_intervention is called with soil_override set (not None) on every call."""
-    with patch("model.monte_carlo.runner.handle_intervention", return_value=FIXED_RESULT) as mock_handle, \
-         patch("model.monte_carlo.runner.concurrent.futures.ProcessPoolExecutor", _InProcessExecutor):
-        run_monte_carlo(
-            base_input_dict=BASE_INPUT,
-            soil_params=FakeSoilParams(),
-            climate=FakeClimateData(),
-            n_samples=3,
-            create_forward_soil_model=fake_forward,
-            create_inverse_soil_model=fake_inverse,
-            n_cohorts=1,
-            plot_index=0,
-            seed=0,
-        )
-
-    assert mock_handle.call_count == 3
-    for call in mock_handle.call_args_list:
-        soil_override = call.kwargs.get("soil_override")
-        assert soil_override is not None, "soil_override should be set on every call"
 
 
 # ---------------------------------------------------------------------------

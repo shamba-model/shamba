@@ -13,7 +13,7 @@ import numpy as np
 from marshmallow import Schema, fields, post_load
 
 from model.common import csv_handler
-from model.common.data_sources.climate import get_climate_data, ClimateStats
+from model.common.data_sources.climate import get_climate_data
 
 
 def validate_monthly_list_length(lst):
@@ -117,17 +117,17 @@ def from_vectors(temperature, rain, evaporation) -> ClimateData:
     )
 
 
-def from_location(location, use_api: bool, climate_vectors=None) -> ClimateData:
+def from_location(location, use_climate_api: bool, climate_vectors=None) -> ClimateData:
     """Construct Climate object for a given location.
 
     Priority order:
-      1. Climate API (if use_api=True and call succeeds)
+      1. Climate API (if use_climate_api=True and call succeeds)
       2. climate_vectors from split input file (temp/rain/evap columns)
       3. Local climate.csv file
 
     Args:
         location: (latitude, longitude) tuple
-        use_api: whether to attempt the climate API
+        use_climate_api: whether to attempt the climate API
         climate_vectors: optional tuple of (temperature, rain, evaporation)
             arrays from the split _climate_cover_data.csv file
     Returns:
@@ -136,35 +136,13 @@ def from_location(location, use_api: bool, climate_vectors=None) -> ClimateData:
     latitude = location[0]
     longitude = location[1]
 
-    if use_api:
+    if use_climate_api:
         climate_result = get_climate_data(latitude=latitude, longitude=longitude)
 
         if climate_result is not None:
-            temp_stats, rain_stats, evap_stats = climate_result
-            # PET → evap conversion applies to both mean and std
-            evap_stats = [ClimateStats(s.mean / 0.75, s.std / 0.75) for s in evap_stats]
-
-            temperature    = [s.mean for s in temp_stats]
-            rain           = [s.mean for s in rain_stats]
-            evaporation    = [s.mean for s in evap_stats]
-            temperature_std = [s.std for s in temp_stats]
-            rain_std        = [s.std for s in rain_stats]
-            evaporation_std = [s.std for s in evap_stats]
-
-            params = {"temperature": temperature, "rain": rain, "evaporation": evaporation}
-            schema = ClimateDataSchema()
-            errors = schema.validate(params)
-            if errors != {}:
-                print(f"Errors in climate data: {str(errors)}")
-
-            return ClimateData(
-                temperature=temperature,
-                rain=rain,
-                evaporation=evaporation,
-                temperature_std=temperature_std,
-                rain_std=rain_std,
-                evaporation_std=evaporation_std,
-            )
+            temp, rain, evap = climate_result
+            evap = evap / 0.75  # PET → evaporation
+            return from_vectors(temp, rain, evap)
 
         print("Climate API unavailable — falling back to local climate data.")
 

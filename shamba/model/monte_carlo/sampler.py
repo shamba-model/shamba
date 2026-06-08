@@ -16,6 +16,7 @@ from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS, expand_model_param_samples, flatten_model_param_sample
 from model.common.data_handler import get_header_type
 import model.soil_params as SoilParams
+from model.climate import ClimateData
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
@@ -367,7 +368,7 @@ def sample_climate_params(
     climate,
     n_samples: int,
     rng: np.random.Generator,
-) -> List[Dict]:
+) -> List[ClimateData]:
     """Draw N climate parameter dicts from the uncertainty stored in ClimateData.
 
     ClimateData always holds 12-element monthly means and stds. Draws one value
@@ -380,8 +381,7 @@ def sample_climate_params(
         rng: numpy random Generator.
 
     Returns:
-        list of n_samples dicts with keys: 'temp', 'rain', 'evap'.
-        Each value is a 12-element numpy array.
+        list of n_samples ClimateData objects with perturbed climate parameters.
     """
     temp_mean, temp_std = climate.temperature, climate.temperature_std
     rain_mean, rain_std = climate.rain, climate.rain_std
@@ -404,7 +404,14 @@ def sample_climate_params(
         else:
             evap_draw = np.clip(rng.normal(loc=evap_mean, scale=evap_std), 0.0, None)
 
-        results.append({"temp": temp_draw, "rain": rain_draw, "evap": evap_draw})
+        results.append(ClimateData(
+            temperature=temp_draw,
+            rain=rain_draw,
+            evaporation=evap_draw,
+            temperature_std=temp_std,
+            rain_std=rain_std,
+            evaporation_std=evap_std,
+        ))
 
     return results
 

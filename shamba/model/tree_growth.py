@@ -666,22 +666,16 @@ def get_growth(csv_input_data, spp_key, tree_params, allometric_key):
     )
 
 
-def create_baseline_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count=1):
+def create_baseline_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count):
     """Return a list of Growth objects for baseline cohorts.
-
-    Defaults to one baseline cohort. Increase cohort_count when the baseline
-    contains multiple tree species. Baseline allometry is always at index 0
-    of allometric_keys.
-
-    TODO: baseline is assumed to always have one cohort — confirm whether multi-cohort
-    baselines are possible; cohort_count would need to be wired from input data if so.
+    Baseline allometry always starts at index 0 of allometric_keys.
     """
     return [
         get_growth(
             csv_input_data,
             f"base_species{i + 1}",
             tree_params[i],
-            allometric_key=allometric_keys[0],
+            allometric_key=allometric_keys[i],
         )
         for i in range(cohort_count)
     ]
@@ -690,14 +684,15 @@ def create_baseline_tree_growths(csv_input_data, tree_params, allometric_keys, c
 def create_tree_growths(csv_input_data, tree_params, allometric_keys, cohort_count):
     """Return a list of Growth objects for project cohorts.
 
-    Project allometry starts at index 1 of allometric_keys (index 0 is baseline).
+    Project allometry starts at index (len(allometric_keys) - cohort_count), 
+    after baseline allometry keys.
     """
     return [
         get_growth(
             csv_input_data,
             f"proj_species{i + 1}",
             tree_params[i],
-            allometric_key=allometric_keys[i + 1],
+            allometric_key=allometric_keys[len(allometric_keys) - cohort_count + i],
         )
         for i in range(cohort_count)
     ]

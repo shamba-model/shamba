@@ -64,7 +64,7 @@ def read_soil_table(filename: str, plot_index: int, plot_id: int) -> SoilData:
 
 def get_soil_data(
     location_coordinates: Tuple[float, float],
-    use_api: bool,
+    use_soil_api: bool,
     plot_index: int,
     plot_id: int,
     filename: str,
@@ -72,7 +72,7 @@ def get_soil_data(
     """Get soil data from soilgrids api or from local csv file."""
     api_response: Optional[Dict[str, Any]] = (
         None
-        if not use_api
+        if not use_soil_api
         else get_properties_from_soilgrids_api(
             location=Point(location_coordinates[1], location_coordinates[0])
         )

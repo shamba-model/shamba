@@ -525,13 +525,14 @@ def create_tree_projects(
     mortality_fractions_project,
     no_of_years,
     cohort_count,
+    type,
 ):
     return [
         from_defaults(
             tree_params=tree_params[i],
             tree_growth=growths[i],
-            year_planted=int(np.atleast_1d(csv_input_data[f"proj_plant_yr{i + 1}"])[0]),
-            stand_density=int(np.atleast_1d(csv_input_data[f"proj_plant_dens{i + 1}"])[0]),
+            year_planted=int(np.atleast_1d(csv_input_data[f"{type}_plant_yr{i + 1}"])[0]),
+            stand_density=int(np.atleast_1d(csv_input_data[f"{type}_plant_dens{i + 1}"])[0]),
             thinning=thinnings_project[i],
             thinning_fraction=thinning_fractions_project[i],
             mortality=mortalities_project[i],

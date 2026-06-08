@@ -69,7 +69,8 @@ volatile_frac_organic_fertiliser_default = 0.21  # [(kg NH3-N + NOx-N) / kg N ap
 # -------------------------
 # a) values overwritten by the user's input when shamba_command_line.py is run:
 
-DEFAULT_USE_API = True
+DEFAULT_USE_CLIMATE_API = True
+DEFAULT_USE_SOIL_API = True
 DEFAULT_ALLOMORPHY = "chave dry"
 
 # -------------------------

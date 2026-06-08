@@ -1,17 +1,17 @@
-"""Tests for climate uncertainty capture (Issue P2).
+"""Tests for climate data handling.
 
 Covers:
-- compute_monthly_mean_std: correct inter-annual mean and std for both
-  mean (temperature) and sum (rain/ET) aggregation
+- aggregate_daily_to_monthly: correct values and year-major ordering
+- get_climate_data: returns flat arrays via mocked API
 - from_csv: 3-column CSV gives std=0; 6-column CSV populates std arrays
 - ClimateData: std fields default to zero when not supplied
-- Zero-std: all samples identical (tested via ClimateData construction)
+- from_vectors: means and stds computed correctly from multi-year input
 """
 import numpy as np
 import pytest
-from datetime import date
+import calendar
 
-from model.common.data_sources.climate import ClimateStats, compute_monthly_mean_std
+from model.common.data_sources.climate import aggregate_daily_to_monthly, get_climate_data
 from model.climate import ClimateData, from_csv, from_vectors
 
 
@@ -24,7 +24,6 @@ def make_date_strings(start_year, end_year):
     dates = []
     for year in range(start_year, end_year + 1):
         for month in range(1, 13):
-            import calendar
             days_in_month = calendar.monthrange(year, month)[1]
             for day in range(1, days_in_month + 1):
                 dates.append(f"{year}-{month:02d}-{day:02d}")
@@ -32,78 +31,97 @@ def make_date_strings(start_year, end_year):
 
 
 # ---------------------------------------------------------------------------
-# compute_monthly_mean_std — temperature (mean aggregation)
+# aggregate_daily_to_monthly
 # ---------------------------------------------------------------------------
 
-def test_compute_monthly_mean_std_temperature_known_values():
-    """
-    Two years of synthetic data with known January daily values.
-    Year 1: all Jan days = 10.0  → annual mean = 10.0
-    Year 2: all Jan days = 20.0  → annual mean = 20.0
-    Expected: mean = 15.0, std = std([10, 20], ddof=1) = 7.071...
-    """
-    date_strings = make_date_strings(2000, 2001)
-
-    # Assign 10.0 to all days in 2000, 20.0 to all days in 2001
-    values = np.array([
-        10.0 if ds[:4] == "2000" else 20.0
-        for ds in date_strings
-    ])
-
-    result = compute_monthly_mean_std(values, date_strings, np.mean)
-
-    jan = result[0]  # index 0 = January
-    assert jan.mean == pytest.approx(15.0)
-    assert jan.std  == pytest.approx(np.std([10.0, 20.0], ddof=1))
-
-    # Other months should have the same values (synthetic data is uniform per year)
-    for month_stats in result:
-        assert month_stats.mean == pytest.approx(15.0)
-        assert month_stats.std  == pytest.approx(np.std([10.0, 20.0], ddof=1))
-
-
-def test_compute_monthly_mean_std_returns_twelve_entries():
+def test_aggregate_daily_to_monthly_length():
+    """Two years of data → 24 monthly values."""
     date_strings = make_date_strings(2000, 2001)
     values = np.ones(len(date_strings))
-    result = compute_monthly_mean_std(values, date_strings, np.mean)
-    assert len(result) == 12
+    result = aggregate_daily_to_monthly(values, date_strings, np.mean)
+    assert len(result) == 24
 
 
-# ---------------------------------------------------------------------------
-# compute_monthly_mean_std — rain (sum aggregation)
-# ---------------------------------------------------------------------------
-
-def test_compute_monthly_mean_std_rain_known_values():
-    """
-    Two years, January daily rain values:
-    Year 1: 31 days × 2.0 mm → monthly sum = 62.0
-    Year 2: 31 days × 4.0 mm → monthly sum = 124.0
-    Expected: mean = 93.0, std = std([62, 124], ddof=1)
-    """
+def test_aggregate_daily_to_monthly_year_major_order():
+    """Values are in year-major order: Jan_y1, Feb_y1, ..., Dec_y1, Jan_y2, ..."""
     date_strings = make_date_strings(2000, 2001)
-
-    values = np.array([
-        2.0 if ds[:4] == "2000" else 4.0
-        for ds in date_strings
-    ])
-
-    result = compute_monthly_mean_std(values, date_strings, np.sum)
-
-    jan = result[0]
-    jan_sum_2000 = 2.0 * 31  # January has 31 days
-    jan_sum_2001 = 4.0 * 31
-    assert jan.mean == pytest.approx((jan_sum_2000 + jan_sum_2001) / 2)
-    assert jan.std  == pytest.approx(np.std([jan_sum_2000, jan_sum_2001], ddof=1))
+    # Year 2000 days = 1.0, Year 2001 days = 2.0
+    values = np.array([1.0 if ds[:4] == "2000" else 2.0 for ds in date_strings])
+    result = aggregate_daily_to_monthly(values, date_strings, np.mean)
+    # First 12 entries are 2000 (mean = 1.0), next 12 are 2001 (mean = 2.0)
+    assert np.all(result[:12] == pytest.approx(1.0))
+    assert np.all(result[12:] == pytest.approx(2.0))
 
 
-def test_compute_monthly_mean_std_single_year_std_is_zero():
-    """With only one year of data, std must be 0.0 (not NaN)."""
+def test_aggregate_daily_to_monthly_sum_aggregation():
+    """Sum aggregation: January 2000 with 31 days × 2.0 mm → 62.0."""
     date_strings = make_date_strings(2000, 2000)
-    values = np.ones(len(date_strings)) * 5.0
-    result = compute_monthly_mean_std(values, date_strings, np.mean)
-    for stats in result:
-        assert stats.std == pytest.approx(0.0)
-        assert not np.isnan(stats.std)
+    values = np.full(len(date_strings), 2.0)
+    result = aggregate_daily_to_monthly(values, date_strings, np.sum)
+    jan_sum = 2.0 * 31  # January has 31 days
+    assert result[0] == pytest.approx(jan_sum)
+
+
+# ---------------------------------------------------------------------------
+# get_climate_data — mocked API
+# ---------------------------------------------------------------------------
+
+def test_get_climate_data_returns_flat_arrays(monkeypatch):
+    """get_climate_data returns (temp, rain, evap) as flat arrays."""
+    import model.common.data_sources.climate as climate_mod
+
+    date_strings = make_date_strings(2000, 2001)
+    n_days = len(date_strings)
+    fake_response = {
+        "daily": {
+            "time": date_strings,
+            "temperature_2m_mean": [10.0] * n_days,
+            "rain_sum": [2.0] * n_days,
+            "et0_fao_evapotranspiration": [3.0] * n_days,
+        }
+    }
+    monkeypatch.setattr(climate_mod, "get_weather_forecast", lambda **kwargs: fake_response)
+
+    result = climate_mod.get_climate_data(latitude=0.0, longitude=0.0)
+
+    assert result is not None
+    temp, rain, evap = result
+    assert len(temp) == 24  # 2 years × 12 months
+    assert len(rain) == 24
+    assert len(evap) == 24
+
+
+def test_get_climate_data_year_major_ordering(monkeypatch):
+    """Temperature values appear in year-major order in the returned array."""
+    import model.common.data_sources.climate as climate_mod
+
+    date_strings = make_date_strings(2000, 2001)
+    n_days = len(date_strings)
+    values = [10.0 if ds[:4] == "2000" else 20.0 for ds in date_strings]
+    fake_response = {
+        "daily": {
+            "time": date_strings,
+            "temperature_2m_mean": values,
+            "rain_sum": [0.0] * n_days,
+            "et0_fao_evapotranspiration": [0.0] * n_days,
+        }
+    }
+    monkeypatch.setattr(climate_mod, "get_weather_forecast", lambda **kwargs: fake_response)
+
+    temp, _, _ = climate_mod.get_climate_data(latitude=0.0, longitude=0.0)
+
+    assert np.all(temp[:12] == pytest.approx(10.0))
+    assert np.all(temp[12:] == pytest.approx(20.0))
+
+
+def test_get_climate_data_returns_none_on_api_failure(monkeypatch):
+    """get_climate_data returns None when the API call fails."""
+    import model.common.data_sources.climate as climate_mod
+
+    monkeypatch.setattr(climate_mod, "get_weather_forecast", lambda **kwargs: None)
+
+    result = climate_mod.get_climate_data(latitude=0.0, longitude=0.0)
+    assert result is None
 
 
 # ---------------------------------------------------------------------------

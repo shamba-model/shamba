@@ -25,6 +25,9 @@ from model.common.data_handler import (
 import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
 from model.soil_models.soil_model_types import SoilModelType
+import model.climate as Climate
+import model.soil_params as SoilParams
+
 
 FIXTURES_DIR = os.path.join(configuration.TESTS_DIR, "fixtures")
 WL_SINGLE_ROW = os.path.join(FIXTURES_DIR, "WL_input.csv")
@@ -136,11 +139,24 @@ def test_split_file_full_run_matches_single_row(tmp_path, monkeypatch):
     forward_model = ForwardSoilModule.get_soil_model(SoilModelType.ROTH_C)
     inverse_model = InverseSoilModule.get_soil_model(SoilModelType.ROTH_C)
 
+    climate = Climate.from_location(
+        location=(scalar["lat"].item(), scalar["lon"].item()),
+        use_climate_api=False,
+    )
+    soil = SoilParams.get_soil_params(
+        location=(scalar["lat"].item(), scalar["lon"].item()),
+        use_soil_api=False,
+        plot_id=0,
+        plot_index=0,
+    )
+
     common_kwargs = dict(
-        n_cohorts=N_COHORTS,
+        climate = climate,
+        soil = soil,
+        n_proj_cohorts=N_COHORTS,
+        n_base_cohorts=N_COHORTS,
         plot_index=0,
         allometry=ALLOMETRIC_KEYS,
-        use_api=False,
         create_forward_soil_model=forward_model.create,
         create_inverse_soil_model=inverse_model.create,
     )
