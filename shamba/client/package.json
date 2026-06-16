@@ -57,9 +57,6 @@
   "pnpm": {
     "ignoredBuiltDependencies": [
       "esbuild"
-    ],
-    "onlyBuiltDependencies": [
-      "esbuild"
     ]
   },
   "packageManager": "pnpm@10.6.5+sha256.47c8bca42b4b48534b5b1b28d573c506773937b02f68e52992fbd8269131c5c8"
