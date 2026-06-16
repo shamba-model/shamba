@@ -6,11 +6,9 @@ authors = [
     {name = "PlanVivo"}
 ]
 license = {text = "UNLICENSED"}
-readme = "./README.md"
-requires-python = "==3.10.16"
+requires-python = ">=3.10"
 dependencies = [
-    "basemap (>=1.4.1,<2.0.0)",
-    "numpy (>=1.21,<1.27)",
+"numpy (>=1.21,<1.27)",
     "scipy (>=1.15.2,<2.0.0)",
     "matplotlib (>=1.5,<3.9)",
     "pandas (>=2.2.3,<3.0.0)",
