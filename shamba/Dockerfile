@@ -47,7 +47,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 WORKDIR /app
 
 # Copy Pipfile and Pipfile.lock
-COPY pyproject.toml poetry.lock README.md __init__.py ./
+COPY pyproject.toml poetry.lock __init__.py ./
 COPY model/ ./model/
 
 RUN poetry env use python3.10  # Explicitly specify the Python version for poetry
