@@ -13,7 +13,7 @@ from . import configuration
 from .common import csv_handler
 from .common_schema import OutputSchema as ClimateDataOutputSchema
 from .tree_growth import TreeGrowthSchema, fitting_functions, derivative_functions
-from .tree_params import TreeParamsSchema
+from .tree_params import TreeParamsSchema, SPP_LIST
 from .common.validations import validate_between_0_and_1
 import model.common.constants as CONSTANTS
 
@@ -185,6 +185,43 @@ def create(
     return schema.load(params)  # type: ignore
 
 
+def load_biomass_pool_species_data(
+    filename: str = "biomass_pool_params.csv",
+) -> dict:
+    """Load per-species biomass pool params from csv.
+
+    The file must contain one 5-row block (leaf, branch, stem, croot, froot,
+    in that order) for each species in tree_params.csv, in the same species
+    order (positions are matched against tree_params.SPP_LIST, same as
+    load_tree_species_data).
+
+    Args:
+        filename: Name of the CSV file to load.
+
+    Returns:
+        Dict mapping species code to a dict with turnover, alloc,
+        thinning_fraction, and mortality_fraction arrays (one value per pool).
+    """
+    data = csv_handler.read_csv(filename, cols=(2, 3, 4, 5))
+    n_pools = 5
+    expected_rows = n_pools * len(SPP_LIST)
+    if data.shape[0] != expected_rows:
+        raise ValueError(
+            f"'{filename}' has {data.shape[0]} rows, but must have exactly {expected_rows}",
+            f"(1 row per pool, total of {n_pools} rows per species in tree_params.csv, in the same order)."
+        )
+
+    return {
+        spp: {
+            "turnover": data[i * n_pools : (i + 1) * n_pools, 0],
+            "alloc": data[i * n_pools : (i + 1) * n_pools, 1],
+            "thinning_fraction": data[i * n_pools : (i + 1) * n_pools, 2],
+            "mortality_fraction": data[i * n_pools : (i + 1) * n_pools, 3],
+        }
+        for i, spp in enumerate(SPP_LIST)
+    }
+
+
 def from_defaults(
     tree_params,
     tree_growth,
@@ -201,11 +238,18 @@ def from_defaults(
 
     """
 
-    data = csv_handler.read_csv("biomass_pool_params.csv", cols=(1, 2, 3, 4))
-    turnover = data[:, 0]
-    alloc = data[:, 1]
-    temp_thinning_fraction = data[:, 2]
-    temp_mortality_fraction = data[:, 3]
+    pool_data = load_biomass_pool_species_data()
+    if tree_params.species not in pool_data:
+        raise KeyError(
+            f"No biomass pool parameters found for species '{tree_params.species}' "
+            "in biomass_pool_params.csv. Add a 5-row block (leaf, branch, stem, "
+            "croot, froot) for this species, in the same order as tree_params.csv."
+        )
+    species_pool_data = pool_data[tree_params.species]
+    turnover = species_pool_data["turnover"]
+    alloc = species_pool_data["alloc"].copy()
+    temp_thinning_fraction = species_pool_data["thinning_fraction"]
+    temp_mortality_fraction = species_pool_data["mortality_fraction"]
 
     # Take into account croot alloc - rs * stem alloc
     alloc[3] = alloc[2] * tree_params.root_to_shoot
