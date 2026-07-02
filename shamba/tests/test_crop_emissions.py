@@ -70,11 +70,17 @@ def test_crop_model(csv_input_file, expected_base_emissions, expected_project_em
     N_YEARS = int(scalar_input_data["yrs_proj"].item())
     input_data = {**scalar_input_data, **mgmt_input_data}
 
+    # Crop slots with species code 0 (no crop) are omitted from input_data by
+    # expand_single_row_data_input, so the real cohort count must be discovered
+    # from which spp keys are actually present, same as calculate_emissions.py does.
+    n_crop_base = sum(1 for i in range(1, 100) if f"crop_base_spp{i}" in input_data)
+    n_crop_proj = sum(1 for i in range(1, 100) if f"crop_proj_spp{i}" in input_data)
+
     crop_base, _crop_par_base = get_crop_bases(
-        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=3
+        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=n_crop_base
     )
     crop_project, _crop_par_project = get_crop_projects(
-        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=3
+        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=n_crop_proj
     )
 
     crop_base_emissions = Emit.create(
