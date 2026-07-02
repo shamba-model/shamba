@@ -14,60 +14,63 @@ import model.common.constants as CONSTANTS
 # Read species data from csv
 # --------------------------
 
-SPP_LIST = [
-    "grains",
-    "beans and pulses",
-    "tubers",
-    "root crops",
-    "n-fixing forages",
-    "non-n-fixing forages",
-    "perennial grasses",
-    "grass-clover mixtures",
-    "maize",
-    "wheat",
-    "winter wheat",
-    "spring wheat",
-    "rice",
-    "barley",
-    "oats",
-    "millet",
-    "sorghum",
-    "rye",
-    "soyabean",
-    "dry bean",
-    "potato",
-    "peanut",
-    "alfalfa",
-    "non-legume hay",
-]
-
 # Read csv file with default crop data
 def load_crop_species_data(
     filename: str = "crop_params.csv",
-) -> dict[str, dict]:
+) -> dict[int, dict]:
     """
-    Load crop species data from CSV file.
-    
+    Load crop species data from CSV file, keyed by each row's own Sc
+    (species code) column — not by row position. Each species' display name
+    is read from the file's own Name column (index 1).
+
     Args:
         filename: Name of the CSV file to load (default: "crop_params.csv")
-        
+
     Returns:
-        Dictionary mapping species names to their parameter dictionaries
+        Dictionary mapping species code (Sc) to its parameter dictionary.
     """
-    data = csv_handler.read_csv(filename, cols=(2, 3, 4, 5, 6, 7, 8))
-    data = np.atleast_2d(data)
-    
-    slope = data[:, 0]
-    intercept = data[:, 1]
-    nitrogenBelow = data[:, 2]
-    nitrogenAbove = data[:, 3]
-    carbonBelow = data[:, 4]
-    carbonAbove = data[:, 5]
-    rootToShoot = data[:, 6]
-    
-    return {
-        spp: {
-            "species": spp,
+    resolved_path = csv_handler.resolve_csv_path(filename)
+    data = np.atleast_2d(
+        np.genfromtxt(resolved_path, skip_header=1, usecols=(0, 2, 3, 4, 5, 6, 7, 8), delimiter=",", comments="#")
+    )
+    # separate imports to 
+    names = np.atleast_1d(
+        np.genfromtxt(resolved_path, skip_header=1, usecols=(1,), dtype=str, delimiter=",", comments="#")
+    )
+
+    if np.isnan(data).any():
+        bad_rows = [r + 2 for r in np.where(np.isnan(data).any(axis=1))[0]]
+        bad_rows.append([r+2 for r in np.where(np.isnan(names).any(axis=1))[0]])
+        raise ValueError(
+            f"'{filename}' has a missing/blank numeric value in row(s) {bad_rows} "
+            f"(counting the header as row 1). Every crop row must have a value "
+            f"in every column (Sc, a, b, crop_bgn, crop_agn, crop_bgc, crop_agc, crop_rs)."
+        )
+    blank_name_rows = [r + 2 for r in np.where(names == "")[0]]
+    if blank_name_rows:
+        raise ValueError(f"'{filename}' has a missing Name in row(s) {blank_name_rows}.")
+
+
+    sc_codes = data[:, 0]
+    slope = data[:, 1]
+    intercept = data[:, 2]
+    nitrogenBelow = data[:, 3]
+    nitrogenAbove = data[:, 4]
+    carbonBelow = data[:, 5]
+    carbonAbove = data[:, 6]
+    rootToShoot = data[:, 7]
+
+    species_data = {}
+    for i, sc in enumerate(sc_codes):
+        species_code = int(sc)
+        if species_code in species_data:
+            raise ValueError(
+                f"'{filename}' has more than one row with species code (Sc) "
+                f"{species_code} — each species code must appear exactly once."
+            )
+        species_data[species_code] = {
+            "species": str(names[i]).strip(),
+            "species_code": species_code,
             "slope": slope[i],
             "intercept": intercept[i],
             "nitrogen_below": nitrogenBelow[i],
@@ -76,8 +79,7 @@ def load_crop_species_data(
             "carbon_above": carbonAbove[i],
             "root_to_shoot": rootToShoot[i],
         }
-        for i, spp in enumerate(SPP_LIST)
-    }
+    return species_data
 
 
 class CropParamsData:
@@ -88,7 +90,8 @@ class CropParamsData:
 
     Instance variables
     ------------------
-    species         crop species
+    species         crop species display name
+    species_code     crop species code (Sc column in crop_params.csv)
     slope           crop IPCC slope
     intercept       crop IPCC y-intercept
     nitrogen_below   crop below-ground nitrogen content as a fraction
@@ -102,6 +105,7 @@ class CropParamsData:
     def __init__(
         self,
         species,
+        species_code,
         slope,
         intercept,
         nitrogen_below,
@@ -111,6 +115,7 @@ class CropParamsData:
         root_to_shoot,
     ):
         self.species = species
+        self.species_code = species_code
         self.slope = slope
         self.intercept = intercept
         self.nitrogen_below = nitrogen_below
@@ -122,6 +127,7 @@ class CropParamsData:
 
 class CropParamsSchema(Schema):
     species = fields.String(required=True)
+    species_code = fields.Integer(required=True)
     slope = fields.Float(required=True)
     intercept = fields.Float(required=True)
     nitrogen_below = fields.Float(required=True)
@@ -135,109 +141,26 @@ class CropParamsSchema(Schema):
         return CropParamsData(**data)
 
 
-def from_species_name(species) -> CropParamsData:
-    """Construct Crop object from species default in CROP_SPP.
-
-    Args:
-        species: species name to be read from species list
-    Returns:
-        Crop object
-    Raises:
-        KeyError: if species isn't a key in the cs.crop dict
-
-    """
-    species = species.lower()
-    CROP_SPP = load_crop_species_data()
-    crop_params = CROP_SPP[species]
-    params = {
-        "species": crop_params["species"],
-        "slope": crop_params["slope"],
-        "intercept": crop_params["intercept"],
-        "nitrogen_below": crop_params["nitrogen_below"],
-        "nitrogen_above": crop_params["nitrogen_above"],
-        "carbon_below": crop_params["carbon_below"],
-        "carbon_above": crop_params["carbon_above"],
-        "root_to_shoot": crop_params["root_to_shoot"],
-    }
-
-    schema = CropParamsSchema()
-    errors = schema.validate(params)
-
-    if errors != {}:
-        print(f"Errors in crop params: {errors}")
-
-    return schema.load(params)  # type: ignore
-
-
 def from_species_index(index) -> CropParamsData:
-    """Construct Crop object from index of species in the csv
+    """Construct Crop object from its species code (Sc column in crop_params.csv).
 
     Args:
-        index: index of the species
-                    (1-indexed, so off by one from index in SPP_LIST)
+        index: species code to look up
     Return:
         Crop object
+    Raises:
+        KeyError: if the species code isn't present in crop_params.csv
 
     """
     index = int(index)
-    # csv list is 1-indexed
-    species = SPP_LIST[index - 1]
-    CROP_SPP = load_crop_species_data()
-    crop_params = CROP_SPP[species]
-    params = {
-        "species": crop_params["species"],
-        "slope": crop_params["slope"],
-        "intercept": crop_params["intercept"],
-        "nitrogen_below": crop_params["nitrogen_below"],
-        "nitrogen_above": crop_params["nitrogen_above"],
-        "carbon_below": crop_params["carbon_below"],
-        "carbon_above": crop_params["carbon_above"],
-        "root_to_shoot": crop_params["root_to_shoot"],
-    }
-    schema = CropParamsSchema()
-    errors = schema.validate(params)
-
-    if errors != {}:
-        print(f"Errors in crop params data: {str(errors)}")
-        print(
-            "COULD NOT FIND SPECIES DATA CORRESPONDING "
-            + "TO SPECIES NUMBER %d" % index
+    species_data = load_crop_species_data()
+    if index not in species_data:
+        raise KeyError(
+            f"No crop species with code {index} found in crop_params.csv "
+            f"(available codes: {sorted(species_data)})."
         )
-
-    return schema.load(params)  # type: ignore
-
-
-def from_csv(species_name, filename, row=0) -> CropParamsData:
-    """Construct Crop object using data from a csv which
-    is structured like the master csv (crop_params_defaults.csv).
-
-    Args:
-        species_name: name of species (can be anything)
-        filename: filename of csv with species info
-        row: row in the csv to be read (0-indexed)
-    Returns:
-        Crop object
-    """
-
-    data = csv_handler.read_csv(filename, cols=(2, 3, 4, 5, 6, 7, 8))
-    data = np.atleast_2d(data)  # account for when only one row in file
-
-    params = {
-        "species": species_name,
-        "slope": data[row, 0],
-        "intercept": data[row, 1],
-        "nitrogen_below": data[row, 2],
-        "nitrogen_above": data[row, 3],
-        "carbon_below": data[row, 4],
-        "carbon_above": data[row, 5],
-        "root_to_shoot": data[row, 6],
-    }
     schema = CropParamsSchema()
-    errors = schema.validate(params)
-
-    print(f"Errors in crop params: {errors}")
-
-    return schema.load(params)  # type: ignore
+    return schema.load(species_data[index])  # type: ignore
 
 
 def save(crop_params, file="crop_params.csv"):
@@ -248,14 +171,8 @@ def save(crop_params, file="crop_params.csv"):
         file: name or path to csv file
 
     """
-    # Index is 0 if not in the SPP_LIST
-    if crop_params.species in SPP_LIST:
-        index = SPP_LIST.index(crop_params.species) + 1
-    else:
-        index = 0
-
     data = [
-        index,
+        crop_params.species_code,
         crop_params.species,
         crop_params.slope,
         crop_params.intercept,

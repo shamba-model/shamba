@@ -107,6 +107,35 @@ def print_csv(
         log.exception("Cannot print to file %s", file_out)
 
 
+def resolve_csv_path(file_in: str) -> str:
+    """Resolve a CSV filename to an actual path on disk.
+
+    If file_in isn't a full/valid path as given, checks the project data
+    folder (/input), then the packaged 'defaults' folder.
+
+    Args:
+        file_in: name of file to resolve
+    Returns:
+        resolved path to the file
+    Raises:
+        FileOpenError: if the file can't be found in any of these locations
+    """
+    # if full path not specified, search through the files in the
+    # project data folder /input, then in the 'defaults' folder
+    default_path = os.path.join(configuration.BASE_PATH, "default_input")
+    filename, extension = file_in.rsplit(".", maxsplit=1)
+    default_file_in = "_".join((filename, "defaults.csv"))
+
+    if os.path.isfile(file_in):
+        return file_in
+    if os.path.isfile(os.path.join(configuration.INPUT_DIR, file_in)):
+        return os.path.join(configuration.INPUT_DIR, file_in)
+    if os.path.isfile(os.path.join(default_path, default_file_in)):
+        return os.path.join(default_path, default_file_in)
+    # not in either folder, and not in full path
+    raise FileOpenError(file_in)
+
+
 def read_csv(file_in, cols=None):
     """Read data from a .csv file. Usees numpy.loadtxt.
 
@@ -119,21 +148,7 @@ def read_csv(file_in, cols=None):
         IOError: if file can't be found/opened
 
     """
-
-    # if full path not specified, search through the files in the
-    # project data folder /input, then in the 'defaults' folder
-    default_path = os.path.join(configuration.BASE_PATH, "default_input")
-    filename, extension = file_in.rsplit(".", maxsplit=1)
-    default_file_in = "_".join((filename, "defaults.csv"))
-
-    if not os.path.isfile(file_in):
-        if os.path.isfile(os.path.join(configuration.INPUT_DIR, file_in)):
-            file_in = os.path.join(configuration.INPUT_DIR, file_in)
-        elif os.path.isfile(os.path.join(default_path, default_file_in)):
-            file_in = os.path.join(default_path, default_file_in)
-        else:
-            # not in either folder, and not in full path
-            raise FileOpenError(file_in)
+    file_in = resolve_csv_path(file_in)
 
     array = np.genfromtxt(
         file_in, skip_header=1, usecols=cols, comments="#", delimiter=","

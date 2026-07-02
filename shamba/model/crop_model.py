@@ -57,11 +57,6 @@ def create(crop_params, no_of_years, crop_yield, left_in_field) -> CropModelData
     }
 
     schema = ClimateDataSchema()
-    errors = schema.validate(raw_crop_model_data)
-
-    if errors != {}:
-        print(f"Errors in crop model data: {str(errors)}")
-
     return schema.load(raw_crop_model_data)  # type: ignore
 
 
