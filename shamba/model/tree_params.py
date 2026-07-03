@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import numpy as np
 from marshmallow import Schema, fields, post_load
@@ -141,15 +141,21 @@ def create(tree_params) -> TreeParamsData:
     return schema.load(params)  # type: ignore
 
 
-def from_species_index(index: int):
+def from_species_index(index: int, species_data: Optional[Dict[int, Dict]] = None):
     """
     Construct TreeParams from its species code (Sc column in tree_params.csv).
+
+    Args:
+        index: species code to look up
+        species_data: pre-loaded species data (as returned by
+            load_tree_species_data()), to avoid re-reading the csv from disk
+            once per cohort. If not given, loads it fresh.
 
     Raises:
         KeyError: if the species code isn't present in tree_params.csv
     """
     index = int(index)
-    species_data = load_tree_species_data()
+    species_data = species_data if species_data is not None else load_tree_species_data()
     if index not in species_data:
         raise KeyError(
             f"No tree species with code {index} found in tree_params.csv "

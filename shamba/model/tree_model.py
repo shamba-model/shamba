@@ -269,13 +269,18 @@ def from_defaults(
     thinning_fraction=None,
     mortality=None,
     mortality_fraction=None,
+    pool_species_data=None,
 ):
     """Use defaults for pool params.
     Can override defaults for thinning_fraction and mortality_fraction by providing arguments.
 
+    Args:
+        pool_species_data: pre-loaded biomass pool data (as returned by
+            load_biomass_pool_species_data()), to avoid re-reading the csv
+            from disk once per cohort. If not given, loads it fresh.
     """
 
-    pool_data = load_biomass_pool_species_data()
+    pool_data = pool_species_data if pool_species_data is not None else load_biomass_pool_species_data()
     if tree_params.species not in pool_data:
         raise KeyError(
             f"No biomass pool parameters found for species '{tree_params.species}' "
@@ -284,6 +289,10 @@ def from_defaults(
         )
     species_pool_data = pool_data[tree_params.species]
     turnover = species_pool_data["turnover"]
+    # pool_data may be a dict shared across every cohort of this species (see
+    # pool_species_data above) rather than freshly read each call — copy
+    # before any in-place mutation, or it corrupts the value for every other
+    # cohort using the same species.
     alloc = species_pool_data["alloc"].copy()
     temp_thinning_fraction = species_pool_data["thinning_fraction"]
     temp_mortality_fraction = species_pool_data["mortality_fraction"]
@@ -607,6 +616,7 @@ def create_tree_projects(
     no_of_years,
     cohort_count,
     type,
+    pool_species_data=None,
 ):
     return [
         from_defaults(
@@ -619,6 +629,7 @@ def create_tree_projects(
             mortality=mortalities_project[i],
             mortality_fraction=mortality_fractions_project[i],
             no_of_years=no_of_years,
+            pool_species_data=pool_species_data,
         )
         for i in range(cohort_count)
     ]
