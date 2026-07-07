@@ -177,12 +177,86 @@ def create(
     }
 
     schema = TreeModelSchema()
-    errors = schema.validate(params)
-
-    if errors != {}:
-        print(f"Errors in tree model: {errors}")
-
     return schema.load(params)  # type: ignore
+
+
+_BIOMASS_POOLS = ("leaf", "branch", "stem", "croot", "froot")
+
+
+def load_biomass_pool_species_data(
+    filename: str = "biomass_pool_params.csv",
+) -> dict:
+    """Load per-species biomass pool params from csv, keyed by each row's own
+    Sc (species code) and pool name columns — not by row position.
+
+    The file must contain exactly one row per (species, pool) combination,
+    covering leaf/branch/stem/croot/froot for each species — rows for a
+    species may appear in any order.
+
+    Args:
+        filename: Name of the CSV file to load.
+
+    Returns:
+        Dict mapping species code to a dict with turnover, alloc,
+        thinning_fraction, and mortality_fraction arrays (one value per pool,
+        in leaf/branch/stem/croot/froot order).
+    """
+    resolved_path = csv_handler.resolve_csv_path(filename)
+    try:
+        numeric = np.atleast_2d(
+            np.genfromtxt(resolved_path, skip_header=1, usecols=(0, 2, 3, 4, 5), delimiter=",", comments="#")
+        )
+        pool_names = np.atleast_1d(
+            np.genfromtxt(resolved_path, skip_header=1, usecols=(1,), dtype=str, delimiter=",", comments="#")
+        )
+    except ValueError as e:
+        raise ValueError(
+            f"'{filename}' could not be read as a biomass pool params file. It must have "
+            f"columns 'Sc,pool,TO,AL,THf,DTf' — an older file without the 'Sc' column is "
+            f"no longer supported and needs to be migrated. Original error: {e}"
+        ) from e
+
+    if np.isnan(numeric).any():
+        bad_rows = [r + 2 for r in np.where(np.isnan(numeric).any(axis=1))[0]]
+        raise ValueError(
+            f"'{filename}' has a missing/blank numeric value in row(s) {bad_rows} "
+            f"(counting the header as row 1). Every row must have a value in "
+            f"every column (Sc, TO, AL, THf, DTf)."
+        )
+
+    rows_by_species: dict = {}
+    for i in range(numeric.shape[0]):
+        species = int(numeric[i, 0])
+        pool = str(pool_names[i]).strip().lower()
+        if pool not in _BIOMASS_POOLS:
+            raise ValueError(
+                f"'{filename}' row {i + 2} has pool name '{pool_names[i]}', "
+                f"which is not one of {_BIOMASS_POOLS}."
+            )
+        species_rows = rows_by_species.setdefault(species, {})
+        if pool in species_rows:
+            raise ValueError(
+                f"'{filename}' has more than one '{pool}' row for species code {species}."
+            )
+        species_rows[pool] = numeric[i, 1:]
+
+    species_data = {}
+    for species, pools in rows_by_species.items():
+        missing = [p for p in _BIOMASS_POOLS if p not in pools]
+        if missing:
+            raise ValueError(
+                f"'{filename}' is missing row(s) for pool(s) {missing} for species "
+                f"code {species}. Every species needs exactly one row per pool: "
+                f"{_BIOMASS_POOLS}."
+            )
+        ordered = np.array([pools[p] for p in _BIOMASS_POOLS])
+        species_data[species] = {
+            "turnover": ordered[:, 0],
+            "alloc": ordered[:, 1],
+            "thinning_fraction": ordered[:, 2],
+            "mortality_fraction": ordered[:, 3],
+        }
+    return species_data
 
 
 def from_defaults(
@@ -195,17 +269,33 @@ def from_defaults(
     thinning_fraction=None,
     mortality=None,
     mortality_fraction=None,
+    pool_species_data=None,
 ):
     """Use defaults for pool params.
     Can override defaults for thinning_fraction and mortality_fraction by providing arguments.
 
+    Args:
+        pool_species_data: pre-loaded biomass pool data (as returned by
+            load_biomass_pool_species_data()), to avoid re-reading the csv
+            from disk once per cohort. If not given, loads it fresh.
     """
 
-    data = csv_handler.read_csv("biomass_pool_params.csv", cols=(1, 2, 3, 4))
-    turnover = data[:, 0]
-    alloc = data[:, 1]
-    temp_thinning_fraction = data[:, 2]
-    temp_mortality_fraction = data[:, 3]
+    pool_data = pool_species_data if pool_species_data is not None else load_biomass_pool_species_data()
+    if tree_params.species not in pool_data:
+        raise KeyError(
+            f"No biomass pool parameters found for species '{tree_params.species}' "
+            "in biomass_pool_params.csv. Add a 5-row block (leaf, branch, stem, "
+            "croot, froot) for this species, in the same order as tree_params.csv."
+        )
+    species_pool_data = pool_data[tree_params.species]
+    turnover = species_pool_data["turnover"]
+    # pool_data may be a dict shared across every cohort of this species (see
+    # pool_species_data above) rather than freshly read each call — copy
+    # before any in-place mutation, or it corrupts the value for every other
+    # cohort using the same species.
+    alloc = species_pool_data["alloc"].copy()
+    temp_thinning_fraction = species_pool_data["thinning_fraction"]
+    temp_mortality_fraction = species_pool_data["mortality_fraction"]
 
     # Take into account croot alloc - rs * stem alloc
     alloc[3] = alloc[2] * tree_params.root_to_shoot
@@ -505,7 +595,7 @@ def save(tree_model, file="tree_model.csv"):
 
     # biomass
     biomass_file = file.split(".csv")[0] + "_biomass.csv"
-    cols = ["leaf", "branch", "stem", "croot", "froot"]
+    cols = list(_BIOMASS_POOLS)
     csv_handler.print_csv(
         biomass_file,
         tree_model.stand_biomass,
@@ -526,6 +616,7 @@ def create_tree_projects(
     no_of_years,
     cohort_count,
     type,
+    pool_species_data=None,
 ):
     return [
         from_defaults(
@@ -538,6 +629,7 @@ def create_tree_projects(
             mortality=mortalities_project[i],
             mortality_fraction=mortality_fractions_project[i],
             no_of_years=no_of_years,
+            pool_species_data=pool_species_data,
         )
         for i in range(cohort_count)
     ]

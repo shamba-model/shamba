@@ -155,7 +155,9 @@ See the example split files in /projects/examples/UG_TS_2016/input
 
 _____________________STEP 2: create other required input files __________________
 Other required input files are parameters for:
-- biomass pools, in a file called `biomass_pool_params.csv`,
+- biomass pools, in a file called `biomass_pool_params.csv` (must contain one
+  5-row pool block - leaf, branch, stem, croot, froot - per species, in the
+  same species order as `tree_params.csv`),
 - crops, in a file called `crop_params.csv`,
 - litter in a file called `litter_params.csv`,
 - trees in a file called `tree_params.csv`

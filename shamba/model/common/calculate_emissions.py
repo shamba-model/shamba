@@ -53,16 +53,22 @@ def get_tree_model_data(
     no_of_proj_cohorts: int,
     allometry: List[str],
 ) -> GetTreeModelReturnData:
+    # Load each species-lookup csv once per run, rather than once per cohort.
+    tree_species_data = TreeParams.load_tree_species_data()
+    pool_species_data = TreeModel.load_biomass_pool_species_data()
+
     # Tree params: read species codes directly from vector-format keys
     base_tree_params = [
         TreeParams.from_species_index(
-            int(np.atleast_1d(intervention_input[f"base_species{i + 1}"])[0])
+            int(np.atleast_1d(intervention_input[f"base_species{i + 1}"])[0]),
+            species_data=tree_species_data,
         )
         for i in range(no_of_base_cohorts)
     ]
     proj_tree_params = [
         TreeParams.from_species_index(
-            int(np.atleast_1d(intervention_input[f"proj_species{i + 1}"])[0])
+            int(np.atleast_1d(intervention_input[f"proj_species{i + 1}"])[0]),
+            species_data=tree_species_data,
         )
         for i in range(no_of_proj_cohorts)
     ]
@@ -137,7 +143,8 @@ def get_tree_model_data(
         mortality_fractions_project=mortality_fractions_left_base,
         no_of_years=no_of_years,
         cohort_count=no_of_base_cohorts,
-        type = "base"
+        type = "base",
+        pool_species_data=pool_species_data,
     )
 
     tree_projects = TreeModel.create_tree_projects(
@@ -150,7 +157,8 @@ def get_tree_model_data(
         mortality_fractions_project=mortality_fractions_project,
         no_of_years=no_of_years,
         cohort_count=no_of_proj_cohorts,
-        type = "proj"
+        type = "proj",
+        pool_species_data=pool_species_data,
     )
 
     return GetTreeModelReturnData(
@@ -225,17 +233,22 @@ def get_crop_model_data(
     n_crop_base = sum(1 for i in range(1, 100) if f"crop_base_spp{i}" in intervention_input)
     n_crop_proj = sum(1 for i in range(1, 100) if f"crop_proj_spp{i}" in intervention_input)
 
+    # Load the crop species csv once for the whole run, rather than once per cohort.
+    crop_species_data = CropParams.load_crop_species_data()
+
     crop_base, crop_par_base = CropModel.get_crop_bases(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
         end_index=n_crop_base,
+        species_data=crop_species_data,
     )
     crop_project, crop_par_project = CropModel.get_crop_projects(
         input_data=intervention_input,
         no_of_years=no_of_years,
         start_index=1,
         end_index=n_crop_proj,
+        species_data=crop_species_data,
     )
 
     return GetCropModelReturnData(

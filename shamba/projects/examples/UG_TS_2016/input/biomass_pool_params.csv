@@ -1,6 +1,6 @@
-pool,TO,AL,THf,DTf
-leaf,1,0.1,1,1
-branch,0.05,0.31,0,0
-stem,0,0.69,0,0
-croot,0,0,1,1
-froot,0.8,0.1,1,1
+Sc,pool,TO,AL,THf,DTf
+1,leaf,1,0.1,1,1
+1,branch,0.05,0.31,0,0
+1,stem,0,0.69,0,0
+1,croot,0,0,1,1
+1,froot,0.8,0.1,1,1

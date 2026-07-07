@@ -40,7 +40,10 @@ ANCHOR_HEADER_DATATYPE_PATTERNS = {
 
 CROP_HEADER_DATATYPE_PATTERNS = {
     # Crops (baseline & project), any index
-    r"^crop_(base|proj)_spp": "non-negative scalar integer",
+    # Species codes are lookup keys, not quantities — 0 is not a valid crop
+    # species. To mark a crop slot as unused, omit its columns entirely
+    # rather than setting the species code to 0.
+    r"^crop_(base|proj)_spp": "positive scalar integer",
     r"^crop_(base|proj)_yd": "non-negative float",
     r"^crop_(base|proj)_left": "proportion",}
 
@@ -52,7 +55,10 @@ SPECIES_HEADER_DATATYPE_PATTERNS = {
 
 COHORT_HEADER_DATATYPE_PATTERNS = {
     # Cohort species, planting years & densities by cohort index
-    r"^(base|proj)_species": "non-negative scalar integer",
+    # Species codes are lookup keys, not quantities — 0 is not a valid tree
+    # species. To mark a cohort as unused, omit its columns entirely rather
+    # than setting the species code to 0.
+    r"^(base|proj)_species": "positive scalar integer",
     r"^(base|proj)_plant_yr": "non-negative scalar integer",
     r"^(base|proj)_plant_dens": "non-negative scalar integer",
 
@@ -143,6 +149,12 @@ def make_field_for_type(type_name: str):
         return fields.Integer()
     if type_name == "non-negative scalar integer":
         return fields.Integer(validate=Range(min=0))
+    if type_name == "positive scalar integer":
+        return fields.Integer(validate=Range(
+            min=1,
+            error="Must be a positive integer identifying a real species/crop code. "
+                  "To mark this slot as unused, omit this column entirely rather than setting it to 0.",
+        ))
     if type_name == "scalar proportion":
         return fields.Float(validate=Range(min=0.0, max=1.0))
     if type_name == "scalar binary":
@@ -457,14 +469,20 @@ def expand_single_row_data_input(file_path: str):
         if h in raw:
             scalar_input_data[h] = np.atleast_1d(np.asarray(raw[h], dtype=float))
 
-    # Species and planting parameters (already renamed to new convention by rename_legacy_headers)
-    for key in raw:
-        if any(re.match(p, key) for p in (
-            r"^(base|proj)_species\d+$",
-            r"^(base|proj)_plant_yr\d+$",
-            r"^(base|proj)_plant_dens\d+$",
-        )):
-            scalar_input_data[key] = np.atleast_1d(np.asarray(raw[key], dtype=float))
+    # Species and planting parameters (already renamed to new convention by rename_legacy_headers).
+    # A cohort with species code 0 means "no cohort" (mirrors the crop-slot
+    # convention below) — omit species/plant_yr/plant_dens for that index so it
+    # never reaches the modern format's presence-based cohort discovery.
+    for mgmt in ("base", "proj"):
+        for i in range(1, 4):
+            species_key = f"{mgmt}_species{i}"
+            if species_key not in raw or int(raw[species_key]) == 0:
+                continue
+            scalar_input_data[species_key] = np.atleast_1d(np.asarray(raw[species_key], dtype=float))
+            for suffix in ("plant_yr", "plant_dens"):
+                key = f"{mgmt}_{suffix}{i}"
+                if key in raw:
+                    scalar_input_data[key] = np.atleast_1d(np.asarray(raw[key], dtype=float))
 
     # --- Tree size data ---
     # Collect species numbers from the scalar pass-through
@@ -493,18 +511,41 @@ def expand_single_row_data_input(file_path: str):
             tree_size_data[f"diam_sp{spp_number}"] = np.array(diams)
 
     # --- Crop data ---
+    # A crop slot with species code 0 means "no crop in this slot" (the
+    # legacy single-row format always has exactly 3 fixed crop-slot column
+    # groups), so an unused slot is conventionally zeroed out entirely instead.
+    # Omit it here so downstream code (which discovers crop cohorts by key
+    # presence) never sees it, rather than passing spp=0 that would resolve
+    # to the wrong species by negative indexing.
     crop_data = {}
     for index in range(1, 4):
         for prefix in ("crop_base", "crop_proj"):
-            scalar_input_data[f"{prefix}_spp{index}"] = np.atleast_1d(
-                np.asarray(si(f"{prefix}_spp{index}"), dtype=float)
-            )
+            spp = si(f"{prefix}_spp{index}")
             start_year = si(f"{prefix}_start{index}")
             end_year = si(f"{prefix}_end{index}")
+            yd = s(f"{prefix}_yd{index}")
+            left = s(f"{prefix}_left{index}")
+
+            if spp == 0:
+                # start/end merely say *where* yd/left would be placed in the
+                # year array — they don't matter if the value placed there is
+                # 0, so only yd/left indicate whether this slot is really in use.
+                if yd != 0 or left != 0:
+                    raise ValueError(
+                        f"'{prefix}_spp{index}' is 0 (meaning no crop in this slot), but "
+                        f"'{prefix}_yd{index}' or '{prefix}_left{index}' is nonzero, "
+                        f"indicating this slot is actually in use. Set a real species "
+                        f"code for this slot, or set both to 0 to mark it as unused."
+                    )
+                continue
+
+            scalar_input_data[f"{prefix}_spp{index}"] = np.atleast_1d(
+                np.asarray(spp, dtype=float)
+            )
             harvest_yield = np.zeros(no_of_years)
             harv_frac = np.zeros(no_of_years)
-            harvest_yield[start_year:end_year] = s(f"{prefix}_yd{index}")
-            harv_frac[start_year:end_year] = s(f"{prefix}_left{index}")
+            harvest_yield[start_year:end_year] = yd
+            harv_frac[start_year:end_year] = left
             crop_data[f"{prefix}_yd{index}"] = harvest_yield
             crop_data[f"{prefix}_left{index}"] = harv_frac
 
