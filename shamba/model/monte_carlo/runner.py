@@ -26,6 +26,9 @@ class SampleArgs(NamedTuple):
     plot_index: int
     soil_params: SoilParams.SoilParamsData
     climate: ClimateData
+    tree_species_data: Dict[int, Dict]
+    crop_species_data: Dict[int, Dict]
+    pool_species_data: Dict[int, Dict]
     emission_factors: EmissionFactors = EmissionFactors()
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP]
@@ -44,7 +47,10 @@ def _run_single_sample(arguments: SampleArgs):
         plot_index=arguments.plot_index,
         allometry=arguments.allometry,
         gwp=arguments.gwp,
-        emission_factors=arguments.emission_factors
+        emission_factors=arguments.emission_factors,
+        tree_species_data=arguments.tree_species_data,
+        crop_species_data=arguments.crop_species_data,
+        pool_species_data=arguments.pool_species_data,
     )
 
 
@@ -58,6 +64,9 @@ def run_monte_carlo(
     n_proj_cohorts: int,
     n_base_cohorts: int,
     plot_index: int,
+    tree_species_data: Dict[int, Dict],
+    crop_species_data: Dict[int, Dict],
+    pool_species_data: Dict[int, Dict],
     sample_emission_factors: bool = False,
     distribution_dict: Optional[Dict] = None,
     model_params: Optional[EmissionFactors] = EmissionFactors(),
@@ -131,6 +140,9 @@ def run_monte_carlo(
                     climate=climate_samples[i],
                     allometry=allometry,
                     gwp=gwp,
+                    tree_species_data=tree_species_data,
+                    crop_species_data=crop_species_data,
+                    pool_species_data=pool_species_data,
                 )
                 for i in range(len(samples_batch))
             ])))

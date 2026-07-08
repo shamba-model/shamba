@@ -141,14 +141,13 @@ class CropParamsSchema(Schema):
         return CropParamsData(**data)
 
 
-def from_species_index(index, species_data: dict = None) -> CropParamsData:
+def from_species_index(index, species_data: dict) -> CropParamsData:
     """Construct Crop object from its species code (Sc column in crop_params.csv).
 
     Args:
         index: species code to look up
         species_data: pre-loaded species data (as returned by
-            load_crop_species_data()), to avoid re-reading the csv from disk
-            once per cohort. If not given, loads it fresh.
+            load_crop_species_data()), loaded once per run by the caller.
     Return:
         Crop object
     Raises:
@@ -156,7 +155,6 @@ def from_species_index(index, species_data: dict = None) -> CropParamsData:
 
     """
     index = int(index)
-    species_data = species_data if species_data is not None else load_crop_species_data()
     if index not in species_data:
         raise KeyError(
             f"No crop species with code {index} found in crop_params.csv "

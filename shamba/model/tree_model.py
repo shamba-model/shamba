@@ -264,23 +264,22 @@ def from_defaults(
     tree_growth,
     no_of_years,
     stand_density,
+    pool_species_data,
     year_planted=0,
     thinning=None,
     thinning_fraction=None,
     mortality=None,
     mortality_fraction=None,
-    pool_species_data=None,
 ):
     """Use defaults for pool params.
     Can override defaults for thinning_fraction and mortality_fraction by providing arguments.
 
     Args:
         pool_species_data: pre-loaded biomass pool data (as returned by
-            load_biomass_pool_species_data()), to avoid re-reading the csv
-            from disk once per cohort. If not given, loads it fresh.
+            load_biomass_pool_species_data()), loaded once per run by the caller.
     """
 
-    pool_data = pool_species_data if pool_species_data is not None else load_biomass_pool_species_data()
+    pool_data = pool_species_data
     if tree_params.species not in pool_data:
         raise KeyError(
             f"No biomass pool parameters found for species '{tree_params.species}' "
@@ -616,7 +615,7 @@ def create_tree_projects(
     no_of_years,
     cohort_count,
     type,
-    pool_species_data=None,
+    pool_species_data,
 ):
     return [
         from_defaults(

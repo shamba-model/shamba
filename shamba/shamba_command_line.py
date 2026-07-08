@@ -28,6 +28,7 @@ import model.emit as Emit
 import model.soil_params as SoilParams
 import model.tree_growth as TreeGrowth
 import model.tree_model as TreeModel
+import model.tree_params as TreeParams
 from model import configuration
 from model.common.calculate_emissions import get_location, handle_intervention
 import model.common.constants as CONSTANTS
@@ -420,6 +421,25 @@ def main(n, arguments):
         + data_handler.validate_species_data(vector_input_data)
         + data_handler.validate_required_mgmt_keys(vector_input_data)
     )
+
+    # Load the three species-lookup catalogs once here, at the shared import/validate
+    # step, rather than lazily inside calculate_emissions.py. This ensures a malformed
+    # tree_params.csv/crop_params.csv/biomass_pool_params.csv is reported alongside the
+    # other input errors above, instead of surfacing as a mid-calculation crash.
+    tree_species_data = crop_species_data = pool_species_data = None
+    try:
+        tree_species_data = TreeParams.load_tree_species_data()
+    except ValueError as e:
+        validation_errors.append(str(e))
+    try:
+        crop_species_data = CropParams.load_crop_species_data()
+    except ValueError as e:
+        validation_errors.append(str(e))
+    try:
+        pool_species_data = TreeModel.load_biomass_pool_species_data()
+    except ValueError as e:
+        validation_errors.append(str(e))
+
     if validation_errors:
         raise ValueError("\n".join(validation_errors))
 
@@ -510,6 +530,9 @@ def main(n, arguments):
             allometry=allometric_keys,
             gwp=gwp,
             seed=arguments["seed"],
+            tree_species_data=tree_species_data,
+            crop_species_data=crop_species_data,
+            pool_species_data=pool_species_data,
         )
 
         mc_summary = summarise_mc_results(mc_results)
@@ -561,6 +584,9 @@ def main(n, arguments):
             gwp=gwp,
             create_forward_soil_model=ForwardSoilModel.create,
             create_inverse_soil_model=InverseSoilModel.create,
+            tree_species_data=tree_species_data,
+            crop_species_data=crop_species_data,
+            pool_species_data=pool_species_data,
         )
 
     # ----------
