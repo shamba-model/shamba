@@ -2,6 +2,7 @@
 
 
 import logging as log
+import re
 import sys
 
 import numpy as np
@@ -9,6 +10,23 @@ from marshmallow import Schema, fields, post_load
 
 from model.common import csv_handler
 import model.common.constants as CONSTANTS
+
+# Per-species fields eligible for MC distribution sampling — the single source of
+# truth for both the key-matching pattern below and sampler.sample_species_params().
+CROP_SPECIES_PARAM_FIELDS = (
+    "slope", "intercept", "nitrogen_below", "nitrogen_above",
+    "carbon_below", "carbon_above", "root_to_shoot",
+)
+
+# Keys are prefixed with the catalog name ("crop_") rather than bare field names,
+# since some fields (e.g. root_to_shoot) also exist on other species catalogs
+# (tree_params.csv) with independently-numbered species codes — a bare key would
+# be ambiguous between "crop species 3" and "tree species 3".
+# Matches MC distribution keys for per-species crop parameter sampling, e.g.
+# "crop_slope_sp2", "crop_root_to_shoot_sp1".
+CROP_SPECIES_DIST_KEY_PATTERN = re.compile(
+    rf"^crop_({'|'.join(CROP_SPECIES_PARAM_FIELDS)})_sp(\d+)$"
+)
 
 # --------------------------
 # Read species data from csv

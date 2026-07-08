@@ -3,6 +3,7 @@
 """Module containing Tree class."""
 
 import os
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -181,6 +182,18 @@ def create(
 
 
 _BIOMASS_POOLS = ("leaf", "branch", "stem", "croot", "froot")
+
+# Per-species fields eligible for MC distribution sampling — the single source of
+# truth for both the key-matching pattern below and sampler.sample_species_params().
+BIOMASS_POOL_PARAM_FIELDS = ("turnover", "alloc", "thinning_fraction", "mortality_fraction")
+
+# Keys are prefixed with the catalog name ("pool_") rather than bare field names,
+# for consistency with the tree/crop catalogs' prefix convention (see tree_params.py).
+# Matches MC distribution keys for per-species biomass-pool parameter sampling, e.g.
+# "pool_turnover_sp2", "pool_alloc_sp1".
+BIOMASS_POOL_DIST_KEY_PATTERN = re.compile(
+    rf"^pool_({'|'.join(BIOMASS_POOL_PARAM_FIELDS)})_sp(\d+)$"
+)
 
 
 def load_biomass_pool_species_data(

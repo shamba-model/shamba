@@ -7,7 +7,7 @@ from marshmallow import Schema, fields, post_load
 from model.common import csv_handler
 
 # Per-species fields eligible for MC distribution sampling — the single source of
-# truth for both the key-matching pattern below and sampler.sample_tree_species_params().
+# truth for both the key-matching pattern below and sampler.sample_species_params().
 TREE_SPECIES_PARAM_FIELDS = ("wood_dens", "carbon", "root_to_shoot", "nitrogen")
 
 # Keys are prefixed with the catalog name ("tree_") rather than bare field names,

@@ -5,7 +5,7 @@ uncertainty stored in SoilParamsData and ClimateData (Issues P1/P2).
 """
 
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import scipy.stats
@@ -414,6 +414,57 @@ def sample_climate_params(
         ))
 
     return results
+
+def sample_species_params(
+    base_params: Dict[int, Dict],
+    distributions: Dict[str, DistributionSpec],
+    param_fields: Sequence[str],
+    key_prefix: str,
+    n_samples: int,
+    rng: np.random.Generator,
+) -> List[Dict[int, Dict]]:
+    """Draw N perturbed copies of a species-lookup dict.
+
+    Shared engine for every species catalog (tree, crop, biomass pool) — they all
+    share the same `Dict[int, Dict]` shape, keyed by species code (Sc), differing
+    only in which fields are eligible for sampling and what prefix disambiguates
+    their distribution keys. See TREE_SPECIES_PARAM_FIELDS (tree_params.py),
+    CROP_SPECIES_PARAM_FIELDS (crop_params.py), and BIOMASS_POOL_PARAM_FIELDS
+    (tree_model.py) for the field lists, and their matching DIST_KEY_PATTERNs for
+    the key prefixes ("tree_", "crop_", "pool_").
+
+    `base_params` is keyed by species code (Sc), as returned by the catalog's own
+    load_*_species_data(). For each species, a field is perturbed only if
+    `distributions` has a matching `{key_prefix}_{field}_sp{Sc}` entry;
+    species/fields without one keep their CSV central value in every sample. The
+    key prefix disambiguates fields (e.g. root_to_shoot) shared across catalogs
+    with independently-numbered species codes.
+
+    Returns:
+        list of n_samples dicts, each a full copy of `base_params` with any
+        distributed fields perturbed.
+    """
+    # Resolve, once, which (species, field) pairs actually have a distribution.
+    species_param_specs: Dict[int, Dict[str, DistributionSpec]] = {
+        sc: {
+            param: distributions[key]
+            for param in param_fields
+            if (key := f"{key_prefix}_{param}_sp{sc}") in distributions
+        }
+        for sc in base_params
+    }
+
+    samples = []
+    for _ in range(n_samples):
+        sample = {sc: dict(species) for sc, species in base_params.items()}
+        for sc, param_specs in species_param_specs.items():
+            for param, spec in param_specs.items():
+                arr = np.asarray(base_params[sc][param], dtype=float)
+                perturbed = np.array([_draw_one(spec, float(elem), rng) for elem in arr.ravel()])
+                sample[sc][param] = perturbed.reshape(arr.shape)
+        samples.append(sample)
+
+    return samples
 
 def sample_model_params(
     n_samples: int,
