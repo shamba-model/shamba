@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from model import configuration
 from model.crop_model import get_crop_bases, get_crop_projects
+from model.crop_params import load_crop_species_data
 import model.common.constants as CONSTANTS
 from model.common.data_handler import expand_single_row_data_input
 
@@ -77,11 +78,14 @@ def test_crop_fire_model(csv_input_file, expected_base_emissions, expected_proje
     n_crop_base = sum(1 for i in range(1, 100) if f"crop_base_spp{i}" in input_data)
     n_crop_proj = sum(1 for i in range(1, 100) if f"crop_proj_spp{i}" in input_data)
 
+    species_data = load_crop_species_data()
     crop_base, _crop_par_base = get_crop_bases(
-        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=n_crop_base
+        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=n_crop_base,
+        species_data=species_data,
     )
     crop_project, _crop_par_project = get_crop_projects(
-        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=n_crop_proj
+        input_data=input_data, no_of_years=N_YEARS, start_index=1, end_index=n_crop_proj,
+        species_data=species_data,
     )
 
     fire_base_emissions = Emit.fire_emit(

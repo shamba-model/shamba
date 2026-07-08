@@ -110,6 +110,9 @@ def test_run_monte_carlo_returns_n_samples():
             n_proj_cohorts=1,
             n_base_cohorts=1,
             plot_index=0,
+            tree_species_data={},
+            crop_species_data={},
+            pool_species_data={},
             seed=0,
         )
     assert len(results) == 5
@@ -136,6 +139,9 @@ def test_run_monte_carlo_deterministic_no_distributions():
             n_proj_cohorts=1,
             n_base_cohorts=1,
             plot_index=0,
+            tree_species_data={},
+            crop_species_data={},
+            pool_species_data={},
             seed=42,
         )
 

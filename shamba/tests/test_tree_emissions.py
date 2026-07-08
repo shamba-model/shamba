@@ -222,8 +222,15 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
     burn_off_base = bool(np.any(mgmt_input_data["fire_off_base"]))
     burn_off_project = bool(np.any(mgmt_input_data["fire_off_proj"]))
 
-    tree_par_base = TreeParams.from_species_index(int(scalar_input_data["base_species1"][0]))
-    tree_params_1 = TreeParams.from_species_index(int(scalar_input_data["proj_species1"][0]))
+    tree_species_data = TreeParams.load_tree_species_data()
+    pool_species_data = TreeModel.load_biomass_pool_species_data()
+
+    tree_par_base = TreeParams.from_species_index(
+        int(scalar_input_data["base_species1"][0]), species_data=tree_species_data
+    )
+    tree_params_1 = TreeParams.from_species_index(
+        int(scalar_input_data["proj_species1"][0]), species_data=tree_species_data
+    )
 
     # growth_input merges scalars, tree size, and an alias so create_tree_params_from_species_index
     # can find "species1" (its expected key for the first project cohort)
@@ -262,9 +269,12 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         mortality=mortality_base,
         mortality_fraction=mortality_fraction_left_base,
         no_of_years=N_YEARS,
+        pool_species_data=pool_species_data,
     )
 
-    tree_params = TreeParams.create_tree_params_from_species_index(growth_input, N_COHORTS)
+    tree_params = TreeParams.create_tree_params_from_species_index(
+        growth_input, N_COHORTS, species_data=tree_species_data
+    )
     tree_growths = TreeGrowth.create_tree_growths(growth_input, tree_params, allometric_keys, N_COHORTS)
 
     thinnings_project = [mgmt_input_data["thin_proj_cohort1"]]
@@ -293,6 +303,7 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         no_of_years=N_YEARS,
         cohort_count=N_COHORTS,
         type="proj",
+        pool_species_data=pool_species_data,
     )
 
     tree_base_emissions = Emit.create(
@@ -326,7 +337,11 @@ def test_create_tree_projects_uses_per_cohort_thinning():
         "proj_plant_yr2": scalar_input_data["proj_plant_yr1"],
         "proj_plant_dens2": scalar_input_data["proj_plant_dens1"],
     }
-    tree_params = TreeParams.create_tree_params_from_species_index(growth_input, 2)
+    tree_species_data = TreeParams.load_tree_species_data()
+    pool_species_data = TreeModel.load_biomass_pool_species_data()
+    tree_params = TreeParams.create_tree_params_from_species_index(
+        growth_input, 2, species_data=tree_species_data
+    )
     tree_growths = TreeGrowth.create_tree_growths(
         growth_input, tree_params, ["chave dry", "chave dry", "chave dry"], 2
     )
@@ -352,6 +367,7 @@ def test_create_tree_projects_uses_per_cohort_thinning():
         no_of_years=N_YEARS,
         cohort_count=2,
         type="proj",
+        pool_species_data=pool_species_data,
     )
 
     assert tree_projects[0].thinning[0] != tree_projects[1].thinning[0], (
@@ -378,7 +394,11 @@ def test_create_tree_baselines_uses_per_cohort_thinning():
         "proj_plant_yr2": scalar_input_data["base_plant_yr1"],
         "proj_plant_dens2": scalar_input_data["base_plant_dens1"],
     }
-    tree_params = TreeParams.create_tree_params_from_species_index(growth_input, 2)
+    tree_species_data = TreeParams.load_tree_species_data()
+    pool_species_data = TreeModel.load_biomass_pool_species_data()
+    tree_params = TreeParams.create_tree_params_from_species_index(
+        growth_input, 2, species_data=tree_species_data
+    )
     tree_growths = TreeGrowth.create_tree_growths(
         growth_input, tree_params, ["chave dry", "chave dry", "chave dry"], 2
     )
@@ -404,6 +424,7 @@ def test_create_tree_baselines_uses_per_cohort_thinning():
         no_of_years=N_YEARS,
         cohort_count=2,
         type="proj",
+        pool_species_data=pool_species_data,
     )
 
     assert tree_baselines[0].thinning[0] != tree_baselines[1].thinning[0], (
