@@ -4,6 +4,7 @@
 
 import os
 import re
+from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -272,6 +273,28 @@ def load_biomass_pool_species_data(
     return species_data
 
 
+def get_species_pool_data(species: int, pool_species_data: Dict[int, Dict]) -> Dict:
+    """Look up one species' biomass pool params, with a plain-language error
+    if the species is missing from the catalog.
+
+    Args:
+        species: species code (Sc column in tree_params.csv) to look up.
+        pool_species_data: pre-loaded biomass pool data (as returned by
+            load_biomass_pool_species_data()), loaded once per run by the caller.
+
+    Returns:
+        Dict with turnover, alloc, thinning_fraction, and mortality_fraction
+        arrays (one value per pool, in leaf/branch/stem/croot/froot order).
+    """
+    if species not in pool_species_data:
+        raise KeyError(
+            f"No biomass pool parameters found for species '{species}' "
+            "in biomass_pool_params.csv. Add a 5-row block (leaf, branch, stem, "
+            "croot, froot) for this species, in the same order as tree_params.csv."
+        )
+    return pool_species_data[species]
+
+
 def from_defaults(
     tree_params,
     tree_growth,
@@ -292,14 +315,7 @@ def from_defaults(
             load_biomass_pool_species_data()), loaded once per run by the caller.
     """
 
-    pool_data = pool_species_data
-    if tree_params.species not in pool_data:
-        raise KeyError(
-            f"No biomass pool parameters found for species '{tree_params.species}' "
-            "in biomass_pool_params.csv. Add a 5-row block (leaf, branch, stem, "
-            "croot, froot) for this species, in the same order as tree_params.csv."
-        )
-    species_pool_data = pool_data[tree_params.species]
+    species_pool_data = get_species_pool_data(tree_params.species, pool_species_data)
     turnover = species_pool_data["turnover"]
     # pool_data may be a dict shared across every cohort of this species (see
     # pool_species_data above) rather than freshly read each call — copy

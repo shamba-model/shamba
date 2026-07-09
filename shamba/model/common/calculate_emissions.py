@@ -80,16 +80,33 @@ def get_tree_model_data(
     )
 
     # Thinning and mortality: read pre-built vectors directly from input.
+    # Branch/stem fractions are required mgmt input. Leaf/croot/froot fractions
+    # are optional mgmt input — if the column is omitted, the species default
+    # from biomass_pool_params.csv is used instead.
+    def pool_fraction(key: str, species_default: float) -> float:
+        if key in intervention_input:
+            return float(np.atleast_1d(intervention_input[key])[0])
+        return species_default
+
+    base_pool_data = [
+        TreeModel.get_species_pool_data(base_tree_params[i].species, pool_species_data)
+        for i in range(no_of_base_cohorts)
+    ]
+    proj_pool_data = [
+        TreeModel.get_species_pool_data(proj_tree_params[i].species, pool_species_data)
+        for i in range(no_of_proj_cohorts)
+    ]
 
     thinnings_base = [
         intervention_input[f"thin_base_cohort{i + 1}"] for i in range(no_of_base_cohorts)
     ]
     thinning_fractions_left_base = [
         np.array([
-            1,
+            pool_fraction(f"thin_base_leaf_cohort{i + 1}", base_pool_data[i]["thinning_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"thin_base_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"thin_base_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"thin_base_croot_cohort{i + 1}", base_pool_data[i]["thinning_fraction"][3]),
+            pool_fraction(f"thin_base_froot_cohort{i + 1}", base_pool_data[i]["thinning_fraction"][4]),
         ])
         for i in range(no_of_base_cohorts)
     ]
@@ -98,10 +115,11 @@ def get_tree_model_data(
     ]
     mortality_fractions_left_base = [
         np.array([
-            1,
+            pool_fraction(f"mort_base_leaf_cohort{i + 1}", base_pool_data[i]["mortality_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"mort_base_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"mort_base_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"mort_base_croot_cohort{i + 1}", base_pool_data[i]["mortality_fraction"][3]),
+            pool_fraction(f"mort_base_froot_cohort{i + 1}", base_pool_data[i]["mortality_fraction"][4]),
         ])
         for i in range(no_of_base_cohorts)
     ]
@@ -111,10 +129,11 @@ def get_tree_model_data(
     ]
     thinning_fractions_project = [
         np.array([
-            1,
+            pool_fraction(f"thin_proj_leaf_cohort{i + 1}", proj_pool_data[i]["thinning_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"thin_proj_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"thin_proj_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"thin_proj_croot_cohort{i + 1}", proj_pool_data[i]["thinning_fraction"][3]),
+            pool_fraction(f"thin_proj_froot_cohort{i + 1}", proj_pool_data[i]["thinning_fraction"][4]),
         ])
         for i in range(no_of_proj_cohorts)
     ]
@@ -123,10 +142,11 @@ def get_tree_model_data(
     ]
     mortality_fractions_project = [
         np.array([
-            1,
+            pool_fraction(f"mort_proj_leaf_cohort{i + 1}", proj_pool_data[i]["mortality_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"mort_proj_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"mort_proj_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"mort_proj_croot_cohort{i + 1}", proj_pool_data[i]["mortality_fraction"][3]),
+            pool_fraction(f"mort_proj_froot_cohort{i + 1}", proj_pool_data[i]["mortality_fraction"][4]),
         ])
         for i in range(no_of_proj_cohorts)
     ]

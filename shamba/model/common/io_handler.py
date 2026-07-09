@@ -135,6 +135,12 @@ source directory, and be named:
       thin_proj_cohortN, thin_proj_br_cohortN, thin_proj_st_cohortN
       mort_proj_cohortN, mort_proj_br_cohortN, mort_proj_st_cohortN
 
+    Optional thinning/mortality fraction columns for leaf, coarse root and fine root
+    (per cohort, base or proj as above):
+      thin_(base|proj)_leaf_cohortN, thin_(base|proj)_croot_cohortN, thin_(base|proj)_froot_cohortN
+      mort_(base|proj)_leaf_cohortN, mort_(base|proj)_croot_cohortN, mort_(base|proj)_froot_cohortN
+    If omitted, the species default from biomass_pool_params.csv is used instead.
+
     Note: the single-row input format applies the same thinning and mortality
     schedule to all project cohorts. Use the split-file format to specify
     different thinning schedules per cohort.
