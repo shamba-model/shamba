@@ -60,6 +60,18 @@ class FakeClimateData:
         self.evaporation_std = np.zeros(12)
 
 
+class FakeClimateDataWithUncertainty:
+    """Non-zero std, so sample_climate_params() actually draws distinct values
+    per sample instead of returning the mean every time (see FakeClimateData)."""
+    def __init__(self):
+        self.temperature = np.array([20.0] * 12)
+        self.rain = np.array([80.0] * 12)
+        self.evaporation = np.array([50.0] * 12)
+        self.temperature_std = np.full(12, 2.0)
+        self.rain_std = np.full(12, 5.0)
+        self.evaporation_std = np.full(12, 3.0)
+
+
 BASE_INPUT = {
     "temp": np.array([20.0] * 12),
     "rain": np.array([80.0] * 12),
@@ -155,6 +167,40 @@ def test_run_monte_carlo_deterministic_no_distributions():
                 np.asarray(subsequent[key]),
                 err_msg=f"Input '{key}' differs between samples despite zero uncertainty",
             )
+
+
+def test_run_monte_carlo_checkpointing_does_not_reuse_climate_across_batches():
+    """Regression test: each checkpoint batch must draw its own slice of
+    climate_samples."""
+    captured_climate = []
+
+    def capture(**kwargs):
+        captured_climate.append(kwargs["climate"])
+        return FIXED_RESULT
+
+    with patch("model.monte_carlo.runner.handle_intervention", side_effect=capture), \
+         patch("model.monte_carlo.runner.concurrent.futures.ProcessPoolExecutor", _InProcessExecutor):
+        run_monte_carlo(
+            base_input_dict=BASE_INPUT,
+            soil_params=FakeSoilParams(),
+            climate=FakeClimateDataWithUncertainty(),
+            n_samples=4,
+            create_forward_soil_model=fake_forward,
+            create_inverse_soil_model=fake_inverse,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
+            plot_index=0,
+            tree_species_data={},
+            crop_species_data={},
+            pool_species_data={},
+            seed=7,
+            checkpoint_every=2,
+        )
+
+    assert len(captured_climate) == 4
+    # Batch 2 (samples 2, 3) must not repeat batch 1's (samples 0, 1) draws.
+    assert not np.array_equal(captured_climate[2].temperature, captured_climate[0].temperature)
+    assert not np.array_equal(captured_climate[3].temperature, captured_climate[1].temperature)
 
 
 # ---------------------------------------------------------------------------

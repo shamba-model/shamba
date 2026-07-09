@@ -127,6 +127,7 @@ def run_monte_carlo(
             samples_batch = samples[start:stop]
             emission_factor_samples_batch = emission_factor_samples[start:stop]
             soil_samples_batch = soil_samples[start:stop]
+            climate_samples_batch = climate_samples[start:stop]
             results.extend(list(executor.map(_run_single_sample, [
                 SampleArgs(
                     perturbed_intervention_input=samples_batch[i],
@@ -137,7 +138,7 @@ def run_monte_carlo(
                     n_base_cohorts=n_base_cohorts,
                     plot_index=plot_index,
                     soil_params=soil_samples_batch[i],
-                    climate=climate_samples[i],
+                    climate=climate_samples_batch[i],
                     allometry=allometry,
                     gwp=gwp,
                     tree_species_data=tree_species_data,
