@@ -510,8 +510,8 @@ def test_load_biomass_pool_species_data_accepts_branch_stem_summing_to_one(tmp_p
 
 def test_from_defaults_derives_branch_alloc_from_stem():
     """from_defaults() must derive branch = 1 - stem itself, not just trust a
-    validated catalog value — this is what keeps the identity true once MC
-    sampling can perturb stem independently of whatever branch happened to be."""
+    validated species-lookup value — this is what keeps the identity true once
+    MC sampling can perturb stem independently of whatever branch happened to be."""
     tree_par, growth, no_of_years, stand_density = _wl_tree_par_and_growth()
     pool_species_data = TreeModel.load_biomass_pool_species_data()
 

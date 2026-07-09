@@ -188,8 +188,9 @@ _BIOMASS_POOLS = ("leaf", "branch", "stem", "croot", "froot")
 # truth for both the key-matching pattern below and sampler.sample_species_params().
 BIOMASS_POOL_PARAM_FIELDS = ("turnover", "alloc", "thinning_fraction", "mortality_fraction")
 
-# Keys are prefixed with the catalog name ("pool_") rather than bare field names,
-# for consistency with the tree/crop catalogs' prefix convention (see tree_params.py).
+# Keys are prefixed with the species-lookup table name ("pool_") rather than bare
+# field names, for consistency with the tree/crop tables' prefix convention
+# (see tree_params.py).
 # Matches MC distribution keys for per-species biomass-pool parameter sampling, e.g.
 # "pool_turnover_sp2", "pool_alloc_sp1".
 BIOMASS_POOL_DIST_KEY_PATTERN = re.compile(
@@ -288,7 +289,7 @@ def load_biomass_pool_species_data(
 
 def get_species_pool_data(species: int, pool_species_data: Dict[int, Dict]) -> Dict:
     """Look up one species' biomass pool params, with a plain-language error
-    if the species is missing from the catalog.
+    if the species is missing from the species-lookup table.
 
     Args:
         species: species code (Sc column in tree_params.csv) to look up.
@@ -342,7 +343,8 @@ def from_defaults(
     # is the split of total AGB (Sec 4.3.2), and this must hold even when
     # stem has been perturbed by MC sampling. load_biomass_pool_species_data()
     # validates the raw CSV, but only re-deriving here (rather than trusting
-    # the catalog's branch value) keeps the identity true after perturbation.
+    # the species-lookup table's branch value) keeps the identity true after
+    # perturbation.
     alloc[1] = 1 - alloc[2]
     # Take into account croot alloc - rs * stem alloc
     alloc[3] = alloc[2] * tree_params.root_to_shoot

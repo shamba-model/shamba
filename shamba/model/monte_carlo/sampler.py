@@ -425,7 +425,7 @@ def sample_species_params(
 ) -> List[Dict[int, Dict]]:
     """Draw N perturbed copies of a species-lookup dict.
 
-    Shared engine for every species catalog (tree, crop, biomass pool) — they all
+    Shared engine for every species-lookup table (tree, crop, biomass pool) — they all
     share the same `Dict[int, Dict]` shape, keyed by species code (Sc), differing
     only in which fields are eligible for sampling and what prefix disambiguates
     their distribution keys. See TREE_SPECIES_PARAM_FIELDS (tree_params.py),
@@ -433,12 +433,12 @@ def sample_species_params(
     (tree_model.py) for the field lists, and their matching DIST_KEY_PATTERNs for
     the key prefixes ("tree_", "crop_", "pool_").
 
-    `base_params` is keyed by species code (Sc), as returned by the catalog's own
-    load_*_species_data(). For each species, a field is perturbed only if
-    `distributions` has a matching `{key_prefix}_{field}_sp{Sc}` entry;
+    `base_params` is keyed by species code (Sc), as returned by the species-lookup
+    table's own load_*_species_data(). For each species, a field is perturbed
+    only if `distributions` has a matching `{key_prefix}_{field}_sp{Sc}` entry;
     species/fields without one keep their CSV central value in every sample. The
-    key prefix disambiguates fields (e.g. root_to_shoot) shared across catalogs
-    with independently-numbered species codes.
+    key prefix disambiguates fields (e.g. root_to_shoot) shared across
+    species-lookup tables with independently-numbered species codes.
 
     Returns:
         list of n_samples dicts, each a full copy of `base_params` with any

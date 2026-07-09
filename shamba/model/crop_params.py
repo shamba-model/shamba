@@ -18,10 +18,11 @@ CROP_SPECIES_PARAM_FIELDS = (
     "carbon_below", "carbon_above", "root_to_shoot",
 )
 
-# Keys are prefixed with the catalog name ("crop_") rather than bare field names,
-# since some fields (e.g. root_to_shoot) also exist on other species catalogs
-# (tree_params.csv) with independently-numbered species codes — a bare key would
-# be ambiguous between "crop species 3" and "tree species 3".
+# Keys are prefixed with the species-lookup table name ("crop_") rather than bare
+# field names, since some fields (e.g. root_to_shoot) also exist in other
+# species-lookup tables (tree_params.csv) with independently-numbered species
+# codes — a bare key would be ambiguous between "crop species 3" and "tree
+# species 3".
 # Matches MC distribution keys for per-species crop parameter sampling, e.g.
 # "crop_slope_sp2", "crop_root_to_shoot_sp1".
 CROP_SPECIES_DIST_KEY_PATTERN = re.compile(

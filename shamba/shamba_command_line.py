@@ -422,7 +422,7 @@ def main(n, arguments):
         + data_handler.validate_required_mgmt_keys(vector_input_data)
     )
 
-    # Load the three species-lookup catalogs once here, at the shared import/validate
+    # Load the three species-lookup tables once here, at the shared import/validate
     # step, rather than lazily inside calculate_emissions.py. This ensures a malformed
     # tree_params.csv/crop_params.csv/biomass_pool_params.csv is reported alongside the
     # other input errors above, instead of surfacing as a mid-calculation crash.

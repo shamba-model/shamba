@@ -10,10 +10,11 @@ from model.common import csv_handler
 # truth for both the key-matching pattern below and sampler.sample_species_params().
 TREE_SPECIES_PARAM_FIELDS = ("wood_dens", "carbon", "root_to_shoot", "nitrogen")
 
-# Keys are prefixed with the catalog name ("tree_") rather than bare field names,
-# since some fields (e.g. root_to_shoot) also exist on other species catalogs
-# (crop_params.csv) with independently-numbered species codes — a bare key would
-# be ambiguous between "tree species 3" and "crop species 3".
+# Keys are prefixed with the species-lookup table name ("tree_") rather than bare
+# field names, since some fields (e.g. root_to_shoot) also exist in other
+# species-lookup tables (crop_params.csv) with independently-numbered species
+# codes — a bare key would be ambiguous between "tree species 3" and "crop
+# species 3".
 # Matches MC distribution keys for per-species tree parameter sampling, e.g.
 # "tree_wood_dens_sp2", "tree_carbon_sp1", "tree_nitrogen_sp3".
 TREE_SPECIES_DIST_KEY_PATTERN = re.compile(
