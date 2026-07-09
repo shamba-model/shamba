@@ -7,6 +7,8 @@ import model.tree_model as TreeModel
 import model.tree_params as TreeParams
 import model.tree_growth as TreeGrowth
 from model.common.data_handler import expand_single_row_data_input, validate_all_grouped_headers
+from model.monte_carlo.distribution_handler import DistributionSpec
+from model.monte_carlo.sampler import sample_species_params
 
 WL_N_COHORTS = 1
 WL_allometric_keys = ["chave dry", "chave dry"]
@@ -452,4 +454,124 @@ def test_validation_requires_per_cohort_thinning_when_second_cohort_present():
     missing_keys = [e for e in errors if "cohort2" in e]
     assert len(missing_keys) == 6, (
         f"Expected 6 missing-cohort-2 errors (one per thinning/mortality key), got: {missing_keys}"
+    )
+
+
+def _write_pool_params_csv(tmp_path, branch_al, stem_al):
+    """Minimal single-species biomass_pool_params.csv, branch/stem AL as given."""
+    path = tmp_path / "biomass_pool_params.csv"
+    path.write_text(
+        "Sc,pool,TO,AL,THf,DTf\n"
+        "1,leaf,1,0.1,1,1\n"
+        f"1,branch,0.05,{branch_al},0,0\n"
+        f"1,stem,0,{stem_al},0,0\n"
+        "1,croot,0,0,1,1\n"
+        "1,froot,0.8,0.1,1,1\n"
+    )
+    return str(path)
+
+
+def _wl_tree_par_and_growth():
+    """Species-1 TreeParams and TreeGrowth from the WL fixture, for pool-alloc tests
+    that don't care about the rest of the intervention input."""
+    file_path = os.path.join(configuration.TESTS_DIR, "fixtures", "WL_input.csv")
+    scalar_input_data, tree_size_data, _, _ = expand_single_row_data_input(file_path)
+    tree_species_data = TreeParams.load_tree_species_data()
+    tree_par = TreeParams.from_species_index(
+        int(scalar_input_data["base_species1"][0]), species_data=tree_species_data
+    )
+    growth_input = {
+        **scalar_input_data,
+        **tree_size_data,
+        "species1": scalar_input_data["proj_species1"],
+    }
+    growth = TreeGrowth.get_growth(
+        growth_input, "base_species1", tree_par, allometric_key="chave dry"
+    )
+    no_of_years = int(scalar_input_data["yrs_proj"].item())
+    stand_density = int(scalar_input_data["base_plant_dens1"][0])
+    return tree_par, growth, no_of_years, stand_density
+
+
+def test_load_biomass_pool_species_data_rejects_branch_stem_mismatch(tmp_path):
+    """Branch + stem 'AL' must sum to 1 (SHAMBA_ModelDescription_v1.2, Sec 4.3.2:
+    alstem/albranch are a split of total above-ground biomass)."""
+    bad_path = _write_pool_params_csv(tmp_path, branch_al=0.5, stem_al=0.6)
+    with pytest.raises(ValueError, match=r"branch and stem 'AL'"):
+        TreeModel.load_biomass_pool_species_data(filename=bad_path)
+
+
+def test_load_biomass_pool_species_data_accepts_branch_stem_summing_to_one(tmp_path):
+    good_path = _write_pool_params_csv(tmp_path, branch_al=0.31, stem_al=0.69)
+    species_data = TreeModel.load_biomass_pool_species_data(filename=good_path)
+    assert species_data[1]["alloc"][1] == pytest.approx(0.31)
+    assert species_data[1]["alloc"][2] == pytest.approx(0.69)
+
+
+def test_from_defaults_derives_branch_alloc_from_stem():
+    """from_defaults() must derive branch = 1 - stem itself, not just trust a
+    validated catalog value — this is what keeps the identity true once MC
+    sampling can perturb stem independently of whatever branch happened to be."""
+    tree_par, growth, no_of_years, stand_density = _wl_tree_par_and_growth()
+    pool_species_data = TreeModel.load_biomass_pool_species_data()
+
+    # Deliberately inconsistent branch value (would fail load-time validation
+    # if it came from a real CSV) — proves from_defaults() ignores it and
+    # derives branch from stem regardless of pool_species_data.
+    tampered = {k: dict(v) for k, v in pool_species_data.items()}
+    tampered[tree_par.species]["alloc"] = np.array(
+        [0.1, 0.99, 0.69, 0.0, 0.1]
+    )  # leaf, branch(fake), stem, croot, froot
+
+    tree = TreeModel.from_defaults(
+        tree_params=tree_par,
+        tree_growth=growth,
+        no_of_years=no_of_years,
+        stand_density=stand_density,
+        pool_species_data=tampered,
+    )
+    assert tree.alloc[1] == pytest.approx(1 - tree.alloc[2])
+    assert tree.alloc[1] == pytest.approx(0.31)  # 1 - 0.69, not the fake 0.99
+
+
+def test_from_defaults_derives_branch_alloc_after_species_param_sampling():
+    """pool_alloc_sp{N} sampling perturbs stem independently of branch; the
+    branch+stem=1 identity must still hold on every sampled draw."""
+    tree_par, growth, no_of_years, stand_density = _wl_tree_par_and_growth()
+    pool_species_data = TreeModel.load_biomass_pool_species_data()
+
+    rng = np.random.default_rng(42)
+    spec = DistributionSpec(
+        parameter=f"pool_alloc_sp{tree_par.species}",
+        distribution="uniform",
+        spread_lower=0.2,
+        spread_upper=0.2,
+        min_abs=None,
+    )
+    samples = sample_species_params(
+        base_params=pool_species_data,
+        distributions={f"pool_alloc_sp{tree_par.species}": spec},
+        param_fields=TreeModel.BIOMASS_POOL_PARAM_FIELDS,
+        key_prefix="pool",
+        n_samples=10,
+        rng=rng,
+    )
+
+    base_stem = pool_species_data[tree_par.species]["alloc"][2]
+    saw_perturbed_stem = False
+    for sample in samples:
+        tree = TreeModel.from_defaults(
+            tree_params=tree_par,
+            tree_growth=growth,
+            no_of_years=no_of_years,
+            stand_density=stand_density,
+            pool_species_data=sample,
+        )
+        assert tree.alloc[1] == pytest.approx(1 - tree.alloc[2])
+        assert tree.alloc[1] + tree.alloc[2] == pytest.approx(1.0)
+        if tree.alloc[2] != pytest.approx(base_stem):
+            saw_perturbed_stem = True
+
+    assert saw_perturbed_stem, (
+        "Expected pool_alloc_sp sampling to actually perturb stem across samples"
     )

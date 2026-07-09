@@ -264,6 +264,19 @@ def load_biomass_pool_species_data(
                 f"{_BIOMASS_POOLS}."
             )
         ordered = np.array([pools[p] for p in _BIOMASS_POOLS])
+
+        # Branch and stem 'AL' are a split of total above-ground biomass
+        # (SHAMBA_ModelDescription_v1.2, Sec 4.3.2 / Table 3: alstem+albranch
+        # ratios always sum to 1 across every species in the reference data).
+        branch_al, stem_al = ordered[1, 1], ordered[2, 1]
+        if not np.isclose(branch_al + stem_al, 1.0, atol=1e-6):
+            raise ValueError(
+                f"'{filename}': branch and stem 'AL' (allocation) values for species "
+                f"code {species} must sum to 1 — they represent a split of total "
+                f"above-ground biomass — but found branch={branch_al}, stem={stem_al} "
+                f"(sum={branch_al + stem_al})."
+            )
+
         species_data[species] = {
             "turnover": ordered[:, 0],
             "alloc": ordered[:, 1],
@@ -325,6 +338,12 @@ def from_defaults(
     temp_thinning_fraction = species_pool_data["thinning_fraction"]
     temp_mortality_fraction = species_pool_data["mortality_fraction"]
 
+    # Branch alloc is derived from stem, not read independently — branch+stem
+    # is the split of total AGB (Sec 4.3.2), and this must hold even when
+    # stem has been perturbed by MC sampling. load_biomass_pool_species_data()
+    # validates the raw CSV, but only re-deriving here (rather than trusting
+    # the catalog's branch value) keeps the identity true after perturbation.
+    alloc[1] = 1 - alloc[2]
     # Take into account croot alloc - rs * stem alloc
     alloc[3] = alloc[2] * tree_params.root_to_shoot
 
