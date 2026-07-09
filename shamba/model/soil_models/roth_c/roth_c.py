@@ -7,19 +7,22 @@ from marshmallow import Schema, fields
 from ...climate import ClimateDataSchema
 from ...soil_params import SoilParamsSchema
 from ..soil_model_types import BaseSoilModelData, SoilModelBaseSchema
+from .roth_c_params import RothCParams
 
 
 # Class variables (defaults)
 K_BASE = np.array([10.0, 0.3, 0.66, 0.02])
 
 
-def create(soil, climate, cover, no_of_years):
+def create(soil, climate, cover, no_of_years, roth_c_params: RothCParams = RothCParams()):
     """Creates rothc object.
 
     Args:
         soil: SoilParams object with soil parameters
         climate: Climate object with climate parameters
         cover: monthly cover vector (1=covered, 0=uncovered)
+        roth_c_params: rate-modifier and partitioning constants (defaults preserve
+            prior hardcoded behaviour)
 
     """
 
@@ -27,7 +30,10 @@ def create(soil, climate, cover, no_of_years):
         "soil_params": vars(soil),
         "climate": vars(climate),
         "cover": cover,
-        "k": get_rmf(climate=climate, cover=cover, soil=soil, no_of_years=no_of_years)[..., np.newaxis] * K_BASE,
+        "k": get_rmf(
+            climate=climate, cover=cover, soil=soil, no_of_years=no_of_years,
+            roth_c_params=roth_c_params,
+        )[..., np.newaxis] * K_BASE,
     }
 
     schema = SoilModelBaseSchema()
@@ -41,11 +47,14 @@ def create(soil, climate, cover, no_of_years):
 
 
 # Rate modifying-factor function - needed in forward and inverse
-def get_rmf(climate, cover, soil, no_of_years):
+def get_rmf(climate, cover, soil, no_of_years, roth_c_params: RothCParams = RothCParams()):
     """Calculate the rate modifying factor for each year based on climate and soil cover.
 
     Supports both single-pattern climate/cover (12 values, repeated for all years)
     and multi-year climate/cover (12 * no_of_years values).
+
+    Args:
+        roth_c_params: rate-modifier constant values (defaults are RothC standard values)
 
     Returns:
         rmf: array of shape (no_of_years,) — yearly mean of the combined RMF
@@ -95,7 +104,12 @@ def get_rmf(climate, cover, soil, no_of_years):
             if accumulator_tsmd >= 0.444 * max_smd:
                 b[m] = 1
             elif accumulator_tsmd >= max_smd:
-                b[m] = 0.2 + 0.8 * (max_smd - accumulator_tsmd) / ((1 - 0.444) * max_smd)
+                b_min = 1 - roth_c_params.moisture_b_slope
+                b[m] = (
+                    b_min
+                    + roth_c_params.moisture_b_slope
+                    * (max_smd - accumulator_tsmd) / ((1 - 0.444) * max_smd)
+                )
             else:
                 log.error("DEFICIT = %5.2f" % accumulator_tsmd)
                 sys.exit(1)
@@ -107,11 +121,13 @@ def get_rmf(climate, cover, soil, no_of_years):
         # Temperature RMF (a)
         a = np.zeros(12)
         warm = temp > -5.0
-        a[warm] = 47.91 / (1.0 + np.exp(106.06 / (temp[warm] + 18.27)))
+        a[warm] = roth_c_params.temp_a1 / (
+            1.0 + np.exp(roth_c_params.temp_a2 / (temp[warm] + roth_c_params.temp_a3))
+        )
 
         # Soil cover RMF (c)
         c = np.ones(12)
-        c[cover_year == 1] = 0.6
+        c[cover_year == 1] = roth_c_params.cover_c
 
         rmf[y] = (a * b * c).mean()
 

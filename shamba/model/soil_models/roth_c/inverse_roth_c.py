@@ -6,6 +6,7 @@ from scipy import optimize
 
 from ...common import csv_handler
 from .roth_c import create as create_roth_c, dC_dt
+from .roth_c_params import RothCParams
 from ..soil_model_types import (
     InverseSoilModelData,
     BaseSoilModelData,
@@ -13,18 +14,21 @@ from ..soil_model_types import (
 )
 
 
-def create(soil, climate, cover=np.ones(12)) -> InverseSoilModelData:
+def create(
+    soil, climate, cover=np.ones(12), roth_c_params: RothCParams = RothCParams()
+) -> InverseSoilModelData:
     """Creates inverse rothc object.
 
     Args:
         soil: soil object with soil parameters
         climate: climate object with climate parameters
         cover: monthly soil cover vector
+        roth_c_params: rate-modifier and partitioning constants (defaults are RothC standard values)
 
     """
-    roth_c = create_roth_c(soil, climate, cover, no_of_years = 1)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years=1, roth_c_params=roth_c_params)
 
-    eq_C, input_C, x = solver(roth_c)
+    eq_C, input_C, x = solver(roth_c, roth_c_params=roth_c_params)
 
     params = {
         "soil_params": vars(roth_c.soil),
@@ -45,9 +49,12 @@ def create(soil, climate, cover=np.ones(12)) -> InverseSoilModelData:
     return schema.load(params)  # type: ignore
 
 
-def solver(roth_c):
+def solver(roth_c, roth_c_params: RothCParams = RothCParams()):
     """Run RothC in 'inverse' mode to find inputs
     giving equilibrium and Carbon pool values at equilibrium.
+
+    Args:
+        roth_c_params: DPM/RPM partitioning constants (defaults are RothC standard values)
 
     Returns:
         eq_C: equilibrium distribution of carbon
@@ -57,7 +64,7 @@ def solver(roth_c):
     """
 
     # Partioning coefficients
-    x = get_partitions(roth_c)
+    x = get_partitions(roth_c, roth_c_params=roth_c_params)
     t = 0  # just needed to define for dC_dt function
     C0 = np.array([0.1, 10, 0, 0])  # initial ballpark guess
 
@@ -83,8 +90,11 @@ def solver(roth_c):
     return eq_C, eq_input, x
 
 
-def get_partitions(roth_c):
+def get_partitions(roth_c, roth_c_params: RothCParams = RothCParams()):
     """Calculate partitioning coefficients.
+
+    Args:
+        roth_c_params: DPM/RPM partitioning constants (defaults are RothC standard values)
 
     Returns:
         x: partitioning coefficient for the 4 pools
@@ -99,10 +109,10 @@ def get_partitions(roth_c):
     p3 = 0.46  # BIO proportion of BIO+HUM
 
     # p_1 is dpm fraction of input:
-    #   deciduous tropical woodland: dpm=0.2, rpm=0.8
-    #   crops: dpm=0.59, rpm=0.41
-    # no crops at equil so p1 always 0.2
-    p1 = 0.2
+    #   deciduous tropical woodland: dpm=dpm_frac_tree, rpm=1-dpm_frac_tree
+    #   crops: dpm=dpm_frac_crop, rpm=1-dpm_frac_crop
+    # no crops at equilibrium, so p1 is always dpm_frac_tree
+    p1 = roth_c_params.dpm_frac_tree
 
     # DPM fraction, RPM fraction, BIO fraction, HUM fraction
     return np.array([p1, 1 - p1, p3 * (1 - p2), (1 - p2) * (1 - p3)])
