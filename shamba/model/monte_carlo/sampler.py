@@ -17,6 +17,7 @@ from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DIST
 from model.common.data_handler import get_header_type
 import model.soil_params as SoilParams
 from model.climate import ClimateData
+from model.soil_models.soil_model_params import SoilModelParams
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
@@ -414,6 +415,50 @@ def sample_climate_params(
         ))
 
     return results
+
+def sample_soil_model_params(
+    base: SoilModelParams,
+    distributions: Dict[str, DistributionSpec],
+    key_prefix: str,
+    n_samples: int,
+    rng: np.random.Generator,
+) -> List[SoilModelParams]:
+    """Draw N soil-model parameter objects from a base object and matching distributions.
+
+    Shared engine for every soil model's parameter NamedTuple (currently
+    RothCParams; ExampleSoilModelParams has no fields, so it always returns
+    copies of base unchanged). Each field is perturbed only if `distributions`
+    has a matching `{key_prefix}_{field}` entry; fields without one keep their
+    base value in every sample. If `distributions` is empty, returns
+    n_samples copies of `base`.
+
+    Args:
+        base: soil-model parameter object (e.g. RothCParams()) holding the
+            central (default or user-supplied) values.
+        distributions: mapping of "{key_prefix}_{field}" to DistributionSpec.
+        key_prefix: distribution-key prefix for this soil model (e.g. "roth_c").
+        n_samples: number of samples to draw.
+        rng: numpy random Generator.
+
+    Returns:
+        list of n_samples soil-model parameter objects, same type as `base`,
+        with any distributed fields perturbed.
+    """
+    base_dict = base._asdict()
+    field_specs = {
+        field: distributions[key]
+        for field in base_dict
+        if (key := f"{key_prefix}_{field}") in distributions
+    }
+
+    samples = []
+    for _ in range(n_samples):
+        sample = dict(base_dict)
+        for field, spec in field_specs.items():
+            sample[field] = _draw_one(spec, float(base_dict[field]), rng)
+        samples.append(type(base)(**sample))
+    return samples
+
 
 def sample_species_params(
     base_params: Dict[int, Dict],
