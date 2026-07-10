@@ -359,6 +359,9 @@ def setup_project_directory(project_name, arguments):
     else:
         files_to_copy.append(arguments["input-file-name"])
 
+    if arguments["n-samples"] and arguments["distribution-file-name"]:
+        files_to_copy.append(arguments["distribution-file-name"])
+
     # Source directory (using an existing project as an example)
     source_dir = os.path.join(configuration.PROJECT_DIR, arguments["source-directory"])
 
