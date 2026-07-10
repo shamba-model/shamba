@@ -12,7 +12,9 @@ https://files.edinburgh-innovations.ed.ac.uk/ei-web/production/images/Small-hold
 import csv
 import os
 import shutil
+import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -35,6 +37,7 @@ import model.common.constants as CONSTANTS
 
 import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
+from model.soil_models.soil_model_types import SoilModelType
 from model.monte_carlo import distribution_handler
 from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv, write_mc_metadata
 
@@ -234,6 +237,47 @@ def save_crop_data(base_data, project_data, plot_name, model_type):
         elif model_type == "crop_params":
             CropParams.save(base, str(base_filename))
             CropParams.save(project, str(project_filename))
+
+
+def get_repo_state() -> str:
+    """Return the git commit SHAMBA ran from, for output provenance.
+
+    Falls back to a plain-language "unknown" note if this isn't a git checkout
+    or git isn't installed (e.g. inside some deployment images) — missing
+    provenance shouldn't fail a run.
+    """
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=repo_dir, stderr=subprocess.DEVNULL
+        ).decode().strip()
+        # Untracked files are included, Gitignored files (caches, scratch output) are 
+        # already excluded by git itself.
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain"], cwd=repo_dir, stderr=subprocess.DEVNULL
+        ).decode()
+        dirty_note = " (dirty — uncommitted changes present)" if status.strip() else ""
+        return f"{commit}{dirty_note}"
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return "unknown (not running from a git checkout, or git is not available)"
+
+
+def write_run_metadata(output_path: str, soil_model_type: SoilModelType, repo_state: str) -> None:
+    """Write a small plain-text record of which soil model and code version a run used.
+
+    Written for every run (deterministic or Monte Carlo) so the output directory
+    is self-describing without needing to know which arguments the CLI was
+    invoked with, or which checkout produced it.
+    """
+    lines = [
+        "SHAMBA run metadata",
+        "=" * 40,
+        f"Run timestamp : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        f"Soil model    : {soil_model_type.value}",
+        f"Repo commit   : {repo_state}",
+    ]
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 def write_emissions_csv(output_dir, n, st, data):
@@ -440,6 +484,17 @@ def main(n, arguments):
     except ValueError as e:
         validation_errors.append(str(e))
 
+    # Load and validate the Monte Carlo distributions file, if supplied, so a
+    # malformed file is reported alongside other input errors, instead of
+    # surfacing as a mid-run crash.
+    distribution_dict = None
+    if arguments["n-samples"] and arguments["distribution-file-name"]:
+        distribution_file_path = os.path.join(configuration.INPUT_DIR, arguments["distribution-file-name"])
+        try:
+            distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
+        except ValueError as e:
+            validation_errors.append(str(e))
+
     if validation_errors:
         raise ValueError("\n".join(validation_errors))
 
@@ -475,6 +530,9 @@ def main(n, arguments):
         shutil.rmtree(dir)
     os.makedirs(dir)
 
+    repo_state = get_repo_state()
+    write_run_metadata(str(dir / "run_metadata.txt"), soil_model_type, repo_state)
+
     plot_name = str(dir / f"plot_{n + st}")
 
     datasets = [
@@ -509,11 +567,6 @@ def main(n, arguments):
 
     if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
-        if arguments["distribution-file-name"]:
-            distribution_file_path = os.path.join(configuration.INPUT_DIR, arguments["distribution-file-name"])
-            distribution_dict = distribution_handler.load_distributions(distribution_file_path, vector_input_data)
-        else:
-            distribution_dict = None
 
         mc_results = run_monte_carlo(
             base_input_dict=vector_input_data,
@@ -547,6 +600,8 @@ def main(n, arguments):
             output_path=str(dir / "mc_run_metadata.txt"),
             n_samples=n_samples,
             seed=arguments["seed"],
+            soil_model_type=soil_model_type,
+            repo_state=repo_state,
             soil_params=soil_params,
             climate=climate,
             distribution_dict=distribution_dict,

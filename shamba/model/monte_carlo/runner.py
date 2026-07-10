@@ -15,6 +15,7 @@ from model.tree_params import TREE_SPECIES_PARAM_FIELDS, TREE_SPECIES_DIST_KEY_P
 from model.crop_params import CROP_SPECIES_PARAM_FIELDS, CROP_SPECIES_DIST_KEY_PATTERN
 from model.tree_model import BIOMASS_POOL_PARAM_FIELDS, BIOMASS_POOL_DIST_KEY_PATTERN
 from model.soil_models.soil_model_params import RothCParams, SoilModelParams, ROTH_C_DIST_KEYS
+from model.soil_models.soil_model_types import SoilModelType
 
 class MCSummaries(NamedTuple):
     base: Dict[str, np.ndarray]
@@ -326,6 +327,8 @@ def write_mc_metadata(
     output_path: str,
     n_samples: int,
     seed: Optional[int],
+    soil_model_type: SoilModelType,
+    repo_state: str,
     soil_params: SoilParams.SoilParamsData,
     climate,
     distribution_dict: Optional[Dict[str, DistributionSpec]],
@@ -336,6 +339,8 @@ def write_mc_metadata(
     lines.append("SHAMBA Monte Carlo run metadata")
     lines.append("=" * 40)
     lines.append(f"Run timestamp : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(f"Soil model    : {soil_model_type.value}")
+    lines.append(f"Repo commit   : {repo_state}")
     lines.append(f"Samples       : {n_samples}")
     if seed is None:
         lines.append("Seed          : not set — run is not reproducible")
