@@ -14,6 +14,7 @@ from model.climate import ClimateData
 from model.tree_params import TREE_SPECIES_PARAM_FIELDS, TREE_SPECIES_DIST_KEY_PATTERN
 from model.crop_params import CROP_SPECIES_PARAM_FIELDS, CROP_SPECIES_DIST_KEY_PATTERN
 from model.tree_model import BIOMASS_POOL_PARAM_FIELDS, BIOMASS_POOL_DIST_KEY_PATTERN
+from model.soil_models.soil_model_params import RothCParams, SoilModelParams, ROTH_C_DIST_KEYS
 
 class MCSummaries(NamedTuple):
     base: Dict[str, np.ndarray]
@@ -32,6 +33,7 @@ class SampleArgs(NamedTuple):
     tree_species_data: Dict[int, Dict]
     crop_species_data: Dict[int, Dict]
     pool_species_data: Dict[int, Dict]
+    soil_model_params: Optional[SoilModelParams] = None
     emission_factors: EmissionFactors = EmissionFactors()
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP]
@@ -45,22 +47,29 @@ def _partition_distributions(
     Dict[str, DistributionSpec],
     Dict[str, DistributionSpec],
     Dict[str, DistributionSpec],
+    Dict[str, DistributionSpec],
 ]:
     """Split a user distributions dict by key pattern.
 
-    Species-lookup entries (tree_*_sp{N}, crop_*_sp{N}, pool_*_sp{N}) route to
-    sample_species_params() for their own species-lookup table; everything else
-    falls through to draw_samples() against the flat intervention-input dict,
-    which does a direct dict lookup per key and would raise a KeyError on a
-    species key, which has a different dict shape.
+    RothC entries (roth_c_{field}, matching RothCParams._fields) route to
+    sample_soil_model_params(). Species-lookup entries (tree_*_sp{N}, crop_*_sp{N},
+    pool_*_sp{N}) route to sample_species_params() for their own species-lookup
+    table; everything else falls through to draw_samples() against the flat
+    intervention-input dict, which does a direct dict lookup per key and would
+    raise a KeyError on a roth_c or species key, which have a different dict
+    shape.
 
-    Note: RothC and emission-factor routing not included (yet) — emission factors 
+    Note: emission-factor routing not included (yet) — emission factors
     have a separate, non-distribution_dict path (emission_distribution_dict /
-    sample_emission_factors).
+    sample_emission_factors). Nothing here checks that a roth_c_* key is only
+    supplied when the RothC soil model is actually selected — that check
+    belongs at the caller, which knows soil_model_type.
     """
-    tree_species, crop_species, pool_species, input_dict = {}, {}, {}, {}
+    roth_c, tree_species, crop_species, pool_species, input_dict = {}, {}, {}, {}, {}
     for key, spec in (dist or {}).items():
-        if TREE_SPECIES_DIST_KEY_PATTERN.match(key):
+        if key in ROTH_C_DIST_KEYS:
+            roth_c[key] = spec
+        elif TREE_SPECIES_DIST_KEY_PATTERN.match(key):
             tree_species[key] = spec
         elif CROP_SPECIES_DIST_KEY_PATTERN.match(key):
             crop_species[key] = spec
@@ -68,7 +77,7 @@ def _partition_distributions(
             pool_species[key] = spec
         else:
             input_dict[key] = spec
-    return tree_species, crop_species, pool_species, input_dict
+    return roth_c, tree_species, crop_species, pool_species, input_dict
 
 
 def _run_single_sample(arguments: SampleArgs):
@@ -87,6 +96,7 @@ def _run_single_sample(arguments: SampleArgs):
         tree_species_data=arguments.tree_species_data,
         crop_species_data=arguments.crop_species_data,
         pool_species_data=arguments.pool_species_data,
+        soil_model_params=arguments.soil_model_params,
     )
 
 
@@ -116,9 +126,20 @@ def run_monte_carlo(
 
     rng = np.random.default_rng(seed)
 
-    tree_species_dists, crop_species_dists, pool_species_dists, input_dict_dists = (
+    roth_c_dists, tree_species_dists, crop_species_dists, pool_species_dists, input_dict_dists = (
         _partition_distributions(distribution_dict)
     )
+
+    if not roth_c_dists:
+        soil_model_samples = [None] * n_samples
+    else:
+        soil_model_samples = sampler.sample_soil_model_params(
+            base=RothCParams(),
+            distributions=roth_c_dists,
+            key_prefix="roth_c",
+            n_samples=n_samples,
+            rng=rng,
+        )
 
     soil_samples = sampler.sample_soil_params(
         soil=soil_params,
@@ -193,6 +214,7 @@ def run_monte_carlo(
             emission_factor_samples_batch = emission_factor_samples[start:stop]
             soil_samples_batch = soil_samples[start:stop]
             climate_samples_batch = climate_samples[start:stop]
+            soil_model_samples_batch = soil_model_samples[start:stop]
             tree_species_samples_batch = tree_species_samples[start:stop]
             crop_species_samples_batch = crop_species_samples[start:stop]
             pool_species_samples_batch = pool_species_samples[start:stop]
@@ -207,6 +229,7 @@ def run_monte_carlo(
                     plot_index=plot_index,
                     soil_params=soil_samples_batch[i],
                     climate=climate_samples_batch[i],
+                    soil_model_params=soil_model_samples_batch[i],
                     allometry=allometry,
                     gwp=gwp,
                     tree_species_data=tree_species_samples_batch[i],

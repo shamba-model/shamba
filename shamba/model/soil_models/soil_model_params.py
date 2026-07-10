@@ -38,3 +38,10 @@ class RothCParams(NamedTuple):
 # The concrete parameter type depends on which soil model create_forward_soil_model/
 # create_inverse_soil_model actually resolve to at runtime — one member per soil model.
 SoilModelParams = Union[RothCParams, ExampleSoilModelParams]
+
+# roth_c_{field} for each RothCParams field — e.g. "roth_c_temp_a1", "roth_c_cover_c".
+# Used by monte_carlo/runner.py's _partition_distributions() to route user-supplied
+# distribution keys to sample_soil_model_params(), matching the convention of
+# TREE_SPECIES_DIST_KEY_PATTERN/CROP_SPECIES_DIST_KEY_PATTERN/BIOMASS_POOL_DIST_KEY_PATTERN
+# living beside their own field lists.
+ROTH_C_DIST_KEYS = {f"roth_c_{field}" for field in RothCParams._fields}
