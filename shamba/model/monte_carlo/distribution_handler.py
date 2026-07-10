@@ -6,6 +6,11 @@ from typing import Dict, List, Optional, NamedTuple
 import numpy as np
 import pandas as pd
 
+from model.tree_params import TREE_SPECIES_DIST_KEY_PATTERN
+from model.crop_params import CROP_SPECIES_DIST_KEY_PATTERN
+from model.tree_model import BIOMASS_POOL_DIST_KEY_PATTERN
+from model.soil_models.soil_model_params import ROTH_C_DIST_KEYS
+
 
 SUPPORTED_DISTRIBUTIONS = frozenset({
     "normal",
@@ -73,6 +78,22 @@ def _parse_float(value, label: str, errors: list) -> Optional[float]:
         return None
 
 
+def _is_soil_model_or_species_parameter(parameter: str) -> bool:
+    """True for roth_c_{field}/tree_{field}_sp{N}/crop_{field}_sp{N}/pool_{field}_sp{N} keys.
+
+    These are not looked up in base_input_dict — runner.py's
+    _partition_distributions() routes them to sample_soil_model_params() or
+    sample_species_params() instead, each checking its own base values
+    (RothCParams()/the relevant species-lookup table) at draw time.
+    """
+    return (
+        parameter in ROTH_C_DIST_KEYS
+        or bool(TREE_SPECIES_DIST_KEY_PATTERN.match(parameter))
+        or bool(CROP_SPECIES_DIST_KEY_PATTERN.match(parameter))
+        or bool(BIOMASS_POOL_DIST_KEY_PATTERN.match(parameter))
+    )
+
+
 def load_distributions(
     path: str,
     base_input_dict: Dict,
@@ -132,7 +153,7 @@ def load_distributions(
         row_errors: List[str] = []
 
         # --- Validate parameter name first — skip remaining checks if unknown ---
-        if parameter not in base_input_dict:
+        if parameter not in base_input_dict and not _is_soil_model_or_species_parameter(parameter):
             all_errors.append(
                 f"{row_label}: '{parameter}' is not a recognised input parameter."
             )
