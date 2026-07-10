@@ -6,7 +6,7 @@ from scipy import optimize
 
 from ...common import csv_handler
 from .roth_c import create as create_roth_c, dC_dt
-from .roth_c_params import RothCParams
+from ..soil_model_params import RothCParams
 from ..soil_model_types import (
     InverseSoilModelData,
     BaseSoilModelData,
@@ -15,7 +15,7 @@ from ..soil_model_types import (
 
 
 def create(
-    soil, climate, cover=np.ones(12), roth_c_params: RothCParams = RothCParams()
+    soil, climate, cover=np.ones(12), soil_model_params: RothCParams = RothCParams()
 ) -> InverseSoilModelData:
     """Creates inverse rothc object.
 
@@ -23,12 +23,14 @@ def create(
         soil: soil object with soil parameters
         climate: climate object with climate parameters
         cover: monthly soil cover vector
-        roth_c_params: rate-modifier and partitioning constants (defaults are RothC standard values)
+        soil_model_params: RothC rate-modifier and partitioning constants (defaults
+            are RothC standard values). Generic naming because other soil models could be used.
+
 
     """
-    roth_c = create_roth_c(soil, climate, cover, no_of_years=1, roth_c_params=roth_c_params)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years=1, roth_c_params=soil_model_params)
 
-    eq_C, input_C, x = solver(roth_c, roth_c_params=roth_c_params)
+    eq_C, input_C, x = solver(roth_c, roth_c_params=soil_model_params)
 
     params = {
         "soil_params": vars(roth_c.soil),

@@ -13,7 +13,7 @@ from ...common import csv_handler
 from .roth_c import SoilModelBaseSchema
 from .roth_c import create as create_roth_c
 from .roth_c import dC_dt
-from .roth_c_params import RothCParams
+from ..soil_model_params import RothCParams
 from ..soil_model_types import ForwardSoilModelData, ForwardSoilModelBaseSchema
 
 
@@ -28,7 +28,7 @@ def create(
     litter=[],
     fire=[],
     solve_to_value=False,
-    roth_c_params: RothCParams = RothCParams(),
+    soil_model_params: RothCParams = RothCParams(),
 ) -> ForwardSoilModelData:
     """Creates ForwardSoilModelData.
 
@@ -41,14 +41,15 @@ def create(
         tree: list of tree objects which provide carbon to soil
         litter: list of litter objects which provide carbon to soil
         solve_to_value: whether to solve to value (to Cy0) or by time
-        roth_c_params: rate-modifier and partitioning constants (defaults are RothC standard values)
+        soil_model_params: RothC rate-modifier and partitioning constants (defaults
+            are RothC standard values). Generic naming because other soil models could be used.
 
     """
-    roth_c = create_roth_c(soil, climate, cover, no_of_years, roth_c_params=roth_c_params)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years, roth_c_params=soil_model_params)
 
     SOC, inputs, Cy0Year = solver(
         roth_c, Ci, no_of_years, crop, tree, litter, fire, solve_to_value,
-        roth_c_params=roth_c_params,
+        roth_c_params=soil_model_params,
     )
 
     params = {

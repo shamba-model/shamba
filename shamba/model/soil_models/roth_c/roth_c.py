@@ -7,7 +7,7 @@ from marshmallow import Schema, fields
 from ...climate import ClimateDataSchema
 from ...soil_params import SoilParamsSchema
 from ..soil_model_types import BaseSoilModelData, SoilModelBaseSchema
-from .roth_c_params import RothCParams
+from ..soil_model_params import RothCParams
 
 
 # Class variables (defaults)

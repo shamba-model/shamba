@@ -1,4 +1,15 @@
-from typing import NamedTuple
+from typing import NamedTuple, Union
+
+class ExampleSoilModelParams(NamedTuple):
+    """Placeholder parameters for the example soil model.
+
+    The example soil model has no working implementation yet (forward_example.py/
+    inverse_example.py always fail schema validation). This class has no fields —
+    it exists so callers that don't know which soil model is active (e.g.
+    handle_intervention()) can pass a soil_model_params object uniformly, matching
+    RothCParams' role for the RothC model.
+    """
+    pass
 
 
 class RothCParams(NamedTuple):
@@ -22,3 +33,8 @@ class RothCParams(NamedTuple):
     temp_a3: float = 18.27            # temperature modifier offset
     moisture_b_slope: float = 0.80    # moisture modifier slope (min = 1 - slope)
     cover_c: float = 0.60             # rate modifier when soil is covered (bare = 1.0)
+
+
+# The concrete parameter type depends on which soil model create_forward_soil_model/
+# create_inverse_soil_model actually resolve to at runtime — one member per soil model.
+SoilModelParams = Union[RothCParams, ExampleSoilModelParams]

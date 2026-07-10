@@ -20,6 +20,7 @@ from model.soil_models.soil_model_types import (
     ForwardSoilModelData,
     InverseSoilModelData,
 )
+from model.soil_models.soil_model_params import SoilModelParams
 
 def _extract_scalar(val: Any) -> Any:
     if isinstance(val, np.ndarray):
@@ -299,7 +300,13 @@ def get_soil_carbon_data(
     cover_proj: np.ndarray,
     create_forward_soil_model,
     create_inverse_soil_model,
+    soil_model_params: Optional[SoilModelParams] = None,
 ) -> GetSoilCarbonReturnData:
+    # **soil_model_kwargs omits the keyword entirely when unset, so the soil model's own default applies.
+    soil_model_kwargs = (
+        {"soil_model_params": soil_model_params} if soil_model_params is not None else {}
+    )
+
     # Solve to y=0
     for_soil = create_forward_soil_model(
         soil,
@@ -310,6 +317,7 @@ def get_soil_carbon_data(
         crop=crop_base,
         fire=fire_base,
         solve_to_value=True,
+        **soil_model_kwargs,
     )
 
     # Soil carbon for baseline and project
@@ -323,6 +331,7 @@ def get_soil_carbon_data(
         tree=tree_base,
         litter=[litter_external_base],
         fire=fire_base,
+        **soil_model_kwargs,
     )
 
     project_forward_soil_data = create_forward_soil_model(
@@ -335,6 +344,7 @@ def get_soil_carbon_data(
         tree=tree_projects,
         litter=[litter_external_project],
         fire=fire_project,
+        **soil_model_kwargs,
     )
 
     return GetSoilCarbonReturnData(
@@ -612,15 +622,21 @@ def handle_intervention(
     pool_species_data: Dict[int, Dict],
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors()
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
+    soil_model_params: Optional[SoilModelParams] = None,
 ):
     no_of_years = get_int(CONSTANTS.NO_OF_YEARS_KEY, intervention_input)
+
+    # **soil_model_kwargs omits the keyword entirely when unset, so the soil model's own default applies.
+    soil_model_kwargs = (
+        {"soil_model_params": soil_model_params} if soil_model_params is not None else {}
+    )
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
     # ----------
 
-    inverse_soil_model = create_inverse_soil_model(soil, climate)
+    inverse_soil_model = create_inverse_soil_model(soil, climate, **soil_model_kwargs)
 
     # ----------
     # MODEL DATA
@@ -722,6 +738,7 @@ def handle_intervention(
         cover_proj=intervention_input["proj_cover"],
         create_forward_soil_model=create_forward_soil_model,
         create_inverse_soil_model=create_inverse_soil_model,
+        soil_model_params=soil_model_params,
     )
 
     emissions = get_emissions_data(

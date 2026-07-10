@@ -1,4 +1,5 @@
 from ..soil_model_types import ForwardSoilModelData, ForwardSoilModelBaseSchema
+from ..soil_model_params import ExampleSoilModelParams
 
 
 def create(
@@ -12,6 +13,7 @@ def create(
     litter=[],
     fire=[],
     solve_to_value=False,
+    soil_model_params: ExampleSoilModelParams = ExampleSoilModelParams(),
 ) -> ForwardSoilModelData:
     schema = ForwardSoilModelBaseSchema()
     params = {}
