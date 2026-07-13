@@ -12,7 +12,6 @@ from .common_schema import OutputSchema as ClimateDataOutputSchema
 from .crop_params import (
     CropParamsData,
     CropParamsSchema,
-    load_crop_species_data,
 )
 import model.common.constants as CONSTANTS
 from .crop_params import from_species_index as create_crop_params_from_species_index
@@ -121,10 +120,8 @@ def save(crop_model, file="crop_model.csv"):
 
 
 def get_crop_models_and_crop_params(
-    input_data, no_of_years, start_index, end_index, crop_getter, species_data=None
+    input_data, no_of_years, start_index, end_index, crop_getter, species_data
 ):
-    # Load the crop species csv once for the whole range, rather than once per cohort.
-    species_data = species_data if species_data is not None else load_crop_species_data()
     results = [
         crop_getter(input_data, no_of_years, index, species_data)
         for index in range(start_index, end_index + 1)
@@ -138,7 +135,7 @@ def get_crop_models_and_crop_params(
 
 
 def get_crop_bases(
-    input_data, no_of_years, start_index, end_index, species_data=None
+    input_data, no_of_years, start_index, end_index, species_data
 ) -> Tuple[List[CropModelData], List[CropParamsData]]:
     return get_crop_models_and_crop_params(
         input_data, no_of_years, start_index, end_index, get_crop_base, species_data
@@ -146,7 +143,7 @@ def get_crop_bases(
 
 
 def get_crop_projects(
-    input_data, no_of_years, start_index, end_index, species_data=None
+    input_data, no_of_years, start_index, end_index, species_data
 ) -> Tuple[List[CropModelData], List[CropParamsData]]:
     return get_crop_models_and_crop_params(
         input_data, no_of_years, start_index, end_index, get_crop_project, species_data
@@ -154,7 +151,7 @@ def get_crop_projects(
 
 
 def get_crop_data(
-    input_data, no_of_years, prefix, index, species_data=None
+    input_data, no_of_years, prefix, index, species_data
 ) -> Tuple[CropModelData, CropParamsData]:
     scenario = "baseline" if "base" in prefix else "project"
     try:
@@ -179,12 +176,12 @@ def get_crop_data(
 
 
 def get_crop_base(
-    input_data, no_of_years, index, species_data=None
+    input_data, no_of_years, index, species_data
 ) -> Tuple[CropModelData, CropParamsData]:
     return get_crop_data(input_data, no_of_years, "crop_base", index, species_data)
 
 
 def get_crop_project(
-    input_data, no_of_years, index, species_data=None
+    input_data, no_of_years, index, species_data
 ) -> Tuple[CropModelData, CropParamsData]:
     return get_crop_data(input_data, no_of_years, "crop_proj", index, species_data)

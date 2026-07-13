@@ -13,7 +13,12 @@ import numpy as np
 import pytest
 from unittest.mock import patch, MagicMock
 
-from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv
+from model.monte_carlo.runner import (
+    run_monte_carlo,
+    summarise_mc_results,
+    write_mc_summary_csv,
+)
+from model.monte_carlo.distribution_handler import DistributionSpec
 
 
 class _InProcessExecutor:
@@ -58,6 +63,18 @@ class FakeClimateData:
         self.temperature_std = np.zeros(12)
         self.rain_std = np.zeros(12)
         self.evaporation_std = np.zeros(12)
+
+
+class FakeClimateDataWithUncertainty:
+    """Non-zero std, so sample_climate_params() actually draws distinct values
+    per sample instead of returning the mean every time (see FakeClimateData)."""
+    def __init__(self):
+        self.temperature = np.array([20.0] * 12)
+        self.rain = np.array([80.0] * 12)
+        self.evaporation = np.array([50.0] * 12)
+        self.temperature_std = np.full(12, 2.0)
+        self.rain_std = np.full(12, 5.0)
+        self.evaporation_std = np.full(12, 3.0)
 
 
 BASE_INPUT = {
@@ -110,6 +127,9 @@ def test_run_monte_carlo_returns_n_samples():
             n_proj_cohorts=1,
             n_base_cohorts=1,
             plot_index=0,
+            tree_species_data={},
+            crop_species_data={},
+            pool_species_data={},
             seed=0,
         )
     assert len(results) == 5
@@ -136,6 +156,9 @@ def test_run_monte_carlo_deterministic_no_distributions():
             n_proj_cohorts=1,
             n_base_cohorts=1,
             plot_index=0,
+            tree_species_data={},
+            crop_species_data={},
+            pool_species_data={},
             seed=42,
         )
 
@@ -149,6 +172,91 @@ def test_run_monte_carlo_deterministic_no_distributions():
                 np.asarray(subsequent[key]),
                 err_msg=f"Input '{key}' differs between samples despite zero uncertainty",
             )
+
+
+def test_run_monte_carlo_checkpointing_does_not_reuse_climate_across_batches():
+    """Regression test: each checkpoint batch must draw its own slice of
+    climate_samples."""
+    captured_climate = []
+
+    def capture(**kwargs):
+        captured_climate.append(kwargs["climate"])
+        return FIXED_RESULT
+
+    with patch("model.monte_carlo.runner.handle_intervention", side_effect=capture), \
+         patch("model.monte_carlo.runner.concurrent.futures.ProcessPoolExecutor", _InProcessExecutor):
+        run_monte_carlo(
+            base_input_dict=BASE_INPUT,
+            soil_params=FakeSoilParams(),
+            climate=FakeClimateDataWithUncertainty(),
+            n_samples=4,
+            create_forward_soil_model=fake_forward,
+            create_inverse_soil_model=fake_inverse,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
+            plot_index=0,
+            tree_species_data={},
+            crop_species_data={},
+            pool_species_data={},
+            seed=7,
+            checkpoint_every=2,
+        )
+
+    assert len(captured_climate) == 4
+    # Batch 2 (samples 2, 3) must not repeat batch 1's (samples 0, 1) draws.
+    assert not np.array_equal(captured_climate[2].temperature, captured_climate[0].temperature)
+    assert not np.array_equal(captured_climate[3].temperature, captured_climate[1].temperature)
+
+
+
+# ---------------------------------------------------------------------------
+# Species-parameter sampling wiring (Part 1 Step 1d)
+# ---------------------------------------------------------------------------
+
+def test_run_monte_carlo_species_distribution_key_does_not_crash_and_perturbs_species():
+    """A tree_*_sp{N} distribution key must route to sample_species_params(), not
+    reach draw_samples() — which does a direct base_input_dict[key] lookup and
+    would raise a KeyError, since species-lookup keys were never part of the
+    flat intervention-input dict."""
+    tree_species_data = {
+        1: {
+            "species": 1, "name": "sp1", "wood_dens": 0.6, "carbon": 0.5,
+            "nitrogen": np.array([0.01, 0.01, 0.01, 0.01, 0.01]), "root_to_shoot": 0.26,
+        },
+    }
+    captured_tree_species = []
+
+    def capture(**kwargs):
+        captured_tree_species.append(kwargs["tree_species_data"])
+        return FIXED_RESULT
+
+    spec = DistributionSpec(
+        parameter="tree_wood_dens_sp1", distribution="uniform",
+        spread_lower=0.2, spread_upper=0.2, min_abs=None,
+    )
+
+    with patch("model.monte_carlo.runner.handle_intervention", side_effect=capture), \
+         patch("model.monte_carlo.runner.concurrent.futures.ProcessPoolExecutor", _InProcessExecutor):
+        run_monte_carlo(
+            base_input_dict=BASE_INPUT,
+            soil_params=FakeSoilParams(),
+            climate=FakeClimateData(),
+            n_samples=5,
+            create_forward_soil_model=fake_forward,
+            create_inverse_soil_model=fake_inverse,
+            n_proj_cohorts=1,
+            n_base_cohorts=1,
+            plot_index=0,
+            tree_species_data=tree_species_data,
+            crop_species_data={},
+            pool_species_data={},
+            distribution_dict={"tree_wood_dens_sp1": spec},
+            seed=3,
+        )
+
+    wood_dens_values = {round(float(t[1]["wood_dens"]), 8) for t in captured_tree_species}
+    assert len(wood_dens_values) > 1, "Expected spread across samples for the distributed species param"
+
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,11 @@ from model.emit import EmissionFactors
 from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS
 from model.monte_carlo.distribution_handler import DistributionSpec
 from model.climate import ClimateData
+from model.tree_params import TREE_SPECIES_PARAM_FIELDS, TREE_SPECIES_DIST_KEY_PATTERN
+from model.crop_params import CROP_SPECIES_PARAM_FIELDS, CROP_SPECIES_DIST_KEY_PATTERN
+from model.tree_model import BIOMASS_POOL_PARAM_FIELDS, BIOMASS_POOL_DIST_KEY_PATTERN
+from model.soil_models.soil_model_params import RothCParams, SoilModelParams, ROTH_C_DIST_KEYS
+from model.soil_models.soil_model_types import SoilModelType
 
 class MCSummaries(NamedTuple):
     base: Dict[str, np.ndarray]
@@ -26,10 +31,55 @@ class SampleArgs(NamedTuple):
     plot_index: int
     soil_params: SoilParams.SoilParamsData
     climate: ClimateData
+    tree_species_data: Dict[int, Dict]
+    crop_species_data: Dict[int, Dict]
+    pool_species_data: Dict[int, Dict]
+    soil_model_params: Optional[SoilModelParams] = None
     emission_factors: EmissionFactors = EmissionFactors()
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP]
 
+
+
+def _partition_distributions(
+    dist: Optional[Dict[str, DistributionSpec]],
+) -> Tuple[
+    Dict[str, DistributionSpec],
+    Dict[str, DistributionSpec],
+    Dict[str, DistributionSpec],
+    Dict[str, DistributionSpec],
+    Dict[str, DistributionSpec],
+]:
+    """Split a user distributions dict by key pattern.
+
+    RothC entries (roth_c_{field}, matching RothCParams._fields) route to
+    sample_soil_model_params(). Species-lookup entries (tree_*_sp{N}, crop_*_sp{N},
+    pool_*_sp{N}) route to sample_species_params() for their own species-lookup
+    table; everything else falls through to draw_samples() against the flat
+    intervention-input dict, which does a direct dict lookup per key and would
+    raise a KeyError on a roth_c or species key, which have a different dict
+    shape.
+
+    Note: emission-factor routing not included (yet) — emission factors
+    have a separate, non-distribution_dict path (emission_distribution_dict /
+    sample_emission_factors).
+    Whilst upstream parts of the code are generic in handling SoilModelParams, 
+    the Monte Carlo runner currently does not include soil_model_type checks and
+    is currently hard-coded to RothCParams, so this function only handles RothC keys.
+    """
+    roth_c, tree_species, crop_species, pool_species, input_dict = {}, {}, {}, {}, {}
+    for key, spec in (dist or {}).items():
+        if key in ROTH_C_DIST_KEYS:
+            roth_c[key] = spec
+        elif TREE_SPECIES_DIST_KEY_PATTERN.match(key):
+            tree_species[key] = spec
+        elif CROP_SPECIES_DIST_KEY_PATTERN.match(key):
+            crop_species[key] = spec
+        elif BIOMASS_POOL_DIST_KEY_PATTERN.match(key):
+            pool_species[key] = spec
+        else:
+            input_dict[key] = spec
+    return roth_c, tree_species, crop_species, pool_species, input_dict
 
 
 def _run_single_sample(arguments: SampleArgs):
@@ -44,7 +94,11 @@ def _run_single_sample(arguments: SampleArgs):
         plot_index=arguments.plot_index,
         allometry=arguments.allometry,
         gwp=arguments.gwp,
-        emission_factors=arguments.emission_factors
+        emission_factors=arguments.emission_factors,
+        tree_species_data=arguments.tree_species_data,
+        crop_species_data=arguments.crop_species_data,
+        pool_species_data=arguments.pool_species_data,
+        soil_model_params=arguments.soil_model_params,
     )
 
 
@@ -58,6 +112,9 @@ def run_monte_carlo(
     n_proj_cohorts: int,
     n_base_cohorts: int,
     plot_index: int,
+    tree_species_data: Dict[int, Dict],
+    crop_species_data: Dict[int, Dict],
+    pool_species_data: Dict[int, Dict],
     sample_emission_factors: bool = False,
     distribution_dict: Optional[Dict] = None,
     model_params: Optional[EmissionFactors] = EmissionFactors(),
@@ -71,6 +128,21 @@ def run_monte_carlo(
 
     rng = np.random.default_rng(seed)
 
+    roth_c_dists, tree_species_dists, crop_species_dists, pool_species_dists, input_dict_dists = (
+        _partition_distributions(distribution_dict)
+    )
+
+    if not roth_c_dists:
+        soil_model_samples = [None] * n_samples
+    else:
+        soil_model_samples = sampler.sample_soil_model_params(
+            base=RothCParams(),
+            distributions=roth_c_dists,
+            key_prefix="roth_c",
+            n_samples=n_samples,
+            rng=rng,
+        )
+
     soil_samples = sampler.sample_soil_params(
         soil=soil_params,
         n_samples=n_samples,
@@ -79,6 +151,31 @@ def run_monte_carlo(
 
     climate_samples = sampler.sample_climate_params(
         climate=climate,
+        n_samples=n_samples,
+        rng=rng,
+    )
+
+    tree_species_samples = sampler.sample_species_params(
+        base_params=tree_species_data,
+        distributions=tree_species_dists,
+        param_fields=TREE_SPECIES_PARAM_FIELDS,
+        key_prefix="tree",
+        n_samples=n_samples,
+        rng=rng,
+    )
+    crop_species_samples = sampler.sample_species_params(
+        base_params=crop_species_data,
+        distributions=crop_species_dists,
+        param_fields=CROP_SPECIES_PARAM_FIELDS,
+        key_prefix="crop",
+        n_samples=n_samples,
+        rng=rng,
+    )
+    pool_species_samples = sampler.sample_species_params(
+        base_params=pool_species_data,
+        distributions=pool_species_dists,
+        param_fields=BIOMASS_POOL_PARAM_FIELDS,
+        key_prefix="pool",
         n_samples=n_samples,
         rng=rng,
     )
@@ -94,12 +191,12 @@ def run_monte_carlo(
         emission_factor_samples = [EmissionFactors() for _ in range(n_samples)]
 
 
-    if distribution_dict is None:
+    if not input_dict_dists:
         samples = [dict(base_input_dict) for _ in range(n_samples)]
     else:
         samples = sampler.draw_samples(
             base_input_dict=base_input_dict,
-            distributions=distribution_dict,
+            distributions=input_dict_dists,
             n_samples=n_samples,
             rng=rng,
         )
@@ -118,6 +215,11 @@ def run_monte_carlo(
             samples_batch = samples[start:stop]
             emission_factor_samples_batch = emission_factor_samples[start:stop]
             soil_samples_batch = soil_samples[start:stop]
+            climate_samples_batch = climate_samples[start:stop]
+            soil_model_samples_batch = soil_model_samples[start:stop]
+            tree_species_samples_batch = tree_species_samples[start:stop]
+            crop_species_samples_batch = crop_species_samples[start:stop]
+            pool_species_samples_batch = pool_species_samples[start:stop]
             results.extend(list(executor.map(_run_single_sample, [
                 SampleArgs(
                     perturbed_intervention_input=samples_batch[i],
@@ -128,9 +230,13 @@ def run_monte_carlo(
                     n_base_cohorts=n_base_cohorts,
                     plot_index=plot_index,
                     soil_params=soil_samples_batch[i],
-                    climate=climate_samples[i],
+                    climate=climate_samples_batch[i],
+                    soil_model_params=soil_model_samples_batch[i],
                     allometry=allometry,
                     gwp=gwp,
+                    tree_species_data=tree_species_samples_batch[i],
+                    crop_species_data=crop_species_samples_batch[i],
+                    pool_species_data=pool_species_samples_batch[i],
                 )
                 for i in range(len(samples_batch))
             ])))
@@ -222,6 +328,8 @@ def write_mc_metadata(
     output_path: str,
     n_samples: int,
     seed: Optional[int],
+    soil_model_type: SoilModelType,
+    repo_state: str,
     soil_params: SoilParams.SoilParamsData,
     climate,
     distribution_dict: Optional[Dict[str, DistributionSpec]],
@@ -232,6 +340,8 @@ def write_mc_metadata(
     lines.append("SHAMBA Monte Carlo run metadata")
     lines.append("=" * 40)
     lines.append(f"Run timestamp : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(f"Soil model    : {soil_model_type.value}")
+    lines.append(f"Repo commit   : {repo_state}")
     lines.append(f"Samples       : {n_samples}")
     if seed is None:
         lines.append("Seed          : not set — run is not reproducible")

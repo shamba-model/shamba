@@ -20,6 +20,7 @@ from model.soil_models.soil_model_types import (
     ForwardSoilModelData,
     InverseSoilModelData,
 )
+from model.soil_models.soil_model_params import SoilModelParams
 
 def _extract_scalar(val: Any) -> Any:
     if isinstance(val, np.ndarray):
@@ -52,11 +53,9 @@ def get_tree_model_data(
     no_of_base_cohorts: int,
     no_of_proj_cohorts: int,
     allometry: List[str],
+    tree_species_data: Dict[int, Dict],
+    pool_species_data: Dict[int, Dict],
 ) -> GetTreeModelReturnData:
-    # Load each species-lookup csv once per run, rather than once per cohort.
-    tree_species_data = TreeParams.load_tree_species_data()
-    pool_species_data = TreeModel.load_biomass_pool_species_data()
-
     # Tree params: read species codes directly from vector-format keys
     base_tree_params = [
         TreeParams.from_species_index(
@@ -82,16 +81,33 @@ def get_tree_model_data(
     )
 
     # Thinning and mortality: read pre-built vectors directly from input.
+    # Branch/stem fractions are required mgmt input. Leaf/croot/froot fractions
+    # are optional mgmt input — if the column is omitted, the species default
+    # from biomass_pool_params.csv is used instead.
+    def pool_fraction(key: str, species_default: float) -> float:
+        if key in intervention_input:
+            return float(np.atleast_1d(intervention_input[key])[0])
+        return species_default
+
+    base_pool_data = [
+        TreeModel.get_species_pool_data(base_tree_params[i].species, pool_species_data)
+        for i in range(no_of_base_cohorts)
+    ]
+    proj_pool_data = [
+        TreeModel.get_species_pool_data(proj_tree_params[i].species, pool_species_data)
+        for i in range(no_of_proj_cohorts)
+    ]
 
     thinnings_base = [
         intervention_input[f"thin_base_cohort{i + 1}"] for i in range(no_of_base_cohorts)
     ]
     thinning_fractions_left_base = [
         np.array([
-            1,
+            pool_fraction(f"thin_base_leaf_cohort{i + 1}", base_pool_data[i]["thinning_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"thin_base_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"thin_base_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"thin_base_croot_cohort{i + 1}", base_pool_data[i]["thinning_fraction"][3]),
+            pool_fraction(f"thin_base_froot_cohort{i + 1}", base_pool_data[i]["thinning_fraction"][4]),
         ])
         for i in range(no_of_base_cohorts)
     ]
@@ -100,10 +116,11 @@ def get_tree_model_data(
     ]
     mortality_fractions_left_base = [
         np.array([
-            1,
+            pool_fraction(f"mort_base_leaf_cohort{i + 1}", base_pool_data[i]["mortality_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"mort_base_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"mort_base_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"mort_base_croot_cohort{i + 1}", base_pool_data[i]["mortality_fraction"][3]),
+            pool_fraction(f"mort_base_froot_cohort{i + 1}", base_pool_data[i]["mortality_fraction"][4]),
         ])
         for i in range(no_of_base_cohorts)
     ]
@@ -113,10 +130,11 @@ def get_tree_model_data(
     ]
     thinning_fractions_project = [
         np.array([
-            1,
+            pool_fraction(f"thin_proj_leaf_cohort{i + 1}", proj_pool_data[i]["thinning_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"thin_proj_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"thin_proj_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"thin_proj_croot_cohort{i + 1}", proj_pool_data[i]["thinning_fraction"][3]),
+            pool_fraction(f"thin_proj_froot_cohort{i + 1}", proj_pool_data[i]["thinning_fraction"][4]),
         ])
         for i in range(no_of_proj_cohorts)
     ]
@@ -125,10 +143,11 @@ def get_tree_model_data(
     ]
     mortality_fractions_project = [
         np.array([
-            1,
+            pool_fraction(f"mort_proj_leaf_cohort{i + 1}", proj_pool_data[i]["mortality_fraction"][0]),
             float(np.atleast_1d(intervention_input[f"mort_proj_br_cohort{i + 1}"])[0]),
             float(np.atleast_1d(intervention_input[f"mort_proj_st_cohort{i + 1}"])[0]),
-            1, 1,
+            pool_fraction(f"mort_proj_croot_cohort{i + 1}", proj_pool_data[i]["mortality_fraction"][3]),
+            pool_fraction(f"mort_proj_froot_cohort{i + 1}", proj_pool_data[i]["mortality_fraction"][4]),
         ])
         for i in range(no_of_proj_cohorts)
     ]
@@ -228,13 +247,12 @@ class GetCropModelReturnData(NamedTuple):
 
 
 def get_crop_model_data(
-    intervention_input: Dict[str, Union[float, int]], no_of_years: int
+    intervention_input: Dict[str, Union[float, int]],
+    no_of_years: int,
+    crop_species_data: Dict[int, Dict],
 ) -> GetCropModelReturnData:
     n_crop_base = sum(1 for i in range(1, 100) if f"crop_base_spp{i}" in intervention_input)
     n_crop_proj = sum(1 for i in range(1, 100) if f"crop_proj_spp{i}" in intervention_input)
-
-    # Load the crop species csv once for the whole run, rather than once per cohort.
-    crop_species_data = CropParams.load_crop_species_data()
 
     crop_base, crop_par_base = CropModel.get_crop_bases(
         input_data=intervention_input,
@@ -282,7 +300,13 @@ def get_soil_carbon_data(
     cover_proj: np.ndarray,
     create_forward_soil_model,
     create_inverse_soil_model,
+    soil_model_params: Optional[SoilModelParams] = None,
 ) -> GetSoilCarbonReturnData:
+    # **soil_model_kwargs omits the keyword entirely when unset, so the soil model's own default applies.
+    soil_model_kwargs = (
+        {"soil_model_params": soil_model_params} if soil_model_params is not None else {}
+    )
+
     # Solve to y=0
     for_soil = create_forward_soil_model(
         soil,
@@ -293,6 +317,7 @@ def get_soil_carbon_data(
         crop=crop_base,
         fire=fire_base,
         solve_to_value=True,
+        **soil_model_kwargs,
     )
 
     # Soil carbon for baseline and project
@@ -306,6 +331,7 @@ def get_soil_carbon_data(
         tree=tree_base,
         litter=[litter_external_base],
         fire=fire_base,
+        **soil_model_kwargs,
     )
 
     project_forward_soil_data = create_forward_soil_model(
@@ -318,6 +344,7 @@ def get_soil_carbon_data(
         tree=tree_projects,
         litter=[litter_external_project],
         fire=fire_project,
+        **soil_model_kwargs,
     )
 
     return GetSoilCarbonReturnData(
@@ -590,17 +617,26 @@ def handle_intervention(
     n_proj_cohorts: int,
     n_base_cohorts: int,
     plot_index: int,
+    tree_species_data: Dict[int, Dict],
+    crop_species_data: Dict[int, Dict],
+    pool_species_data: Dict[int, Dict],
     allometry: List[str] = CONSTANTS.DEFAULT_ALLOMORPHY,
     gwp: dict = CONSTANTS.GWP_list[CONSTANTS.DEFAULT_GWP],
-    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors()
+    emission_factors: Emit.EmissionFactors = Emit.EmissionFactors(),
+    soil_model_params: Optional[SoilModelParams] = None,
 ):
     no_of_years = get_int(CONSTANTS.NO_OF_YEARS_KEY, intervention_input)
+
+    # **soil_model_kwargs omits the keyword entirely when unset, so the soil model's own default applies.
+    soil_model_kwargs = (
+        {"soil_model_params": soil_model_params} if soil_model_params is not None else {}
+    )
 
     # ----------
     # SOIL EQUILIBRIUM SOLVE
     # ----------
 
-    inverse_soil_model = create_inverse_soil_model(soil, climate)
+    inverse_soil_model = create_inverse_soil_model(soil, climate, **soil_model_kwargs)
 
     # ----------
     # MODEL DATA
@@ -608,6 +644,7 @@ def handle_intervention(
     crop_model_data = get_crop_model_data(
         no_of_years=no_of_years,
         intervention_input=intervention_input,
+        crop_species_data=crop_species_data,
     )
 
     fire_model_data = get_fire_model_data(
@@ -624,7 +661,9 @@ def handle_intervention(
         intervention_input=intervention_input,
         no_of_base_cohorts=n_base_cohorts,
         no_of_proj_cohorts=n_proj_cohorts,
-        allometry=allometry
+        allometry=allometry,
+        tree_species_data=tree_species_data,
+        pool_species_data=pool_species_data,
     )
 
     # ----------
@@ -699,6 +738,7 @@ def handle_intervention(
         cover_proj=intervention_input["proj_cover"],
         create_forward_soil_model=create_forward_soil_model,
         create_inverse_soil_model=create_inverse_soil_model,
+        soil_model_params=soil_model_params,
     )
 
     emissions = get_emissions_data(

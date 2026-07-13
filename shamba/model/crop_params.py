@@ -2,6 +2,7 @@
 
 
 import logging as log
+import re
 import sys
 
 import numpy as np
@@ -9,6 +10,24 @@ from marshmallow import Schema, fields, post_load
 
 from model.common import csv_handler
 import model.common.constants as CONSTANTS
+
+# Per-species fields eligible for MC distribution sampling — the single source of
+# truth for both the key-matching pattern below and sampler.sample_species_params().
+CROP_SPECIES_PARAM_FIELDS = (
+    "slope", "intercept", "nitrogen_below", "nitrogen_above",
+    "carbon_below", "carbon_above", "root_to_shoot",
+)
+
+# Keys are prefixed with the species-lookup table name ("crop_") rather than bare
+# field names, since some fields (e.g. root_to_shoot) also exist in other
+# species-lookup tables (tree_params.csv) with independently-numbered species
+# codes — a bare key would be ambiguous between "crop species 3" and "tree
+# species 3".
+# Matches MC distribution keys for per-species crop parameter sampling, e.g.
+# "crop_slope_sp2", "crop_root_to_shoot_sp1".
+CROP_SPECIES_DIST_KEY_PATTERN = re.compile(
+    rf"^crop_({'|'.join(CROP_SPECIES_PARAM_FIELDS)})_sp(\d+)$"
+)
 
 # --------------------------
 # Read species data from csv
@@ -141,14 +160,13 @@ class CropParamsSchema(Schema):
         return CropParamsData(**data)
 
 
-def from_species_index(index, species_data: dict = None) -> CropParamsData:
+def from_species_index(index, species_data: dict) -> CropParamsData:
     """Construct Crop object from its species code (Sc column in crop_params.csv).
 
     Args:
         index: species code to look up
         species_data: pre-loaded species data (as returned by
-            load_crop_species_data()), to avoid re-reading the csv from disk
-            once per cohort. If not given, loads it fresh.
+            load_crop_species_data()), loaded once per run by the caller.
     Return:
         Crop object
     Raises:
@@ -156,7 +174,6 @@ def from_species_index(index, species_data: dict = None) -> CropParamsData:
 
     """
     index = int(index)
-    species_data = species_data if species_data is not None else load_crop_species_data()
     if index not in species_data:
         raise KeyError(
             f"No crop species with code {index} found in crop_params.csv "

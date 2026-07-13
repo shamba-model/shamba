@@ -128,6 +128,61 @@ def test_unknown_parameter_raises(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# RothC and species-lookup parameters are recognised without a base_input_dict entry
+# ---------------------------------------------------------------------------
+# These keys are routed by runner.py's _partition_distributions() to
+# sample_soil_model_params()/sample_species_params(), not looked up against
+# base_input_dict, so they must not be rejected as "not a recognised input
+# parameter" even though base_input_dict (the flat intervention-input dict)
+# has no matching key.
+
+def test_roth_c_parameter_recognised(tmp_path):
+    csv = write_csv(tmp_path,
+        "parameter,distribution,spread_lower,spread_upper\n"
+        "roth_c_temp_a1,normal,0.1,0.1\n"
+    )
+    specs = load_distributions(csv, BASE_DICT)
+    assert "roth_c_temp_a1" in specs
+
+
+def test_tree_species_parameter_recognised(tmp_path):
+    csv = write_csv(tmp_path,
+        "parameter,distribution,spread_lower,spread_upper\n"
+        "tree_wood_dens_sp1,normal,0.1,0.1\n"
+    )
+    specs = load_distributions(csv, BASE_DICT)
+    assert "tree_wood_dens_sp1" in specs
+
+
+def test_crop_species_parameter_recognised(tmp_path):
+    csv = write_csv(tmp_path,
+        "parameter,distribution,spread_lower,spread_upper\n"
+        "crop_slope_sp3,normal,0.1,0.1\n"
+    )
+    specs = load_distributions(csv, BASE_DICT)
+    assert "crop_slope_sp3" in specs
+
+
+def test_pool_species_parameter_recognised(tmp_path):
+    csv = write_csv(tmp_path,
+        "parameter,distribution,spread_lower,spread_upper\n"
+        "pool_turnover_sp2,normal,0.1,0.1\n"
+    )
+    specs = load_distributions(csv, BASE_DICT)
+    assert "pool_turnover_sp2" in specs
+
+
+def test_roth_c_parameter_still_validates_distribution_type(tmp_path):
+    """Recognising roth_c_*/species keys doesn't bypass the other row checks."""
+    csv = write_csv(tmp_path,
+        "parameter,distribution,spread_lower,spread_upper\n"
+        "roth_c_temp_a1,pareto,0.3,0.3\n"
+    )
+    with pytest.raises(ValueError, match="pareto"):
+        load_distributions(csv, BASE_DICT)
+
+
+# ---------------------------------------------------------------------------
 # Error: unsupported distribution
 # ---------------------------------------------------------------------------
 

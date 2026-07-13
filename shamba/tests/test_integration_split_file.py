@@ -27,6 +27,9 @@ import model.soil_models.inverse_soil_model as InverseSoilModule
 from model.soil_models.soil_model_types import SoilModelType
 import model.climate as Climate
 import model.soil_params as SoilParams
+import model.tree_params as TreeParams
+import model.tree_model as TreeModel
+import model.crop_params as CropParams
 
 
 FIXTURES_DIR = os.path.join(configuration.TESTS_DIR, "fixtures")
@@ -159,6 +162,9 @@ def test_split_file_full_run_matches_single_row(tmp_path, monkeypatch):
         allometry=ALLOMETRIC_KEYS,
         create_forward_soil_model=forward_model.create,
         create_inverse_soil_model=inverse_model.create,
+        tree_species_data=TreeParams.load_tree_species_data(),
+        crop_species_data=CropParams.load_crop_species_data(),
+        pool_species_data=TreeModel.load_biomass_pool_species_data(),
     )
 
     result_single = handle_intervention(intervention_input=single_row_dict, **common_kwargs)

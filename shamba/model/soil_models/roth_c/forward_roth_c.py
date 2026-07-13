@@ -13,6 +13,7 @@ from ...common import csv_handler
 from .roth_c import SoilModelBaseSchema
 from .roth_c import create as create_roth_c
 from .roth_c import dC_dt
+from ..soil_model_params import RothCParams
 from ..soil_model_types import ForwardSoilModelData, ForwardSoilModelBaseSchema
 
 
@@ -27,6 +28,7 @@ def create(
     litter=[],
     fire=[],
     solve_to_value=False,
+    soil_model_params: RothCParams = RothCParams(),
 ) -> ForwardSoilModelData:
     """Creates ForwardSoilModelData.
 
@@ -39,12 +41,15 @@ def create(
         tree: list of tree objects which provide carbon to soil
         litter: list of litter objects which provide carbon to soil
         solve_to_value: whether to solve to value (to Cy0) or by time
+        soil_model_params: RothC rate-modifier and partitioning constants (defaults
+            are RothC standard values). Generic naming because other soil models could be used.
 
     """
-    roth_c = create_roth_c(soil, climate, cover, no_of_years)
+    roth_c = create_roth_c(soil, climate, cover, no_of_years, roth_c_params=soil_model_params)
 
     SOC, inputs, Cy0Year = solver(
-        roth_c, Ci, no_of_years, crop, tree, litter, fire, solve_to_value
+        roth_c, Ci, no_of_years, crop, tree, litter, fire, solve_to_value,
+        roth_c_params=soil_model_params,
     )
 
     params = {
@@ -67,7 +72,8 @@ def create(
 
 
 def solver(
-    roth_c, Ci, no_of_years, crop=[], tree=[], litter=[], fire=[], solve_to_value=False
+    roth_c, Ci, no_of_years, crop=[], tree=[], litter=[], fire=[], solve_to_value=False,
+    roth_c_params: RothCParams = RothCParams(),
 ):
     """Run RothC in 'forward' mode;
     solve dC_dt over a given time period
@@ -97,7 +103,7 @@ def solver(
     inputs = np.column_stack((soilIn_crop, soilIn_tree))
 
     # Calculate yearly values of x based dpm:rpm ratio for each year
-    x = get_partitions(roth_c, inputs, no_of_years)
+    x = get_partitions(roth_c, inputs, no_of_years, roth_c_params=roth_c_params)
     t = np.arange(0, 1, 0.001)
     C = np.zeros((no_of_years + 1, 4))
     C[0] = Ci
@@ -151,11 +157,14 @@ def solver(
     return C, inputs, year_target_reached
 
 
-def get_partitions(roth_c, inputs, no_of_years):
+def get_partitions(
+    roth_c, inputs, no_of_years, roth_c_params: RothCParams = RothCParams()
+):
     """Calculate partitioning coefficients.
 
     Args:
         input: 2d array with crop_in,tree_in inputs as the columns
+        roth_c_params: DPM/RPM partitioning constants (defaults are RothC standard values)
     Returns:
         x: partitioning coefficient (as a vector for each year)
 
@@ -184,7 +193,10 @@ def get_partitions(roth_c, inputs, no_of_years):
         i += 1
 
     # Weighted mean of dpm
-    p1 = np.array(0.59 * norm_input[:, 0] + 0.2 * norm_input[:, 1])
+    p1 = np.array(
+        roth_c_params.dpm_frac_crop * norm_input[:, 0]
+        + roth_c_params.dpm_frac_tree * norm_input[:, 1]
+    )
 
     # Construct x
     # make arrays (p1 already array)

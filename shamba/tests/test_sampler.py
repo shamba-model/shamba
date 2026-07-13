@@ -24,9 +24,11 @@ from model.monte_carlo.sampler import (
     draw_samples,
     sample_soil_params,
     sample_climate_params,
+    sample_soil_model_params,
     sample_model_params,
 )
 from model.emit import EmissionFactors
+from model.soil_models.soil_model_params import RothCParams, ExampleSoilModelParams
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +382,47 @@ def test_sample_climate_params_evap_clipped():
     rng = np.random.default_rng(6)
     samples = sample_climate_params(climate, n_samples=200, rng=rng)
     assert all(np.all(s.evaporation >= 0.0) for s in samples)
+
+
+# ---------------------------------------------------------------------------
+# sample_soil_model_params — one field perturbed
+# ---------------------------------------------------------------------------
+
+def test_sample_soil_model_params_perturbs_only_matching_field():
+    """A distribution on roth_c_temp_a1 perturbs temp_a1 only; other fields stay fixed."""
+    base = RothCParams()
+    specs = {"roth_c_temp_a1": make_spec("normal", 0.1, 0.1)}
+    rng = np.random.default_rng(1)
+    samples = sample_soil_model_params(base, distributions=specs, key_prefix="roth_c", n_samples=500, rng=rng)
+
+    temp_a1_vals = [s.temp_a1 for s in samples]
+    assert np.std(temp_a1_vals) > 0.0
+    assert np.mean(temp_a1_vals) == pytest.approx(base.temp_a1, rel=0.05)
+
+    for s in samples:
+        assert s.dpm_frac_crop == base.dpm_frac_crop
+        assert s.dpm_frac_tree == base.dpm_frac_tree
+        assert s.temp_a2 == base.temp_a2
+        assert s.temp_a3 == base.temp_a3
+        assert s.moisture_b_slope == base.moisture_b_slope
+        assert s.cover_c == base.cover_c
+
+
+def test_sample_soil_model_params_returns_same_type_as_base():
+    """Every sample is a RothCParams instance, not a plain dict."""
+    base = RothCParams()
+    rng = np.random.default_rng(2)
+    samples = sample_soil_model_params(base, distributions={}, key_prefix="roth_c", n_samples=5, rng=rng)
+    assert all(isinstance(s, RothCParams) for s in samples)
+
+
+def test_sample_soil_model_params_is_soil_model_agnostic():
+    """The sampler is generic over any soil model's NamedTuple, e.g. ExampleSoilModelParams."""
+    base = ExampleSoilModelParams()
+    rng = np.random.default_rng(3)
+    samples = sample_soil_model_params(base, distributions={}, key_prefix="example", n_samples=10, rng=rng)
+    assert len(samples) == 10
+    assert all(isinstance(s, ExampleSoilModelParams) for s in samples)
 
 
 # ---------------------------------------------------------------------------

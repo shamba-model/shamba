@@ -65,12 +65,17 @@ COHORT_HEADER_DATATYPE_PATTERNS = {
     # Thinning percents by cohort index
     r"^thin_(base|proj)_cohort": "proportion",
 
-    # Thinning fractions by pool, cohort index embedded
+    # Thinning fractions by pool, cohort index embedded. Branch/stem are
+    # required (see REQUIRED_MGMT_KEYS / GROUPED_HEADER_VALIDATIONS below).
+    # Leaf/croot/froot are optional — if omitted, the species default from
+    # biomass_pool_params.csv is used instead (see calculate_emissions.py).
     r"^thin_(base|proj)_(br|st)_cohort": "proportion",
+    r"^thin_(base|proj)_(leaf|croot|froot)_cohort": "proportion",
 
     # Mortality by cohort — keys use the form mort_{base|proj}_cohort{n}
     r"^mort_(base|proj)_cohort": "proportion",
     r"^mort_(base|proj)_(br|st)_cohort": "proportion",
+    r"^mort_(base|proj)_(leaf|croot|froot)_cohort": "proportion",
 }
 
 FERT_HEADER_DATATYPE_PATTERNS = {

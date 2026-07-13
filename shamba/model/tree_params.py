@@ -1,9 +1,25 @@
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any
 
 import numpy as np
 from marshmallow import Schema, fields, post_load
 
 from model.common import csv_handler
+
+# Per-species fields eligible for MC distribution sampling — the single source of
+# truth for both the key-matching pattern below and sampler.sample_species_params().
+TREE_SPECIES_PARAM_FIELDS = ("wood_dens", "carbon", "root_to_shoot", "nitrogen")
+
+# Keys are prefixed with the species-lookup table name ("tree_") rather than bare
+# field names, since some fields (e.g. root_to_shoot) also exist in other
+# species-lookup tables (crop_params.csv) with independently-numbered species
+# codes — a bare key would be ambiguous between "tree species 3" and "crop
+# species 3".
+# Matches MC distribution keys for per-species tree parameter sampling, e.g.
+# "tree_wood_dens_sp2", "tree_carbon_sp1", "tree_nitrogen_sp3".
+TREE_SPECIES_DIST_KEY_PATTERN = re.compile(
+    rf"^tree_({'|'.join(TREE_SPECIES_PARAM_FIELDS)})_sp(\d+)$"
+)
 
 
 def load_tree_species_data(
@@ -141,21 +157,19 @@ def create(tree_params) -> TreeParamsData:
     return schema.load(params)  # type: ignore
 
 
-def from_species_index(index: int, species_data: Optional[Dict[int, Dict]] = None):
+def from_species_index(index: int, species_data: Dict[int, Dict]):
     """
     Construct TreeParams from its species code (Sc column in tree_params.csv).
 
     Args:
         index: species code to look up
         species_data: pre-loaded species data (as returned by
-            load_tree_species_data()), to avoid re-reading the csv from disk
-            once per cohort. If not given, loads it fresh.
+            load_tree_species_data()), loaded once per run by the caller.
 
     Raises:
         KeyError: if the species code isn't present in tree_params.csv
     """
     index = int(index)
-    species_data = species_data if species_data is not None else load_tree_species_data()
     if index not in species_data:
         raise KeyError(
             f"No tree species with code {index} found in tree_params.csv "
@@ -200,7 +214,7 @@ def save(tree_params: TreeParamsData, file="tree_params.csv"):
 
 
 def create_tree_params_from_species_index(
-    csv_input_data: Dict[str, Any], cohort_count: int
+    csv_input_data: Dict[str, Any], cohort_count: int, species_data: Dict[int, Dict]
 ):
     tree_params = []
 
@@ -208,7 +222,7 @@ def create_tree_params_from_species_index(
         key = f"species{i + 1}"
         try:
             species_index = int(csv_input_data[key].item())
-            tree_params.append(from_species_index(species_index))
+            tree_params.append(from_species_index(species_index, species_data=species_data))
         except KeyError:
             raise KeyError(f"Warning: Missing key '{key}' in input data.")
     return tree_params

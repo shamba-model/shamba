@@ -5,7 +5,7 @@ uncertainty stored in SoilParamsData and ClimateData (Issues P1/P2).
 """
 
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import scipy.stats
@@ -17,6 +17,7 @@ from model.monte_carlo.model_parameter_distributions import MODEL_PARAMETER_DIST
 from model.common.data_handler import get_header_type
 import model.soil_params as SoilParams
 from model.climate import ClimateData
+from model.soil_models.soil_model_params import SoilModelParams
 
 # Climate parameter keys — perturbation is applied as a multiplicative scalar
 # to preserve the seasonal structure of the monthly vector.
@@ -414,6 +415,106 @@ def sample_climate_params(
         ))
 
     return results
+
+def sample_soil_model_params(
+    base: SoilModelParams,
+    distributions: Dict[str, DistributionSpec],
+    key_prefix: str,
+    n_samples: int,
+    rng: np.random.Generator,
+) -> List[SoilModelParams]:
+    """Draw N soil-model parameter objects from a base object and matching distributions.
+
+    Shared engine for every soil model's parameter NamedTuple (currently
+    RothCParams; ExampleSoilModelParams has no fields, so it always returns
+    copies of base unchanged). Each field is perturbed only if `distributions`
+    has a matching `{key_prefix}_{field}` entry; fields without one keep their
+    base value in every sample. If `distributions` is empty, returns
+    n_samples copies of `base`.
+
+    Args:
+        base: soil-model parameter object (e.g. RothCParams()) holding the
+            central (default or user-supplied) values.
+        distributions: mapping of "{key_prefix}_{field}" to DistributionSpec.
+        key_prefix: distribution-key prefix for this soil model (e.g. "roth_c").
+        n_samples: number of samples to draw.
+        rng: numpy random Generator.
+
+    Returns:
+        list of n_samples soil-model parameter objects, same type as `base`,
+        with any distributed fields perturbed.
+    """
+    base_dict = base._asdict()
+    field_specs = {
+        field: distributions[key]
+        for field in base_dict
+        if (key := f"{key_prefix}_{field}") in distributions
+    }
+
+    samples = []
+    for _ in range(n_samples):
+        sample = dict(base_dict)
+        for field, spec in field_specs.items():
+            sample[field] = _draw_one(spec, float(base_dict[field]), rng)
+        samples.append(type(base)(**sample))
+    return samples
+
+
+def sample_species_params(
+    base_params: Dict[int, Dict],
+    distributions: Dict[str, DistributionSpec],
+    param_fields: Sequence[str], # guarantees order, len(), and indexing/slicing, but not mutation
+    key_prefix: str,
+    n_samples: int,
+    rng: np.random.Generator,
+) -> List[Dict[int, Dict]]:
+    """Draw N perturbed copies of a species-lookup dict.
+
+    Shared engine for every species-lookup table (tree, crop, biomass pool) — they all
+    share the same `Dict[int, Dict]` shape, keyed by species code (Sc), differing
+    only in which fields are eligible for sampling and what prefix disambiguates
+    their distribution keys. See TREE_SPECIES_PARAM_FIELDS (tree_params.py),
+    CROP_SPECIES_PARAM_FIELDS (crop_params.py), and BIOMASS_POOL_PARAM_FIELDS
+    (tree_model.py) for the field lists, and their matching DIST_KEY_PATTERNs for
+    the key prefixes ("tree_", "crop_", "pool_").
+
+    `base_params` is keyed by species code (Sc), as returned by the species-lookup
+    table's own load_*_species_data(). For each species, a field is perturbed
+    only if `distributions` has a matching `{key_prefix}_{field}_sp{Sc}` entry;
+    species/fields without one keep their CSV central value in every sample. The
+    key prefix disambiguates fields (e.g. root_to_shoot) shared across
+    species-lookup tables with independently-numbered species codes.
+
+    Returns:
+        list of n_samples dicts, each a full copy of `base_params` with any
+        distributed fields perturbed.
+    """
+    # Resolve, once, which (species, field) pairs actually have a distribution.
+    species_param_specs: Dict[int, Dict[str, DistributionSpec]] = {
+        sc: {
+            param: distributions[key]
+            for param in param_fields
+            if (key := f"{key_prefix}_{param}_sp{sc}") in distributions
+        }
+        for sc in base_params
+    }
+
+    samples = []
+    for _ in range(n_samples):
+        sample = {sc: dict(species) for sc, species in base_params.items()}
+        for sc, param_specs in species_param_specs.items():
+            for param, spec in param_specs.items():
+                arr = np.asarray(base_params[sc][param], dtype=float)
+                # For biomass-pool fields, arr holds one value per pool (leaf/branch/
+                # stem/croot/froot, tree_model._BIOMASS_POOLS order). One distribution
+                # key (e.g. pool_alloc_sp2) perturbs all 5 independently from the same
+                # distribution spec — each pool draws its own random value around its
+                # own base, not a shared draw.
+                perturbed = np.array([_draw_one(spec, float(elem), rng) for elem in arr.ravel()])
+                sample[sc][param] = perturbed.reshape(arr.shape)
+        samples.append(sample)
+
+    return samples
 
 def sample_model_params(
     n_samples: int,
