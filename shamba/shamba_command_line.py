@@ -262,7 +262,9 @@ def get_repo_state() -> str:
         return "unknown (not running from a git checkout, or git is not available)"
 
 
-def write_run_metadata(output_path: str, soil_model_type: SoilModelType, repo_state: str) -> None:
+def write_run_metadata(
+    output_path: str, soil_model_type: SoilModelType, repo_state: str, monte_carlo: bool
+) -> None:
     """Write a small plain-text record of which soil model and code version a run used.
 
     Written for every run (deterministic or Monte Carlo) so the output directory
@@ -275,6 +277,7 @@ def write_run_metadata(output_path: str, soil_model_type: SoilModelType, repo_st
         f"Run timestamp : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
         f"Soil model    : {soil_model_type.value}",
         f"Repo commit   : {repo_state}",
+        f"Monte Carlo   : {'yes — see mc_run_metadata.txt' if monte_carlo else 'no'}",
     ]
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
@@ -534,7 +537,9 @@ def main(n, arguments):
     os.makedirs(dir)
 
     repo_state = get_repo_state()
-    write_run_metadata(str(dir / "run_metadata.txt"), soil_model_type, repo_state)
+    write_run_metadata(
+        str(dir / "run_metadata.txt"), soil_model_type, repo_state, monte_carlo=bool(arguments["n-samples"])
+    )
 
     plot_name = str(dir / f"plot_{n + st}")
 

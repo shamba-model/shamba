@@ -272,10 +272,9 @@ def load_biomass_pool_species_data(
         branch_al, stem_al = ordered[1, 1], ordered[2, 1]
         if not np.isclose(branch_al + stem_al, 1.0, atol=1e-6):
             raise ValueError(
-                f"'{filename}': branch and stem 'AL' (allocation) values for species "
-                f"code {species} must sum to 1 — they represent a split of total "
-                f"above-ground biomass — but found branch={branch_al}, stem={stem_al} "
-                f"(sum={branch_al + stem_al})."
+                f"'{filename}': branch and stem 'AL' (allocation) values are a split of "
+                f"total aboveground biomass and must sum to 1."
+                f" For {species} found branch={branch_al}, stem={stem_al} (sum={branch_al + stem_al})."
             )
 
         species_data[species] = {
@@ -341,10 +340,10 @@ def from_defaults(
 
     # Branch alloc is derived from stem, not read independently — branch+stem
     # is the split of total AGB (Sec 4.3.2), and this must hold even when
-    # stem has been perturbed by MC sampling. load_biomass_pool_species_data()
-    # validates the raw CSV, but only re-deriving here (rather than trusting
-    # the species-lookup table's branch value) keeps the identity true after
-    # perturbation.
+    # stem has been perturbed by MC sampling. sample_species_params() has no
+    # knowledge of this identity — it draws branch and stem independently — so
+    # whatever branch value it sampled is discarded here and re-derived from
+    # stem's (possibly sampled) value instead.
     alloc[1] = 1 - alloc[2]
     # Take into account croot alloc - rs * stem alloc
     alloc[3] = alloc[2] * tree_params.root_to_shoot

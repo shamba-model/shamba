@@ -62,9 +62,10 @@ def _partition_distributions(
 
     Note: emission-factor routing not included (yet) — emission factors
     have a separate, non-distribution_dict path (emission_distribution_dict /
-    sample_emission_factors). Nothing here checks that a roth_c_* key is only
-    supplied when the RothC soil model is actually selected — that check
-    belongs at the caller, which knows soil_model_type.
+    sample_emission_factors).
+    Whilst upstream parts of the code are generic in handling SoilModelParams, 
+    the Monte Carlo runner currently does not include soil_model_type checks and
+    is currently hard-coded to RothCParams, so this function only handles RothC keys.
     """
     roth_c, tree_species, crop_species, pool_species, input_dict = {}, {}, {}, {}, {}
     for key, spec in (dist or {}).items():

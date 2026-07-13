@@ -463,7 +463,7 @@ def sample_soil_model_params(
 def sample_species_params(
     base_params: Dict[int, Dict],
     distributions: Dict[str, DistributionSpec],
-    param_fields: Sequence[str],
+    param_fields: Sequence[str], # guarantees order, len(), and indexing/slicing, but not mutation
     key_prefix: str,
     n_samples: int,
     rng: np.random.Generator,
@@ -505,6 +505,11 @@ def sample_species_params(
         for sc, param_specs in species_param_specs.items():
             for param, spec in param_specs.items():
                 arr = np.asarray(base_params[sc][param], dtype=float)
+                # For biomass-pool fields, arr holds one value per pool (leaf/branch/
+                # stem/croot/froot, tree_model._BIOMASS_POOLS order). One distribution
+                # key (e.g. pool_alloc_sp2) perturbs all 5 independently from the same
+                # distribution spec — each pool draws its own random value around its
+                # own base, not a shared draw.
                 perturbed = np.array([_draw_one(spec, float(elem), rng) for elem in arr.ravel()])
                 sample[sc][param] = perturbed.reshape(arr.shape)
         samples.append(sample)
