@@ -257,25 +257,19 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         allometric_key=allometric_keys[0],
     )
 
-    thinning_fraction_left_base = np.array(
+    thinning_fraction_woody_base = np.array(
         [
-            1,
             float(csv_input_data["thin_base_br"]),
             float(csv_input_data["thin_base_st"]),
-            1,
-            1,
         ]
     )
 
     mortality_base = np.array((N_YEARS + 1) * [float(csv_input_data["base_mort"])])
 
-    mortality_fraction_left_base = np.array(
+    mortality_fraction_woody_base = np.array(
         [
-            1,
             float(csv_input_data["mort_base_br"]),
             float(csv_input_data["mort_base_st"]),
-            1,
-            1,
         ]
     )
 
@@ -285,9 +279,9 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         year_planted=0,
         stand_density=get_int(CONSTANTS.BASE_PLANT_DENSITY_KEY, csv_input_data),
         thinning=thinning_base,
-        thinning_fraction=thinning_fraction_left_base,
+        thinning_fraction_woody=thinning_fraction_woody_base,
         mortality=mortality_base,
-        mortality_fraction=mortality_fraction_left_base,
+        mortality_fraction_woody=mortality_fraction_woody_base,
         no_of_years=N_YEARS,
     )
 
@@ -311,23 +305,17 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
     thinning_project[int(csv_input_data["thin_proj_yr4"])] = float(
         csv_input_data["thin_proj_pc4"]
     )
-    thinning_fraction_left_project = np.array(
+    thinning_fraction_woody_project = np.array(
         [
-            1,
             float(csv_input_data["thin_proj_br"]),
             float(csv_input_data["thin_proj_st"]),
-            1,
-            1,
         ]
     )
     mortality_project = np.array((N_YEARS + 1) * [float(csv_input_data["proj_mort"])])
-    mortality_fraction_left_project = np.array(
+    mortality_fraction_woody_project = np.array(
         [
-            1,
             float(csv_input_data["mort_proj_br"]),
             float(csv_input_data["mort_proj_st"]),
-            1,
-            1,
         ]
     )
 
@@ -336,9 +324,9 @@ def test_tree_model(csv_input_file, N_COHORTS, allometric_keys, expected_base_em
         tree_params=tree_params,
         growths=tree_growths,
         thinning_project=thinning_project,
-        thinning_fraction_left_project=thinning_fraction_left_project,
+        thinning_fraction_woody_project=thinning_fraction_woody_project,
         mortality_project=mortality_project,
-        mortality_fraction_left_project=mortality_fraction_left_project,
+        mortality_fraction_woody_project=mortality_fraction_woody_project,
         no_of_years=N_YEARS,
         cohort_count=N_COHORTS,
     )

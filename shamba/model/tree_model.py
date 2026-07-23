@@ -17,6 +17,9 @@ from .tree_params import TreeParamsSchema
 from .common.validations import validate_between_0_and_1
 import model.common.constants as CONSTANTS
 
+WOODY_AGB_POOLS = [1, 2]  # branch and stem
+DEPENDENT_POOLS = [0, 3, 4]  # leaf, coarse root, fine root: determined by woody biomass, not woody NPP
+
 
 class MassBalanceData(Schema):
     in_ = fields.List(fields.Float(allow_nan=True), required=True)
@@ -192,13 +195,16 @@ def from_defaults(
     stand_density,
     year_planted=0,
     thinning=None,
-    thinning_fraction=None,
+    thinning_fraction_woody=None,
     mortality=None,
-    mortality_fraction=None,
+    mortality_fraction_woody=None,
 ):
     """Use defaults for pool params.
-    Can override defaults for thinning_fraction and mortality_fraction by providing arguments.
 
+    Thinning/mortality fractions for leaf, coarse root and fine root
+    (DEPENDENT_POOLS) always come from biomass_pool_params.csv. Only the
+    branch/stem (WOODY_AGB_POOLS) fractions can be overridden, since those
+    come from the per-project intervention input.
     """
 
     data = csv_handler.read_csv("biomass_pool_params.csv", cols=(1, 2, 3, 4))
@@ -210,8 +216,8 @@ def from_defaults(
             " Please check the file and correct the allocation fractions for branch and stem."
         )
 
-    temp_thinning_fraction = data[:, 2]
-    temp_mortality_fraction = data[:, 3]
+    thinning_fraction = np.array(data[:, 2], copy=True)
+    mortality_fraction = np.array(data[:, 3], copy=True)
 
     # Take into account croot alloc - rs * stem alloc
     alloc[3] = alloc[2] * tree_params.root_to_shoot
@@ -219,12 +225,12 @@ def from_defaults(
     # thinning and mortality
     if thinning is None:
         thinning = np.zeros(no_of_years + 1)
-    if thinning_fraction is None:
-        thinning_fraction = temp_thinning_fraction
+    if thinning_fraction_woody is not None:
+        thinning_fraction[WOODY_AGB_POOLS] = thinning_fraction_woody
     if mortality is None:
         mortality = np.zeros(no_of_years + 1)
-    if mortality_fraction is None:
-        mortality_fraction = temp_mortality_fraction
+    if mortality_fraction_woody is not None:
+        mortality_fraction[WOODY_AGB_POOLS] = mortality_fraction_woody
 
     params = {
         "alloc": alloc,
@@ -308,9 +314,6 @@ def get_inputs(
     tree_pools = np.zeros((no_of_years + 1, 5))
     stand_biomass = np.zeros((no_of_years + 1, 5))
     t_NPP = np.zeros(no_of_years + 1)
-
-    WOODY_AGB_POOLS = [1, 2] # branch and stem
-    DEPENDENT_POOLS = [0, 3, 4] # leaf, coarse and fine roots: these pools are determined by the amount of woody biomass - not woody NPP
 
     flux = {}
     inputs = {}
@@ -526,9 +529,9 @@ def create_tree_projects(
     tree_params,
     growths,
     thinning_project,
-    thinning_fraction_left_project,
+    thinning_fraction_woody_project,
     mortality_project,
-    mortality_fraction_left_project,
+    mortality_fraction_woody_project,
     no_of_years,
     cohort_count,
 ):
@@ -539,9 +542,9 @@ def create_tree_projects(
             year_planted=int(csv_input_data[f"proj_plant_yr{i + 1}"]),
             stand_density=int(csv_input_data[f"proj_plant_dens{i + 1}"]),
             thinning=thinning_project,
-            thinning_fraction=thinning_fraction_left_project,
+            thinning_fraction_woody=thinning_fraction_woody_project,
             mortality=mortality_project,
-            mortality_fraction=mortality_fraction_left_project,
+            mortality_fraction_woody=mortality_fraction_woody_project,
             no_of_years=no_of_years,
         )
         for i in range(cohort_count)
