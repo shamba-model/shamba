@@ -166,7 +166,10 @@ def get_crop_data(
         )
     ] = float(input_data[f"{prefix}_yd{index}"])
     harv_frac = float(input_data[f"{prefix}_left{index}"])
-
+    if harvest_yield.sum() > 0 and spp == 0:
+        raise ValueError(
+            f"Crop yield is greater than 0 but species index is 0 for {prefix} index {index}. Please check your input data."
+        )
     crop_params = create_crop_params_from_species_index(spp)
     crop_model = create(
         crop_params=crop_params,
