@@ -204,6 +204,12 @@ def from_defaults(
     data = csv_handler.read_csv("biomass_pool_params.csv", cols=(1, 2, 3, 4))
     turnover = data[:, 0]
     alloc = data[:, 1]
+    if abs(alloc[1:3].sum() - 1) > 1e-8:
+        raise ValueError(
+            "WAGB allocation fractions in biomass_pool_params.csv do not sum to 1."
+            " Please check the file and correct the allocation fractions for branch and stem."
+        )
+
     temp_thinning_fraction = data[:, 2]
     temp_mortality_fraction = data[:, 3]
 
