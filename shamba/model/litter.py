@@ -5,7 +5,6 @@ from marshmallow import Schema, fields, post_load, ValidationError
 
 from .common import csv_handler
 from .common_schema import OutputSchema as LitterDataOutputSchema
-import model.common.constants as CONSTANTS
 from .common.validations import validate_between_0_and_1
 
 
@@ -115,19 +114,15 @@ def from_csv(
 
 def from_defaults(litter_frequency, litter_quantity, no_of_years, litter_vector=None):
     """
-    Same as create, but with default litter parameters.
+    Same as create, but with litter carbon/nitrogen content read from
+    litter_params.csv (falls back to litter_params_defaults.csv if the
+    project's input folder doesn't supply its own).
     """
-
-    # Carbon and nitrogen content of litter input defaults
-    params = {
-        "carbon": CONSTANTS.ORGANIC_INPUT_C,
-        "nitrogen": CONSTANTS.ORGANIC_INPUT_N,
-    }
-    return create(
-        litter_params=params,
+    return from_csv(
         litter_frequency=litter_frequency,
         litter_quantity=litter_quantity,
         no_of_years=no_of_years,
+        filename="litter_params.csv",
         litter_vector=litter_vector,
     )
 

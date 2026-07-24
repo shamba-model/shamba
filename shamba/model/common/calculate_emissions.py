@@ -110,31 +110,25 @@ def get_tree_model_data(
         no_of_years,
     )
 
-    # Baseline fraction of thinning left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    thinning_fraction_left_base = np.array(
+    # Baseline fraction of thinning left in the field, for the woody
+    # (branch, stem) pools only. specify vector = array[(branch,stem)].
+    # 1 = 100% left in field. Leaf, coarse root and fine root fractions
+    # come from biomass_pool_params.csv instead (see TreeModel.from_defaults).
+    thinning_fraction_woody_base = np.array(
         [
-            1,
             get_float(CONSTANTS.THINNING_BASE_BR_KEY, intervention_input),
             get_float(CONSTANTS.THINNING_BASE_ST_KEY, intervention_input),
-            1,
-            1,
         ]
     )
 
-    # Project fraction of thinning left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    thinning_fraction_left_project = np.array(
+    # Project fraction of thinning left in the field, for the woody
+    # (branch, stem) pools only. specify vector = array[(branch,stem)].
+    # 1 = 100% left in field. Leaf, coarse root and fine root fractions
+    # come from biomass_pool_params.csv instead (see TreeModel.from_defaults).
+    thinning_fraction_woody_project = np.array(
         [
-            1,
             get_float(CONSTANTS.THINNING_PROJECT_BR_KEY, intervention_input),
             get_float(CONSTANTS.THINNING_PROJECT_ST_KEY, intervention_input),
-            1,
-            1,
         ]
     )
 
@@ -151,31 +145,25 @@ def get_tree_model_data(
         * [get_float(CONSTANTS.PROJECT_MORTALITY_KEY, intervention_input)]
     )
 
-    # Baseline fraction of dead biomass left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    mortality_fraction_left_base = np.array(
+    # Baseline fraction of dead biomass left in the field, for the woody
+    # (branch, stem) pools only. specify vector = array[(branch,stem)].
+    # 1 = 100% left in field. Leaf, coarse root and fine root fractions
+    # come from biomass_pool_params.csv instead (see TreeModel.from_defaults).
+    mortality_fraction_woody_base = np.array(
         [
-            1,
             get_float(CONSTANTS.MORTALITY_BASE_BR_KEY, intervention_input),
             get_float(CONSTANTS.MORTALITY_BASE_ST_KEY, intervention_input),
-            1,
-            1,
         ]
     )
 
-    # Project fraction of dead biomass left in the field
-    # specify vector = array[(leaf,branch,stem,course root,fine root)].
-    # 1 = 100% left in field. Leaf and roots assumed 100%.
-    # (can specify for individual years) using above code for thinning_project.
-    mortality_fraction_left_project = np.array(
+    # Project fraction of dead biomass left in the field, for the woody
+    # (branch, stem) pools only. specify vector = array[(branch,stem)].
+    # 1 = 100% left in field. Leaf, coarse root and fine root fractions
+    # come from biomass_pool_params.csv instead (see TreeModel.from_defaults).
+    mortality_fraction_woody_project = np.array(
         [
-            1,
             get_float(CONSTANTS.MORTALITY_PROJECT_BR_KEY, intervention_input),
             get_float(CONSTANTS.MORTALITY_PROJECT_ST_KEY, intervention_input),
-            1,
-            1,
         ]
     )
 
@@ -187,9 +175,9 @@ def get_tree_model_data(
         year_planted=get_int(CONSTANTS.BASE_PLANT_YEAR_KEY, intervention_input),
         stand_density=get_int(CONSTANTS.BASE_PLANT_DENSITY_KEY, intervention_input),
         thinning=thinning_base,
-        thinning_fraction=thinning_fraction_left_base,
+        thinning_fraction_woody=thinning_fraction_woody_base,
         mortality=mortality_base,
-        mortality_fraction=mortality_fraction_left_base,
+        mortality_fraction_woody=mortality_fraction_woody_base,
         no_of_years=no_of_years,
     )
 
@@ -198,9 +186,9 @@ def get_tree_model_data(
         tree_params=tree_params,
         growths=tree_growths,
         thinning_project=thinning_project,
-        thinning_fraction_left_project=thinning_fraction_left_project,
+        thinning_fraction_woody_project=thinning_fraction_woody_project,
         mortality_project=mortality_project,
-        mortality_fraction_left_project=mortality_fraction_left_project,
+        mortality_fraction_woody_project=mortality_fraction_woody_project,
         no_of_years=no_of_years,
         cohort_count=no_of_cohorts,
     )
