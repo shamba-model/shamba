@@ -24,7 +24,7 @@
     "esbuild-envfile-plugin": "^1.0.7",
     "fp-ts": "^2.16.9",
     "i18next": "^24.2.3",
-    "nanoid": "^5.1.5",
+    "nanoid": "^5.1.16",
     "notistack": "^3.0.2",
     "preact": "^10.26.4",
     "query-string": "^9.1.1",
