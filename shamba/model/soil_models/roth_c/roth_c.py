@@ -57,36 +57,34 @@ def get_rmf(climate, cover, soil):
     m = get_first_pos_def(deficit)
     m, rain_always_exceeds_evaporation = get_first_neg_def(deficit, m)
     b = np.ones(12)
-    if rain_always_exceeds_evaporation:
-        return b.mean()
+    if not rain_always_exceeds_evaporation:
+        # Rainfall < evap in month m, so
+        # start calculating SMD from month before m
+        m -= 1
+        cc = soil.clay
+        d = soil.depth
+        max = -(20 + 1.3 * cc - 0.01 * (cc**2)) * (d / 23.0)
+        accumulator_tsmd = 0.0
+        tsmd = np.zeros(12)
 
-    # Rainfall < evap in month m, so
-    # tart calculating SMD from month before m
-    m -= 1
-    cc = soil.clay
-    d = soil.depth
-    max = -(20 + 1.3 * cc - 0.01 * (cc**2)) * (d / 23.0)
-    accumulator_tsmd = 0.0
-    tsmd = np.zeros(12)
+        # Now define deficit as rain - pet
+        deficit = climate.rain - climate.evaporation * 0.75
 
-    # Now define deficit as rain - pet
-    deficit = climate.rain - climate.evaporation * 0.75
+        # Loop through each month
+        for i in range(12):
+            accumulator_tsmd = get_acc_tsmd(accumulator_tsmd, deficit[m], cover[m], max)
+            if accumulator_tsmd >= 0.444 * max:
+                b[m] = 1
+            elif accumulator_tsmd >= max:
+                b[m] = 0.2 + 0.8 * (max - accumulator_tsmd) / ((1 - 0.444) * max)
+            else:
+                log.error("DEFICIT = %5.2f" % accumulator_tsmd)
+                sys.exit(1)
 
-    # Loop through each month
-    for i in range(12):
-        accumulator_tsmd = get_acc_tsmd(accumulator_tsmd, deficit[m], cover[m], max)
-        if accumulator_tsmd >= 0.444 * max:
-            b[m] = 1
-        elif accumulator_tsmd >= max:
-            b[m] = 0.2 + 0.8 * (max - accumulator_tsmd) / ((1 - 0.444) * max)
-        else:
-            log.error("DEFICIT = %5.2f" % accumulator_tsmd)
-            sys.exit(1)
-
-        tsmd[m] = accumulator_tsmd
-        m += 1
-        if m > 11:
-            m = 0
+            tsmd[m] = accumulator_tsmd
+            m += 1
+            if m > 11:
+                m = 0
 
     # Temperature RMF (a)
     a = np.zeros(12)
