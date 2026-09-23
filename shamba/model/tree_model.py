@@ -19,6 +19,9 @@ from .tree_params import TreeParamsSchema
 from .common.validations import validate_between_0_and_1
 import model.common.constants as CONSTANTS
 
+WOODY_AGB_POOLS = [1, 2]  # branch and stem
+DEPENDENT_POOLS = [0, 3, 4]  # leaf, coarse root, fine root: determined by woody biomass, not woody NPP
+
 
 class MassBalanceData(Schema):
     in_ = fields.List(fields.Float(allow_nan=True), required=True)
@@ -440,9 +443,6 @@ def get_inputs(
     tree_pools = np.zeros((no_of_years + 1, 5))
     stand_biomass = np.zeros((no_of_years + 1, 5))
     t_NPP = np.zeros(no_of_years + 1)
-
-    WOODY_AGB_POOLS = [1, 2] # branch and stem
-    DEPENDENT_POOLS = [0, 3, 4] # leaf, coarse and fine roots: these pools are determined by the amount of woody biomass - not woody NPP
 
     flux = {}
     inputs = {}
