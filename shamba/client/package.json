@@ -18,7 +18,7 @@
     "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.6.1",
     "clsx": "^2.1.1",
-    "csv-parse": "^5.6.0",
+    "csv-parse": "^7.0.2",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "esbuild-envfile-plugin": "^1.0.7",
