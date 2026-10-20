@@ -33,8 +33,8 @@ def _make_soil(Cy0=40.0, clay=20.0):
 def _make_wet_climate(temp=20.0):
     """Always-wet climate: rain > evap every month.
 
-    When rain always exceeds evaporation the RMF code short-circuits and
-    returns b.mean() = 1.0 without evaluating the temperature or cover factors.
+    When rain always exceeds evaporation there is no soil moisture deficit, so
+    the moisture factor b = 1 every month and RMF = mean(a * c).
     """
     return ClimateData(
         temperature=np.full(12, temp),
@@ -91,23 +91,23 @@ def _make_litter_input(n_years, carbon_per_year):
 
 class TestGetRmf:
 
-    def test_rmf_equals_one_when_rain_always_exceeds_evap(self):
-        # When deficit = rain - evap > 0 every month, the code sets
-        # rain_always_exceeds_evaporation = True and returns b.mean() = 1.0
-        # before applying temperature or cover factors.
+    def test_rmf_wet_climate_applies_temperature_and_cover_factors(self):
+        # When deficit = rain - evap > 0 every month, b = 1 every month but the
+        # temperature factor must still be applied.
+        # test temp = 20°C gives a = 47.91 / (1 + exp(106.06 / (20 + 18.27))) = 2.82149253;
+        # covered soil so c = 0.6.
         soil = _make_soil()
         climate = _make_wet_climate()
-        cover = np.zeros(12)
+        cover = np.ones(12)
         n_years = 5
         result = roth_c.get_rmf(climate=climate, cover=cover, soil=soil, no_of_years=n_years)
-        np.testing.assert_allclose(result, np.ones(n_years))
+        np.testing.assert_allclose(result, np.full(n_years, 2.82149253*0.6), rtol=1e-6)
+
 
     def test_severe_drought_gives_lower_rmf_than_mild_drought(self):
         # Both climates go through the full RMF calculation (both have some months
         # where rain < evap). Severe drought accumulates a larger soil moisture deficit,
         # so the moisture factor b is lower → lower RMF.
-        # Note: the "always wet" bypass returns b.mean()=1.0 *without* the temperature
-        # factor, so wet vs drought is not a valid comparison for this test.
         soil = _make_soil()
         cover = np.zeros(12)
         rmf_mild = roth_c.get_rmf(_make_mild_drought_climate(), cover, soil, no_of_years=1)

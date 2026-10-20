@@ -91,7 +91,8 @@
 ### `get_rmf()` — Rate Modifying Factor
 | Test | Purpose |
 |------|---------|
-| `test_rmf_equals_one_when_rain_always_exceeds_evap` | Always-wet climate triggers the short-circuit branch, returning b.mean()=1.0 for all years |
+| `test_rmf_wet_climate_applies_temperature_factor` | Always-wet climate gives b=1 but still applies the temperature factor: RMF = a = 2.8215 at 20 °C, bare soil |
+| `test_rmf_wet_climate_applies_cover_factor` | Always-wet climate with covered soil applies c=0.6: RMF = 2.8215 × 0.6 = 1.6929 |
 | `test_severe_drought_gives_lower_rmf_than_mild_drought` | Larger moisture deficit → smaller b factor → lower RMF (tests the full moisture calculation path) |
 | `test_soil_cover_reduces_rmf_under_drought` | Soil cover applies c=0.6 instead of 1.0, reducing the RMF |
 

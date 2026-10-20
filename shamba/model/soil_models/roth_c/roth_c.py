@@ -85,38 +85,35 @@ def get_rmf(climate, cover, soil, no_of_years, roth_c_params: RothCParams = Roth
         m = get_first_pos_def(deficit)
         m, rain_always_exceeds_evaporation = get_first_neg_def(deficit, m)
         b = np.ones(12)
-        if rain_always_exceeds_evaporation:
-            rmf[y] = b.mean()
-            continue
+        if not rain_always_exceeds_evaporation:
+            # Rainfall < evap in month m, so start calculating SMD from month before m
+            m -= 1
 
-        # Rainfall < evap in month m, so start calculating SMD from month before m
-        m -= 1
+            max_smd = -(20 + 1.3 * cc - 0.01 * (cc**2)) * (d / 23.0)
+            accumulator_tsmd = 0.0
 
-        max_smd = -(20 + 1.3 * cc - 0.01 * (cc**2)) * (d / 23.0)
-        accumulator_tsmd = 0.0
+            # Now define deficit as rain - pet
+            deficit = rain - evap * 0.75
 
-        # Now define deficit as rain - pet
-        deficit = rain - evap * 0.75
+            # Loop through each month
+            for i in range(12):
+                accumulator_tsmd = get_acc_tsmd(accumulator_tsmd, deficit[m], cover_year[m], max_smd)
+                if accumulator_tsmd >= 0.444 * max_smd:
+                    b[m] = 1
+                elif accumulator_tsmd >= max_smd:
+                    b_min = 1 - roth_c_params.moisture_b_slope
+                    b[m] = (
+                        b_min
+                        + roth_c_params.moisture_b_slope
+                        * (max_smd - accumulator_tsmd) / ((1 - 0.444) * max_smd)
+                    )
+                else:
+                    log.error("DEFICIT = %5.2f" % accumulator_tsmd)
+                    sys.exit(1)
 
-        # Loop through each month
-        for i in range(12):
-            accumulator_tsmd = get_acc_tsmd(accumulator_tsmd, deficit[m], cover_year[m], max_smd)
-            if accumulator_tsmd >= 0.444 * max_smd:
-                b[m] = 1
-            elif accumulator_tsmd >= max_smd:
-                b_min = 1 - roth_c_params.moisture_b_slope
-                b[m] = (
-                    b_min
-                    + roth_c_params.moisture_b_slope
-                    * (max_smd - accumulator_tsmd) / ((1 - 0.444) * max_smd)
-                )
-            else:
-                log.error("DEFICIT = %5.2f" % accumulator_tsmd)
-                sys.exit(1)
-
-            m += 1
-            if m > 11:
-                m = 0
+                m += 1
+                if m > 11:
+                    m = 0
 
         # Temperature RMF (a)
         a = np.zeros(12)
