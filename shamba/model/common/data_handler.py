@@ -8,7 +8,6 @@ import numpy as np
 import re
 from typing import Optional
 
-from model.common.legacy_adapter import rename_legacy_headers
 from model.common.validations import validate_positive_or_zero_numerical_list
 
 
@@ -458,7 +457,7 @@ def expand_single_row_data_input(file_path: str):
         mgmt_input_data     dict of annual (no_of_years,) management vectors
         cover_data          dict of monthly-annual (12 * no_of_years,) cover vectors
     """
-    raw = rename_legacy_headers(_read_single_row_csv(file_path))
+    raw = _read_single_row_csv(file_path)
 
     def s(key, default=0.0) -> float:
         return float(raw.get(key, default))
@@ -474,7 +473,7 @@ def expand_single_row_data_input(file_path: str):
         if h in raw:
             scalar_input_data[h] = np.atleast_1d(np.asarray(raw[h], dtype=float))
 
-    # Species and planting parameters (already renamed to new convention by rename_legacy_headers).
+    # Species and planting parameters in V2.0 format.
     # A cohort with species code 0 means "no cohort" (mirrors the crop-slot
     # convention below) — omit species/plant_yr/plant_dens for that index so it
     # never reaches the modern format's presence-based cohort discovery.
