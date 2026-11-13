@@ -7,13 +7,13 @@ from model.common.data_sources.soil import get_soil_data, SoilData
 
 
 def validate_clay(value):
-    return ["Clay value must be between 0 and 100."] if value < 0 or value > 100 else []
+    if value < 0 or value > 100:
+        raise ValidationError("Clay value must be between 0 and 100.")
 
 
 def validate_Cy0(value):
-    return (
-        ["Cy0 value must be between 0 and 10000."] if value < 0 or value > 10000 else []
-    )
+    if value < 0 or value > 500:
+        raise ValidationError("Cy0 value must be between 0 and 500.")
 
 
 class SoilParamsData:

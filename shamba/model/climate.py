@@ -10,7 +10,7 @@ from model import configuration
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 import numpy as np
-from marshmallow import Schema, fields, post_load
+from marshmallow import Schema, fields, post_load, ValidationError
 
 from model.common import csv_handler
 from model.common.data_sources.climate import get_climate_data
@@ -27,7 +27,9 @@ def validate_temperature(values):
         for val in values
         if val < -100.0 or val > 100.0 or np.isnan(val)
     ]
-    return length_errors + value_errors
+    errors = length_errors + value_errors
+    if errors:
+        raise ValidationError(errors)
 
 
 def validate_rain(values):
@@ -37,7 +39,9 @@ def validate_rain(values):
         for val in values
         if val < 0 or val > 4000.0 or np.isnan(val)
     ]
-    return length_errors + value_errors
+    errors = length_errors + value_errors
+    if errors:
+        raise ValidationError(errors)
 
 
 def validate_evaporation(values):
@@ -47,7 +51,9 @@ def validate_evaporation(values):
         for val in values
         if val < 0 or val > 4000.0 or np.isnan(val)
     ]
-    return length_errors + value_errors
+    errors = length_errors + value_errors
+    if errors:
+        raise ValidationError(errors)
 
 
 class ClimateData:
