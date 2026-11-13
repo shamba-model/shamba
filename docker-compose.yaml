@@ -16,22 +16,5 @@ services:
       - ./shamba/tests:/app/tests
     working_dir: /app/server
     command: poetry run fastapi dev main.py --host 0.0.0.0 --port 8000 --reload
-    depends_on:
-      - client
     environment:
       - PYTHONPATH=/app
-  client:
-    build:
-      context: shamba/client
-      dockerfile: Dockerfile
-    container_name: shamba-client
-    volumes:
-      - ./shamba/client/src:/app/src
-      - ./shamba/client/public:/app/public
-      - ./shamba/client/package.json:/app/package.json
-      - ./shamba/client/tailwind.config.js:/app/tailwind.config.js
-      - ./shamba/client/tsconfig.json:/app/tsconfig.json
-      - ./shamba/client/esbuild.mjs:/app/esbuild.mjs
-      - ./shamba/client/biome.json:/app/biome.json
-      - ./shamba/server/static:/server/static # This is to map the generated static files from client to server via the docker host machine
-    command: pnpm watch
