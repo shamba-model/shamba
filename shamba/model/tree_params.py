@@ -2,7 +2,7 @@ import re
 from typing import Dict, Any
 
 import numpy as np
-from marshmallow import Schema, fields, post_load
+from marshmallow import Schema, fields, post_load, ValidationError
 
 from model.common import csv_handler
 
@@ -120,7 +120,8 @@ def validate_species(value):
     ) + [f"{value} must be convertible to an integer."] * (
         not value.isdigit() if isinstance(value, str) else False
     )
-    return errors
+    if errors:
+        raise ValidationError(errors)
 
 
 class TreeParamsSchema(Schema):
