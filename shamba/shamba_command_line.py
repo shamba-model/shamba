@@ -572,10 +572,17 @@ def main(n, arguments):
         data_to_save = np.column_stack([np.asarray(climate_cover_data[k], dtype=float) for k in cols])
         csv_handler.print_csv(file_out=os.path.join(dir, f"validated_climate_data_{st}.csv"), array=data_to_save, col_names=cols)
 
-
+    if distribution_dict is not None:
+        cols = list(distribution_handler.DistributionSpec._fields)
+        data_to_save = [list(spec) for spec in distribution_dict.values()]
+        csv_handler.print_csv(
+            file_out=os.path.join(dir, f"validated_distributions_input_{st}.csv"),
+            array=data_to_save,
+            col_names=cols,)
+    
     if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
-
+        # mc_results contains a list of n-samples Monte Carlo run results, each with base/project emissions and other outputs.
         mc_results = run_monte_carlo(
             base_input_dict=vector_input_data,
             soil_params=soil_params,
@@ -595,7 +602,6 @@ def main(n, arguments):
             crop_species_data=crop_species_data,
             pool_species_data=pool_species_data,
         )
-
         mc_summary = summarise_mc_results(mc_results)
         for scenario, label in [
             (mc_summary.base_yearly,    "baseline"),
@@ -612,10 +618,32 @@ def main(n, arguments):
             soil_model_type=soil_model_type,
             repo_state=repo_state,
             soil_params=soil_params,
+            distribution_dict=True if arguments["distribution-file-name"] else False,
             climate=climate,
-            distribution_dict=distribution_dict,
             sample_emission_factors=arguments["sample-emission-factors"],
         )
+
+        ## MC plots
+
+        Emit.plot(np.column_stack(( mc_summary.base_yearly["emit_mean"],
+                                    mc_summary.base_yearly["emit_q05"],
+                                    mc_summary.base_yearly["emit_q95"],)),
+                                    legend_string="baseline, 90% CI", monte_carlo=True)
+        Emit.plot(np.column_stack(( mc_summary.project_yearly["emit_mean"],
+                                    mc_summary.project_yearly["emit_q05"],
+                                    mc_summary.project_yearly["emit_q95"],)),
+                                    legend_string="project, 90% CI", monte_carlo=True)
+        
+        plt.savefig(plot_name + "_emissions_mc.png")
+        plt.close()
+
+        Emit.plot(np.column_stack((mc_summary.diff_yearly["emit_mean"],
+                                   mc_summary.diff_yearly["emit_q05"],
+                                   mc_summary.diff_yearly["emit_q95"],)),
+                                   legend_string="difference, 90% CI", monte_carlo=True)
+        
+        plt.savefig(plot_name + "_emissions_diff_mc.png")
+        plt.close()
 
         # TODO: the MC path currently writes only the quantile summary CSV.  The
         # deterministic path (below) also writes per-pool
@@ -635,9 +663,8 @@ def main(n, arguments):
             f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1  "
             f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
         )
-        return
-    else:
-        intervention_emissions = handle_intervention(
+
+    intervention_emissions = handle_intervention(
             intervention_input=vector_input_data,
             climate=climate,
             soil=soil_params,
