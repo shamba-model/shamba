@@ -78,7 +78,8 @@ def _parse_float(value, label: str, errors: list) -> Optional[float]:
         return None
 
 
-def _is_soil_model_or_species_parameter(parameter: str) -> bool:
+from .model_parameter_distributions import MODEL_PARAMETER_DISTRIBUTIONS #TODO: solve circular import
+def _is_not_management_parameter(parameter: str) -> bool:
     """True for roth_c_{field}/tree_{field}_sp{N}/crop_{field}_sp{N}/pool_{field}_sp{N} keys.
 
     These are not looked up in base_input_dict — runner.py's
@@ -91,6 +92,7 @@ def _is_soil_model_or_species_parameter(parameter: str) -> bool:
         or bool(TREE_SPECIES_DIST_KEY_PATTERN.match(parameter))
         or bool(CROP_SPECIES_DIST_KEY_PATTERN.match(parameter))
         or bool(BIOMASS_POOL_DIST_KEY_PATTERN.match(parameter))
+        or parameter in MODEL_PARAMETER_DISTRIBUTIONS
     )
 
 
@@ -153,7 +155,11 @@ def load_distributions(
         row_errors: List[str] = []
 
         # --- Validate parameter name first — skip remaining checks if unknown ---
-        if parameter not in base_input_dict and not _is_soil_model_or_species_parameter(parameter):
+        if parameter in base_input_dict:
+            base_value = base_input_dict[parameter]
+        elif _is_not_management_parameter(parameter):
+            base_value = None
+        else:
             all_errors.append(
                 f"{row_label}: '{parameter}' is not a recognised input parameter."
             )
@@ -216,9 +222,8 @@ def load_distributions(
             )
 
         # --- beta: only valid for fraction parameters ---
-        if distribution == "beta" and parameter in base_input_dict:
-            base_value = base_input_dict[parameter]
-            if not _is_fraction_parameter(base_value):
+        if distribution == "beta" and base_value is not None:
+            if not _is_fraction_parameter(base_value): # TODO rename _is_fraction_parameter: it's about being in [0, 1], not being a fraction.
                 base_m = _base_mean(base_value)
                 row_errors.append(
                     f"{row_label}: 'beta' is only valid for parameters whose base value "
@@ -226,8 +231,7 @@ def load_distributions(
                 )
 
         # --- Warnings (only if no errors so far for this row) ---
-        if not row_errors and parameter in base_input_dict:
-            base_value = base_input_dict[parameter]
+        if not row_errors and base_value is not None:
             base_m = _base_mean(base_value)
 
             if base_m == 0.0 and min_abs is None:
