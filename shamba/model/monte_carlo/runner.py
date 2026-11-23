@@ -50,28 +50,37 @@ def _partition_distributions(
     Dict[str, DistributionSpec],
     Dict[str, DistributionSpec],
     Dict[str, DistributionSpec],
+    Dict[str, DistributionSpec],
 ]:
-    """Split a user distributions dict by key pattern.
+    """Split a user distributions dict by key pattern to suit 
+    routing in the Monte Carlor runner (run_monte_carlo).
 
     RothC entries (roth_c_{field}, matching RothCParams._fields) route to
-    sample_soil_model_params(). Species-lookup entries (tree_*_sp{N}, crop_*_sp{N},
-    pool_*_sp{N}) route to sample_species_params() for their own species-lookup
-    table; everything else falls through to draw_samples() against the flat
+    sample_soil_model_params(). 
+    
+    Species-lookup entries (tree_*_sp{N}, crop_*_sp{N}, pool_*_sp{N}) route
+    to sample_species_params() for their own species-lookup table.
+    
+    Emission factor entries (ef_burn_*, combustion_factor_*, volatile_frac_*)
+    route to sample_model_params() if the user opts to sample emission factors.
+    If there are no distributions specified for emission factors, the default 
+    values are used.
+    
+    Everything else falls through to draw_samples() against the flat
     intervention-input dict, which does a direct dict lookup per key and would
     raise a KeyError on a roth_c or species key, which have a different dict
     shape.
 
-    Note: emission-factor routing not included (yet) — emission factors
-    have a separate, non-distribution_dict path (emission_distribution_dict /
-    sample_emission_factors).
     Whilst upstream parts of the code are generic in handling SoilModelParams, 
     the Monte Carlo runner currently does not include soil_model_type checks and
     is currently hard-coded to RothCParams, so this function only handles RothC keys.
     """
-    roth_c, tree_species, crop_species, pool_species, input_dict = {}, {}, {}, {}, {}
+    roth_c, tree_species, crop_species, pool_species, emission_factors, input_dict = {}, {}, {}, {}, {}, {}
     for key, spec in (dist or {}).items():
         if key in ROTH_C_DIST_KEYS:
             roth_c[key] = spec
+        elif key in MODEL_PARAMETER_DISTRIBUTIONS:
+            emission_factors[key] = spec
         elif TREE_SPECIES_DIST_KEY_PATTERN.match(key):
             tree_species[key] = spec
         elif CROP_SPECIES_DIST_KEY_PATTERN.match(key):
@@ -80,7 +89,7 @@ def _partition_distributions(
             pool_species[key] = spec
         else:
             input_dict[key] = spec
-    return roth_c, tree_species, crop_species, pool_species, input_dict
+    return roth_c, tree_species, crop_species, pool_species, emission_factors, input_dict
 
 
 def _run_single_sample(arguments: SampleArgs):
@@ -129,7 +138,7 @@ def run_monte_carlo(
 
     rng = np.random.default_rng(seed)
 
-    roth_c_dists, tree_species_dists, crop_species_dists, pool_species_dists, input_dict_dists = (
+    roth_c_dists, tree_species_dists, crop_species_dists, pool_species_dists, emission_factors_dists, input_dict_dists = (
         _partition_distributions(distribution_dict)
     )
 
@@ -182,6 +191,8 @@ def run_monte_carlo(
     )
 
     if sample_emission_factors:
+        if emission_factors_dists:
+            emission_distribution_dict = emission_factors_dists
         emission_factor_samples = sampler.sample_model_params(
             n_samples=n_samples,
             rng=rng,
@@ -343,8 +354,8 @@ def write_mc_metadata(
     soil_model_type: SoilModelType,
     repo_state: str,
     soil_params: SoilParams.SoilParamsData,
+    distribution_dict: bool,
     climate,
-    distribution_dict: Optional[Dict[str, DistributionSpec]],
     sample_emission_factors: bool,
 ) -> None:
     """Write a plain-text summary of what the Monte Carlo run sampled."""
