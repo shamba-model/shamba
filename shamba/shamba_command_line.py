@@ -598,9 +598,10 @@ def main(n, arguments):
 
         mc_summary = summarise_mc_results(mc_results)
         for scenario, label in [
-            (mc_summary.base,    "baseline"),
-            (mc_summary.project, "project"),
-            (mc_summary.diff,    "diff"),
+            (mc_summary.base_yearly,    "baseline"),
+            (mc_summary.project_yearly, "project"),
+            (mc_summary.diff_yearly,    "diff"),
+            (mc_summary.diff_total,     "diff_total")
         ]:
             write_mc_summary_csv(scenario, str(dir / f"plot_{n + st}_mc_{label}.csv"))
 
@@ -626,8 +627,8 @@ def main(n, arguments):
 
         emit_diffs = [
             r.emit_project_emissions - r.emit_base_emissions for r in mc_results
-        ]
-        total_diffs = np.array([float(np.sum(d)) for d in emit_diffs])
+        ] # TODO could use diff_yearly
+        total_diffs = np.array([float(np.sum(d)) for d in emit_diffs]) # TODO could use diff_total
         print(
             f"\nMonte Carlo complete: {len(mc_results)} samples\n"
             f"  Summaries written to: {dir}\n"

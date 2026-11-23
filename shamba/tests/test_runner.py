@@ -304,7 +304,7 @@ def test_summarise_mc_results_column_names():
     summaries = summarise_mc_results(results)
     pools = ["soil", "tree", "fire", "litter", "fertiliser", "crop", "emit"]
     stats = ["mean", "std", "q05", "q25", "q50", "q75", "q95"]
-    for scenario in (summaries.base, summaries.project, summaries.diff):
+    for scenario in (summaries.base_yearly, summaries.project_yearly, summaries.diff_yearly):
         for pool in pools:
             for stat in stats:
                 assert f"{pool}_{stat}" in scenario, f"Missing column {pool}_{stat}"
@@ -314,7 +314,7 @@ def test_summarise_mc_results_all_scenarios_same_keys():
     """base, project, and diff dicts have identical column sets."""
     results = [_make_fake_result(5) for _ in range(3)]
     summaries = summarise_mc_results(results)
-    assert set(summaries.base.keys()) == set(summaries.project.keys()) == set(summaries.diff.keys())
+    assert set(summaries.base_yearly.keys()) == set(summaries.project_yearly.keys()) == set(summaries.diff_yearly.keys())
 
 
 def test_summarise_mc_results_array_length():
@@ -322,7 +322,7 @@ def test_summarise_mc_results_array_length():
     n_years = 7
     results = [_make_fake_result(n_years) for _ in range(4)]
     summaries = summarise_mc_results(results)
-    for scenario in (summaries.base, summaries.project, summaries.diff):
+    for scenario in (summaries.base_yearly, summaries.project_yearly, summaries.diff_yearly):
         for col, arr in scenario.items():
             assert len(arr) == n_years, f"Column {col} has length {len(arr)}, expected {n_years}"
 
@@ -336,7 +336,7 @@ def test_summarise_mc_results_zero_std_when_identical():
     results = [_make_fake_result(4, offset=1.0) for _ in range(10)]
     summaries = summarise_mc_results(results)
     pools = ["soil", "tree", "fire", "litter", "fertiliser", "crop", "emit"]
-    for scenario in (summaries.base, summaries.project, summaries.diff):
+    for scenario in (summaries.base_yearly, summaries.project_yearly, summaries.diff_yearly):
         for pool in pools:
             np.testing.assert_array_equal(
                 scenario[f"{pool}_std"],
@@ -354,7 +354,7 @@ def test_summarise_mc_results_known_mean():
     # emit_difference per sample = 1 + offset; mean = 1 + mean(offsets)
     expected_mean = 1.0 + np.mean(offsets)
     np.testing.assert_allclose(
-        summaries.diff["emit_mean"],
+        summaries.diff_yearly["emit_mean"],
         np.full(n_years, expected_mean),
         rtol=1e-10,
     )
@@ -367,14 +367,14 @@ def test_summarise_mc_results_q50_is_median():
     results = [_make_fake_result(n_years, offset=o) for o in offsets]
     summaries = summarise_mc_results(results)
     # emit_difference per sample = 1 + offset; median = 1 + 2.0 = 3.0
-    np.testing.assert_allclose(summaries.diff["emit_q50"], np.full(n_years, 3.0), rtol=1e-10)
+    np.testing.assert_allclose(summaries.diff_yearly["emit_q50"], np.full(n_years, 3.0), rtol=1e-10)
 
 
 def test_summarise_mc_results_base_is_zero():
     """Baseline emissions are zero in _make_fake_result; base summary mean should be zero."""
     results = [_make_fake_result(3) for _ in range(5)]
     summaries = summarise_mc_results(results)
-    np.testing.assert_array_equal(summaries.base["emit_mean"], np.zeros(3))
+    np.testing.assert_array_equal(summaries.base_yearly["emit_mean"], np.zeros(3))
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +384,7 @@ def test_summarise_mc_results_base_is_zero():
 def test_write_mc_summary_csv_headers(tmp_path):
     """CSV header row contains 'year' followed by all summary column names."""
     results = [_make_fake_result(3) for _ in range(2)]
-    scenario = summarise_mc_results(results).diff
+    scenario = summarise_mc_results(results).diff_yearly
     out = str(tmp_path / "mc_diff.csv")
     write_mc_summary_csv(scenario, out)
 
@@ -399,7 +399,7 @@ def test_write_mc_summary_csv_row_count(tmp_path):
     """CSV has exactly n_years data rows (plus one header row)."""
     n_years = 5
     results = [_make_fake_result(n_years) for _ in range(2)]
-    scenario = summarise_mc_results(results).diff
+    scenario = summarise_mc_results(results).diff_yearly
     out = str(tmp_path / "mc_diff.csv")
     write_mc_summary_csv(scenario, out)
 
@@ -413,7 +413,7 @@ def test_write_mc_summary_csv_year_column(tmp_path):
     """Year column contains 1, 2, ..., n_years."""
     n_years = 4
     results = [_make_fake_result(n_years) for _ in range(2)]
-    scenario = summarise_mc_results(results).diff
+    scenario = summarise_mc_results(results).diff_yearly
     out = str(tmp_path / "mc_diff.csv")
     write_mc_summary_csv(scenario, out)
 
@@ -427,7 +427,7 @@ def test_write_mc_summary_csv_values_roundtrip(tmp_path):
     """Values read back from CSV match the summary dict to float precision."""
     n_years = 3
     results = [_make_fake_result(n_years, offset=float(i)) for i in range(5)]
-    scenario = summarise_mc_results(results).diff
+    scenario = summarise_mc_results(results).diff_yearly
     out = str(tmp_path / "mc_diff.csv")
     write_mc_summary_csv(scenario, out)
 

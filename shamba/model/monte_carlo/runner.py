@@ -18,9 +18,10 @@ from model.soil_models.soil_model_params import RothCParams, SoilModelParams, RO
 from model.soil_models.soil_model_types import SoilModelType
 
 class MCSummaries(NamedTuple):
-    base: Dict[str, np.ndarray]
-    project: Dict[str, np.ndarray]
-    diff: Dict[str, np.ndarray]
+    base_yearly: Dict[str, np.ndarray]
+    project_yearly: Dict[str, np.ndarray]
+    diff_yearly: Dict[str, np.ndarray]
+    diff_total: Dict[str, np.ndarray]
 
 class SampleArgs(NamedTuple):
     perturbed_intervention_input: Dict[str, Any]
@@ -278,6 +279,9 @@ _DIFF_GETTERS = {
     "emit":       lambda r: r.emit_project_emissions - r.emit_base_emissions,
 }
 
+_DIFF_TOTAL_GETTERS = {
+    "emit":       lambda r: np.array(np.sum(r.emit_project_emissions) - np.sum(r.emit_base_emissions)),
+}
 
 def _compute_summary(
     mc_results: List[Any],
@@ -307,21 +311,29 @@ def summarise_mc_results(
     baseline emissions, project emissions, and their difference respectively.
     """
     return MCSummaries(
-        base=_compute_summary(mc_results, _BASE_GETTERS, quantiles),
-        project=_compute_summary(mc_results, _PROJ_GETTERS, quantiles),
-        diff=_compute_summary(mc_results, _DIFF_GETTERS, quantiles),
+        base_yearly=_compute_summary(mc_results, _BASE_GETTERS, quantiles),
+        project_yearly=_compute_summary(mc_results, _PROJ_GETTERS, quantiles),
+        diff_yearly=_compute_summary(mc_results, _DIFF_GETTERS, quantiles),
+        diff_total=_compute_summary(mc_results, _DIFF_TOTAL_GETTERS, quantiles),
     )
 
 
 def write_mc_summary_csv(summary: Dict[str, np.ndarray], output_path: str) -> None:
     """Write a summary dict to a CSV file, one row per year."""
     cols = list(summary.keys())
-    n_years = len(next(iter(summary.values())))
-    with open(output_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["year"] + cols)
-        for year in range(1, n_years + 1):
-            writer.writerow([year] + [float(summary[col][year - 1]) for col in cols])
+    if type(next(iter(summary.values()))) is np.float64:
+        n_years = 1
+        with open(output_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(cols)
+            writer.writerow([float(summary[col]) for col in cols])
+    else: 
+        n_years = len(next(iter(summary.values())))
+        with open(output_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["year"] + cols)
+            for year in range(1, n_years + 1):
+                writer.writerow([year] + [float(summary[col][year - 1]) for col in cols])
 
 
 def write_mc_metadata(
