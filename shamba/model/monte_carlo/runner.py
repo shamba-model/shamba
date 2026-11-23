@@ -404,15 +404,7 @@ def write_mc_metadata(
     if not distribution_dict:
         lines.append("  None — no distributions file supplied.")
     else:
-        header = f"  {'Parameter':<30} {'Distribution':<20} {'Spread lower':>14} {'Spread upper':>14} {'Min abs':>10}"
-        lines.append(header)
-        lines.append("  " + "-" * (len(header) - 2))
-        for param, spec in distribution_dict.items():
-            min_abs_str = f"{spec.min_abs:.4g}" if spec.min_abs is not None else "—"
-            lines.append(
-                f"  {param:<30} {spec.distribution:<20} {spec.spread_lower:>14.4g}"
-                f" {spec.spread_upper:>14.4g} {min_abs_str:>10}"
-            )
+        lines.append("  Distributions supplied in input file.")
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")

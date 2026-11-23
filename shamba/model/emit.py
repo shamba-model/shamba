@@ -4,6 +4,7 @@
 
 import logging as log
 import os
+from turtle import color
 from typing import NamedTuple
 
 import matplotlib.pyplot as plt
@@ -169,13 +170,18 @@ def create(
     return total_emissions[0:no_of_years]
 
 
-def plot(emissions, legend_string, save_name=None):
+def plot(emissions, legend_string, monte_carlo=False, save_name=None):
     """Plot total carbon vs year for emissions.
 
     Args:
         legend_string: string to put in legend
 
     """
+    if emissions.ndim == 2 and not monte_carlo:
+        raise ValueError("Emissions array is 2D but Monte-Carlo is False")
+    elif emissions.ndim == 1 and monte_carlo:
+        raise ValueError("Emissions array is 1D but Monte-Carlo is True")
+
     # Check if there's already an active figure with the title "Emissions"
     # If so, reuse it for multiple plots on the same figure
     current_fig = plt.gcf()
@@ -187,8 +193,7 @@ def plot(emissions, legend_string, save_name=None):
     ):
         # Reuse existing emissions figure
         ax = current_fig.gca()
-        ax.plot(emissions, label=legend_string)
-        ax.legend(loc="best")
+
     else:
         # Create new figure
         fig = plt.figure()
@@ -198,6 +203,16 @@ def plot(emissions, legend_string, save_name=None):
         ax.set_xlabel("Time (years)")
         ax.set_ylabel("Emissions (t CO2 ha^-1)")
 
+    if monte_carlo:
+        # Plot central estimate as solid, and fill light for uncertainty
+        print(np.nanmax(emissions[:, 2] - emissions[:, 1]))
+        x = np.arange(emissions.shape[0])
+        line, = ax.plot(emissions[:, 0], label=legend_string)
+        ax.fill_between(x, emissions[:, 1], emissions[:, 2],
+                        color=line.get_color(), alpha=0.5)
+        ax.legend(loc="best")
+
+    else:
         ax.plot(emissions, label=legend_string)
         ax.legend(loc="best")
 
