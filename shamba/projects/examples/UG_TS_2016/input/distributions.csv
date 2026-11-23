@@ -1,0 +1,180 @@
+Model,Value,Data source,Units,parameter,distribution,Spread to use,Default value,spread_lower,spread_upper,min_abs,Citation link,Comments
+Fertiliser ,Volatilisation factor (synthetic),Default (IPCC),proportion,volatile_frac_synthetic_fertiliser,LogNormal,SD shape parameter,0.11,0.41,0.41,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019, Vol 4, Table 11.3: Frac_GASF"
+Fertiliser ,EF N2O from N inputs,Default (IPCC),proportion,ef_N_inputs,Normal,(SD/mean),0.01,0.4,0.4,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019, Vol 4, Table 11.3: EF4"
+Fire ,Combustion factor - crop,Default (IPCC),proportion,combustion_factor_crop,Normal,(SD/mean),0.85,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 2.6; conservative judgement"
+Fire ,Combustion factor - tree,Default (IPCC),proportion,combustion_factor_tree,Normal,(SD/mean),0.74,0.19,0.19,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 2.6"
+Fire ,Emission factor: CH4 from burning crops,Default (IPCC),kg ton-1 burnt,ef_burn_crop_CH4,Normal,(SD/mean),2.7,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019, Vol 4, Table 2.5; conservative judgement"
+Fire ,Emission factor: CH4 from burning tree litter,Default (IPCC),kg ton-1 burnt,ef_burn_tree_CH4,Normal,(SD/mean),6.8,0.29,0.29,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019, Vol 4, Table 2.5"
+Fire ,Emission factor: N2O from burning crops,Default (IPCC),kg ton-1 burnt,ef_burn_crop_N2O,Normal,(SD/mean),0.07,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019, Vol 4, Table 2.5; conservative judgement"
+Fire ,Emission factor: N2O from burning tree litter,Default (IPCC),kg ton-1 burnt,ef_burn_tree_N2O,Normal,(SD/mean),0.2,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019, Vol 4, Table 2.5; conservative judgement"
+Fire ,Emission factor: CH4 from burning OI,Default (IPCC),kg ton-1 burnt,ef_burn_tree_CH4,Normal,(SD/mean),6.8,0.29,0.29,,NA,"default ""assumed the same as tree litter"""
+Fire ,Emission factor: N2O from burning OI,Default (IPCC),kg ton-1 burnt,ef_burn_tree_N2O,Normal,(SD/mean),0.2,0.38,0.38,,NA,"default ""assumed the same as tree litter"""
+Crop ,Slope 'a' in residue calculation - Grains,Default (IPCC),unitless,crop_slope_sp1,Normal,(SD/mean),1.09,0.01,0.01,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Beans & pulses,Default (IPCC),unitless,crop_slope_sp2,Normal,(SD/mean),1.13,0.1,0.1,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Tubers (e.g. potato),Default (IPCC),unitless,crop_slope_sp3,Normal,(SD/mean),0.1,0.35,0.35,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Root crops (e.g. peanut),Default (IPCC),unitless,crop_slope_sp4,Normal,(SD/mean),1.07,0.1,0.1,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - N-fixing forages,Default (IPCC),unitless,crop_slope_sp5,Normal,(SD/mean),0.3,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Non-N-fixing forages,Default (IPCC),unitless,crop_slope_sp6,Normal,(SD/mean),0.3,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Perennial grasses,Default (IPCC),unitless,crop_slope_sp7,Normal,(SD/mean),0.3,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Grass-clover mixtures,Default (IPCC),unitless,crop_slope_sp8,Normal,(SD/mean),0.3,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Maize,Default (IPCC),unitless,crop_slope_sp9,Normal,(SD/mean),1.03,0.02,0.02,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Wheat,Default (IPCC),unitless,crop_slope_sp10,Normal,(SD/mean),1.51,0.02,0.02,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Winter wheat,Default (IPCC),unitless,crop_slope_sp11,Normal,(SD/mean),1.61,0.02,0.02,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Spring wheat,Default (IPCC),unitless,crop_slope_sp12,Normal,(SD/mean),1.29,0.03,0.03,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Rice,Default (IPCC),unitless,crop_slope_sp13,Normal,(SD/mean),0.95,0.1,0.1,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Barley,Default (IPCC),unitless,crop_slope_sp14,Normal,(SD/mean),0.98,0.04,0.04,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Oats,Default (IPCC),unitless,crop_slope_sp15,Normal,(SD/mean),0.91,0.03,0.03,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Millet,Default (IPCC),unitless,crop_slope_sp16,Normal,(SD/mean),1.43,0.09,0.09,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Sorghum,Default (IPCC),unitless,crop_slope_sp17,Normal,(SD/mean),0.88,0.07,0.07,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Rye,Default (IPCC),unitless,crop_slope_sp18,Normal,(SD/mean),1.09,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Soybean,Default (IPCC),unitless,crop_slope_sp19,Normal,(SD/mean),0.93,0.16,0.16,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Dry bean,Default (IPCC),unitless,crop_slope_sp20,Normal,(SD/mean),0.36,0.5,0.5,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Potato,Default (IPCC),unitless,crop_slope_sp21,Normal,(SD/mean),0.1,0.35,0.35,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Peanut (with pod),Default (IPCC),unitless,crop_slope_sp22,Normal,(SD/mean),1.07,0.1,0.1,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Alfalfa,Default (IPCC),unitless,crop_slope_sp23,Normal,(SD/mean),0.29,0.16,0.16,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Slope 'a' in residue calculation - Non-legume hay,Default (IPCC),unitless,crop_slope_sp24,Normal,(SD/mean),0.18,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Grains,Default (IPCC),kg DM ha-1,crop_intercept_sp1,Normal,(SD/mean),0.88,0.03,0.03,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Beans & pulses,Default (IPCC),kg DM ha-1,crop_intercept_sp2,Normal,(SD/mean),0.85,0.28,0.28,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Tubers (e.g. potato),Default (IPCC),kg DM ha-1,crop_intercept_sp3,Normal,(SD/mean),1.06,0.35,0.35,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Root crops (e.g. peanut),Default (IPCC),kg DM ha-1,crop_intercept_sp4,Normal,(SD/mean),1.54,0.21,0.21,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - N-fixing forages,Default (IPCC),kg DM ha-1,crop_intercept_sp5,Normal,(SD/mean),0,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Non-N-fixing forages,Default (IPCC),kg DM ha-1,crop_intercept_sp6,Normal,(SD/mean),0,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Perennial grasses,Default (IPCC),kg DM ha-1,crop_intercept_sp7,Normal,(SD/mean),0,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Grass-clover mixtures,Default (IPCC),kg DM ha-1,crop_intercept_sp8,Normal,(SD/mean),0,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Maize,Default (IPCC),kg DM ha-1,crop_intercept_sp9,Normal,(SD/mean),0.61,0.1,0.1,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Wheat,Default (IPCC),kg DM ha-1,crop_intercept_sp10,Normal,(SD/mean),0.52,0.09,0.09,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Winter wheat,Default (IPCC),kg DM ha-1,crop_intercept_sp11,Normal,(SD/mean),0.4,0.13,0.13,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Spring wheat,Default (IPCC),kg DM ha-1,crop_intercept_sp12,Normal,(SD/mean),0.75,0.13,0.13,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Rice,Default (IPCC),kg DM ha-1,crop_intercept_sp13,Normal,(SD/mean),2.46,0.21,0.21,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Barley,Default (IPCC),kg DM ha-1,crop_intercept_sp14,Normal,(SD/mean),0.59,0.21,0.21,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Oats,Default (IPCC),kg DM ha-1,crop_intercept_sp15,Normal,(SD/mean),0.89,0.04,0.04,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Millet,Default (IPCC),kg DM ha-1,crop_intercept_sp16,Normal,(SD/mean),0.14,1.54,1.54,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Sorghum,Default (IPCC),kg DM ha-1,crop_intercept_sp17,Normal,(SD/mean),1.33,0.14,0.14,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Rye,Default (IPCC),kg DM ha-1,crop_intercept_sp18,Normal,(SD/mean),0.88,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Soybean,Default (IPCC),kg DM ha-1,crop_intercept_sp19,Normal,(SD/mean),1.35,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Dry bean,Default (IPCC),kg DM ha-1,crop_intercept_sp20,Normal,(SD/mean),0.68,0.24,0.24,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Potato,Default (IPCC),kg DM ha-1,crop_intercept_sp21,Normal,(SD/mean),1.06,0.35,0.35,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Peanut (with pod),Default (IPCC),kg DM ha-1,crop_intercept_sp22,Normal,(SD/mean),1.54,0.21,0.21,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Alfalfa,Default (IPCC),kg DM ha-1,crop_intercept_sp23,Normal,(SD/mean),0,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Intercept 'b' in residue calculation - Non-legume hay,Default (IPCC),kg DM ha-1,crop_intercept_sp24,Normal,(SD/mean),0,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.2"
+Crop ,Belowground N - Grains,Default (IPCC),proportion,crop_nitrogen_below_sp1,Normal,(SD/mean),0.009,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Beans & pulses,Default (IPCC),proportion,crop_nitrogen_below_sp2,Normal,(SD/mean),0.008,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Tubers (e.g. potato),Default (IPCC),proportion,crop_nitrogen_below_sp3,Normal,(SD/mean),0.014,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Root crops (e.g. peanut),Default (IPCC),proportion,crop_nitrogen_below_sp4,Normal,(SD/mean),0.014,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - N-fixing forages,Default (IPCC),proportion,crop_nitrogen_below_sp5,Normal,(SD/mean),0.022,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Non-N-fixing forages,Default (IPCC),proportion,crop_nitrogen_below_sp6,Normal,(SD/mean),0.012,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Perennial grasses,Default (IPCC),proportion,crop_nitrogen_below_sp7,Normal,(SD/mean),0.012,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Grass-clover mixtures,Default (IPCC),proportion,crop_nitrogen_below_sp8,Normal,(SD/mean),0.016,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Maize,Default (IPCC),proportion,crop_nitrogen_below_sp9,Normal,(SD/mean),0.007,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Wheat,Default (IPCC),proportion,crop_nitrogen_below_sp10,Normal,(SD/mean),0.009,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Winter wheat,Default (IPCC),proportion,crop_nitrogen_below_sp11,Normal,(SD/mean),0.009,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Spring wheat,Default (IPCC),proportion,crop_nitrogen_below_sp12,Normal,(SD/mean),0.009,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Rice,Default (IPCC),proportion,crop_nitrogen_below_sp13,Normal,(SD/mean),0.009,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Barley,Default (IPCC),proportion,crop_nitrogen_below_sp14,Normal,(SD/mean),0.014,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Oats,Default (IPCC),proportion,crop_nitrogen_below_sp15,Normal,(SD/mean),0.008,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Millet,Default (IPCC),proportion,crop_nitrogen_below_sp16,Normal,(SD/mean),0.009,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Sorghum,Default (IPCC),proportion,crop_nitrogen_below_sp17,Normal,(SD/mean),0.006,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Rye,Default (IPCC),proportion,crop_nitrogen_below_sp18,Normal,(SD/mean),0.011,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Soybean,Default (IPCC),proportion,crop_nitrogen_below_sp19,Normal,(SD/mean),0.008,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Dry bean,Default (IPCC),proportion,crop_nitrogen_below_sp20,Normal,(SD/mean),0.01,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Potato,Default (IPCC),proportion,crop_nitrogen_below_sp21,Normal,(SD/mean),0.014,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Peanut (with pod),Default (IPCC),proportion,crop_nitrogen_below_sp22,Normal,(SD/mean),0.014,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Alfalfa,Default (IPCC),proportion,crop_nitrogen_below_sp23,Normal,(SD/mean),0.019,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground N - Non-legume hay,Default (IPCC),proportion,crop_nitrogen_below_sp24,Normal,(SD/mean),0.012,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Grains,Default (IPCC),proportion,crop_nitrogen_above_sp1,Normal,(SD/mean),0.006,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Beans & pulses,Default (IPCC),proportion,crop_nitrogen_above_sp2,Normal,(SD/mean),0.008,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Tubers (e.g. potato),Default (IPCC),proportion,crop_nitrogen_above_sp3,Normal,(SD/mean),0.019,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Root crops (e.g. peanut),Default (IPCC),proportion,crop_nitrogen_above_sp4,Normal,(SD/mean),0.016,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - N-fixing forages,Default (IPCC),proportion,crop_nitrogen_above_sp5,Normal,(SD/mean),0.027,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Non-N-fixing forages,Default (IPCC),proportion,crop_nitrogen_above_sp6,Normal,(SD/mean),0.015,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Perennial grasses,Default (IPCC),proportion,crop_nitrogen_above_sp7,Normal,(SD/mean),0.015,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Grass-clover mixtures,Default (IPCC),proportion,crop_nitrogen_above_sp8,Normal,(SD/mean),0.025,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Maize,Default (IPCC),proportion,crop_nitrogen_above_sp9,Normal,(SD/mean),0.006,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Wheat,Default (IPCC),proportion,crop_nitrogen_above_sp10,Normal,(SD/mean),0.006,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Winter wheat,Default (IPCC),proportion,crop_nitrogen_above_sp11,Normal,(SD/mean),0.006,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Spring wheat,Default (IPCC),proportion,crop_nitrogen_above_sp12,Normal,(SD/mean),0.006,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Rice,Default (IPCC),proportion,crop_nitrogen_above_sp13,Normal,(SD/mean),0.007,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Barley,Default (IPCC),proportion,crop_nitrogen_above_sp14,Normal,(SD/mean),0.007,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Oats,Default (IPCC),proportion,crop_nitrogen_above_sp15,Normal,(SD/mean),0.007,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Millet,Default (IPCC),proportion,crop_nitrogen_above_sp16,Normal,(SD/mean),0.007,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Sorghum,Default (IPCC),proportion,crop_nitrogen_above_sp17,Normal,(SD/mean),0.007,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Rye,Default (IPCC),proportion,crop_nitrogen_above_sp18,Normal,(SD/mean),0.005,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Soybean,Default (IPCC),proportion,crop_nitrogen_above_sp19,Normal,(SD/mean),0.008,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Dry bean,Default (IPCC),proportion,crop_nitrogen_above_sp20,Normal,(SD/mean),0.01,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Potato,Default (IPCC),proportion,crop_nitrogen_above_sp21,Normal,(SD/mean),0.019,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Peanut (with pod),Default (IPCC),proportion,crop_nitrogen_above_sp22,Normal,(SD/mean),0.016,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Alfalfa,Default (IPCC),proportion,crop_nitrogen_above_sp23,Normal,(SD/mean),0.027,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Aboveground N - Non-legume hay,Default (IPCC),proportion,crop_nitrogen_above_sp24,Normal,(SD/mean),0.015,0.38,0.38,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Belowground C - Grains,Default (IPCC),proportion,crop_carbon_below_sp1,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Beans & pulses,Default (IPCC),proportion,crop_carbon_below_sp2,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Tubers (e.g. potato),Default (IPCC),proportion,crop_carbon_below_sp3,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Root crops (e.g. peanut),Default (IPCC),proportion,crop_carbon_below_sp4,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - N-fixing forages,Default (IPCC),proportion,crop_carbon_below_sp5,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Non-N-fixing forages,Default (IPCC),proportion,crop_carbon_below_sp6,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Perennial grasses,Default (IPCC),proportion,crop_carbon_below_sp7,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Grass-clover mixtures,Default (IPCC),proportion,crop_carbon_below_sp8,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Maize,Default (IPCC),proportion,crop_carbon_below_sp9,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Wheat,Default (IPCC),proportion,crop_carbon_below_sp10,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Winter wheat,Default (IPCC),proportion,crop_carbon_below_sp11,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Spring wheat,Default (IPCC),proportion,crop_carbon_below_sp12,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Rice,Default (IPCC),proportion,crop_carbon_below_sp13,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Barley,Default (IPCC),proportion,crop_carbon_below_sp14,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Oats,Default (IPCC),proportion,crop_carbon_below_sp15,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Millet,Default (IPCC),proportion,crop_carbon_below_sp16,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Sorghum,Default (IPCC),proportion,crop_carbon_below_sp17,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Rye,Default (IPCC),proportion,crop_carbon_below_sp18,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Soybean,Default (IPCC),proportion,crop_carbon_below_sp19,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Dry bean,Default (IPCC),proportion,crop_carbon_below_sp20,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Potato,Default (IPCC),proportion,crop_carbon_below_sp21,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Peanut (with pod),Default (IPCC),proportion,crop_carbon_below_sp22,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Alfalfa,Default (IPCC),proportion,crop_carbon_below_sp23,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Belowground C - Non-legume hay,Default (IPCC),proportion,crop_carbon_below_sp24,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Grains,Default (IPCC),proportion,crop_carbon_above_sp1,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Beans & pulses,Default (IPCC),proportion,crop_carbon_above_sp2,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Tubers (e.g. potato),Default (IPCC),proportion,crop_carbon_above_sp3,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Root crops (e.g. peanut),Default (IPCC),proportion,crop_carbon_above_sp4,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - N-fixing forages,Default (IPCC),proportion,crop_carbon_above_sp5,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Non-N-fixing forages,Default (IPCC),proportion,crop_carbon_above_sp6,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Perennial grasses,Default (IPCC),proportion,crop_carbon_above_sp7,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Grass-clover mixtures,Default (IPCC),proportion,crop_carbon_above_sp8,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Maize,Default (IPCC),proportion,crop_carbon_above_sp9,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Wheat,Default (IPCC),proportion,crop_carbon_above_sp10,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Winter wheat,Default (IPCC),proportion,crop_carbon_above_sp11,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Spring wheat,Default (IPCC),proportion,crop_carbon_above_sp12,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Rice,Default (IPCC),proportion,crop_carbon_above_sp13,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Barley,Default (IPCC),proportion,crop_carbon_above_sp14,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Oats,Default (IPCC),proportion,crop_carbon_above_sp15,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Millet,Default (IPCC),proportion,crop_carbon_above_sp16,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Sorghum,Default (IPCC),proportion,crop_carbon_above_sp17,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Rye,Default (IPCC),proportion,crop_carbon_above_sp18,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Soybean,Default (IPCC),proportion,crop_carbon_above_sp19,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Dry bean,Default (IPCC),proportion,crop_carbon_above_sp20,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Potato,Default (IPCC),proportion,crop_carbon_above_sp21,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Peanut (with pod),Default (IPCC),proportion,crop_carbon_above_sp22,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Alfalfa,Default (IPCC),proportion,crop_carbon_above_sp23,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Aboveground C - Non-legume hay,Default (IPCC),proportion,crop_carbon_above_sp24,Normal,(SD/mean),0.42,0.1,0.1,,,Conservative default
+Crop ,Root:Shoot - Grains,Default (IPCC),unitless,crop_root_to_shoot_sp1,Normal,(SD/mean),0.22,0.08,0.08,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Beans & pulses,Default (IPCC),unitless,crop_root_to_shoot_sp2,Normal,(SD/mean),0.19,0.23,0.23,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Tubers (e.g. potato),Default (IPCC),unitless,crop_root_to_shoot_sp3,Normal,(SD/mean),0.2,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Root crops (e.g. peanut),Default (IPCC),unitless,crop_root_to_shoot_sp4,Normal,(SD/mean),0.2,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - N-fixing forages,Default (IPCC),unitless,crop_root_to_shoot_sp5,Normal,(SD/mean),0.4,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Non-N-fixing forages,Default (IPCC),unitless,crop_root_to_shoot_sp6,Normal,(SD/mean),0.54,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Perennial grasses,Default (IPCC),unitless,crop_root_to_shoot_sp7,Normal,(SD/mean),0.8,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Grass-clover mixtures,Default (IPCC),unitless,crop_root_to_shoot_sp8,Normal,(SD/mean),0.8,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Maize,Default (IPCC),unitless,crop_root_to_shoot_sp9,Normal,(SD/mean),0.22,0.13,0.13,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Wheat,Default (IPCC),unitless,crop_root_to_shoot_sp10,Normal,(SD/mean),0.24,0.21,0.21,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Winter wheat,Default (IPCC),unitless,crop_root_to_shoot_sp11,Normal,(SD/mean),0.23,0.21,0.21,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Spring wheat,Default (IPCC),unitless,crop_root_to_shoot_sp12,Normal,(SD/mean),0.28,0.13,0.13,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Rice,Default (IPCC),unitless,crop_root_to_shoot_sp13,Normal,(SD/mean),0.16,0.18,0.18,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Barley,Default (IPCC),unitless,crop_root_to_shoot_sp14,Normal,(SD/mean),0.22,0.17,0.17,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Oats,Default (IPCC),unitless,crop_root_to_shoot_sp15,Normal,(SD/mean),0.25,0.6,0.6,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Millet,Default (IPCC),unitless,crop_root_to_shoot_sp16,Normal,(SD/mean),0.22,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Sorghum,Default (IPCC),unitless,crop_root_to_shoot_sp17,Normal,(SD/mean),0.22,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Rye,Default (IPCC),unitless,crop_root_to_shoot_sp18,Normal,(SD/mean),0.22,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Soybean,Default (IPCC),unitless,crop_root_to_shoot_sp19,Normal,(SD/mean),0.19,0.23,0.23,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Dry bean,Default (IPCC),unitless,crop_root_to_shoot_sp20,Normal,(SD/mean),0.19,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Potato,Default (IPCC),unitless,crop_root_to_shoot_sp21,Normal,(SD/mean),0.2,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Peanut (with pod),Default (IPCC),unitless,crop_root_to_shoot_sp22,Normal,(SD/mean),0.2,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Alfalfa,Default (IPCC),unitless,crop_root_to_shoot_sp23,Normal,(SD/mean),0.4,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Crop ,Root:Shoot - Non-legume hay,Default (IPCC),unitless,crop_root_to_shoot_sp24,Normal,(SD/mean),0.54,0.25,0.25,,https://www.ipcc-nggip.iges.or.jp/public/2019rf/vol4.html,"from IPCC 2019 Vol 4, Table 11.1a (% of mean)"
+Tree biomass ,Wood density,Default (peer-reviewed publication),g cm-3,tree_wood_dens_sp1,Normal,(SD/mean),0.598,0.27,0.27,,https://onlinelibrary.wiley.com/doi/full/10.1111/j.1461-0248.2009.01285.x?casa_token=y48UTbfj2VsAAAAA%3AN64hNldjauDCcVjTxhaa4MaFCNGsNvBQE3W71qpLmhEZknIl8QNIE4T3dhNdHjOIQbRUjZ146mqcUQ,Chave (2009) contains SD for published values. For default: SD = 0.16
