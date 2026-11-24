@@ -291,6 +291,20 @@ def _make_fake_result(n_years, offset=0.0):
     r.litter_difference = ones + offset
     r.fertiliser_difference = ones + offset
     r.crop_difference = ones + offset
+    # soil stocks
+    soil_model = MagicMock()
+    soil_model.SOC = np.full((n_years, 4), 1.0 + offset)
+    soil_model.soil.iom = 1.0 + offset
+    r.for_soil = soil_model
+    r.base_forward_soil_data = soil_model
+    r.project_forward_soil_data = soil_model
+    # tree stocks and mass balance
+    tree_project = MagicMock()
+    tree_project.stand_biomass = np.full((n_years, 5), 1.0 + offset)
+    tree_project.balance = {
+        key: ones + offset for key in ("in_", "out", "acc", "bal")
+    }
+    r.tree_projects = [tree_project]
     return r
 
 

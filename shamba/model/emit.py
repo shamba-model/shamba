@@ -205,7 +205,6 @@ def plot(emissions, legend_string, monte_carlo=False, save_name=None):
 
     if monte_carlo:
         # Plot central estimate as solid, and fill light for uncertainty
-        print(np.nanmax(emissions[:, 2] - emissions[:, 1]))
         x = np.arange(emissions.shape[0])
         line, = ax.plot(emissions[:, 0], label=legend_string)
         ax.fill_between(x, emissions[:, 1], emissions[:, 2],
