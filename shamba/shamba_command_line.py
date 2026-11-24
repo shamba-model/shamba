@@ -625,6 +625,36 @@ def main(n, arguments):
 
         ## MC plots
 
+        # plot_tree_projects(intervention_emissions.tree_projects, plot_name)
+        
+        # plt.close()
+        
+        ForwardSoilModule.plot_MC(
+            np.column_stack((mc_summary.soil_stocks["initialisation_SOC_mean"],
+                             mc_summary.soil_stocks["initialisation_SOC_q05"],
+                             mc_summary.soil_stocks["initialisation_SOC_q95"])),
+            no_of_years=N_YEARS,
+            legend_string="initialisation, 90% CI",
+        )
+        
+        ForwardSoilModule.plot_MC(
+            np.column_stack((mc_summary.soil_stocks["base_SOC_mean"],
+                             mc_summary.soil_stocks["base_SOC_q05"],
+                             mc_summary.soil_stocks["base_SOC_q95"])),
+            no_of_years=N_YEARS,
+            legend_string="baseline, 90% CI",
+        )
+        
+        ForwardSoilModule.plot_MC(
+            np.column_stack((mc_summary.soil_stocks["project_SOC_mean"],
+                             mc_summary.soil_stocks["project_SOC_q05"],
+                             mc_summary.soil_stocks["project_SOC_q95"])),
+            no_of_years=N_YEARS,
+            legend_string="project, 90% CI",
+            save_name=plot_name + "_soilModel_mc.png",
+        )
+        plt.close()
+        
         Emit.plot(np.column_stack(( mc_summary.base_yearly["emit_mean"],
                                     mc_summary.base_yearly["emit_q05"],
                                     mc_summary.base_yearly["emit_q95"],)),

@@ -3,7 +3,7 @@ from typing import Dict, List, NamedTuple, Any, Callable, Optional, Tuple
 import csv
 import concurrent.futures
 import model.soil_params as SoilParams
-from model.common.calculate_emissions import handle_intervention
+from model.common.calculate_emissions import InterventionReturnData, handle_intervention
 import model.common.constants as CONSTANTS
 import model.monte_carlo.sampler as sampler
 import numpy as np
@@ -22,6 +22,7 @@ class MCSummaries(NamedTuple):
     project_yearly: Dict[str, np.ndarray]
     diff_yearly: Dict[str, np.ndarray]
     diff_total: Dict[str, np.ndarray]
+    soil_stocks: Dict[str, np.ndarray]
 
 class SampleArgs(NamedTuple):
     perturbed_intervention_input: Dict[str, Any]
@@ -134,7 +135,7 @@ def run_monte_carlo(
     seed: Optional[int] = None,
     checkpoint_every: int = 0,
     on_checkpoint: Optional[Callable[[int, MCSummaries], None]] = None,
-) -> List[Dict[str, Any]]:
+) -> List[InterventionReturnData]:
 
     rng = np.random.default_rng(seed)
 
@@ -294,6 +295,12 @@ _DIFF_TOTAL_GETTERS = {
     "emit":       lambda r: np.array(np.sum(r.emit_project_emissions) - np.sum(r.emit_base_emissions)),
 }
 
+_SOIL_MODEL_GETTERS = {
+    "initialisation": lambda r: r.for_soil, # this is initialisation
+    "base": lambda r: r.base_forward_soil_data,
+    "project": lambda r: r.project_forward_soil_data,
+}
+
 def _compute_summary(
     mc_results: List[Any],
     getters: Dict[str, Any],
@@ -309,6 +316,39 @@ def _compute_summary(
             summary[f"{pool_name}_{label}"] = np.quantile(data, q, axis=0)
     return summary
 
+def _compute_soil_stock_summary(
+    mc_results: List[Any],
+    getters: Dict[str, Any], # SoilModelData getters
+    quantiles: Tuple[float, ...],
+) -> Dict[str, np.ndarray]:
+    summary = {}
+    # If initialisation is in getters, check if all runs have the same number of years as the initialisation run. If not, we will need to handle this case separately.
+    if "initialisation" in getters: # TODO: fix this with code design: inconsistent length among initialisations.
+        init_lengths = [len(getters["initialisation"](r).SOC) for r in mc_results]
+        if len(set(init_lengths)) > 1:
+            raise ValueError(f"Initialisation runs have different lengths of SOC arrays. There are {len(set(init_lengths))} unique lengths: {set(init_lengths)}.")    
+
+
+    for run, getter in getters.items():
+        stocks = np.stack([
+            np.asarray(getter(r).SOC) for r in mc_results
+        ]) # stocks has shape (n_samples, n_years, n_pools) where n_pools = 4 (DPM, RPM, BIO, HUM)
+
+        DPM = stocks[:, :, 0] # gathers n_samples arrays of results length n_years, array: (n_samples, n_years)
+        RPM = stocks[:, :, 1]
+        BIO = stocks[:, :, 2]
+        HUM = stocks[:, :, 3]
+        iom_values = np.asarray([getter(r).soil.iom for r in mc_results])[:, None]
+        IOM = np.broadcast_to(iom_values, DPM.shape) # gathers n_samples arrays of results length n_years, array: (n_samples, n_years)
+        SOC = stocks.sum(axis=2) + IOM
+        # gathers n_samples arrays of results length n_years, array: (n_samples, n_years, n_pools)
+        for pool_name, data in zip(["DPM", "RPM", "BIO", "HUM", "IOM","SOC"], [DPM, RPM, BIO, HUM, IOM, SOC]):
+            summary[f"{run}_{pool_name}_mean"] = data.mean(axis=0) # array: (n_years,)
+            summary[f"{run}_{pool_name}_std"] = data.std(axis=0)
+            for q in quantiles:
+                label = f"q{int(round(q * 100)):02d}"
+                summary[f"{run}_{pool_name}_{label}"] = np.quantile(data, q, axis=0)
+    return summary
 
 def summarise_mc_results(
     mc_results: List[Any],
@@ -326,7 +366,8 @@ def summarise_mc_results(
         project_yearly=_compute_summary(mc_results, _PROJ_GETTERS, quantiles),
         diff_yearly=_compute_summary(mc_results, _DIFF_GETTERS, quantiles),
         diff_total=_compute_summary(mc_results, _DIFF_TOTAL_GETTERS, quantiles),
-    )
+        soil_stocks=_compute_soil_stock_summary(mc_results, _SOIL_MODEL_GETTERS, quantiles),
+        )
 
 
 def write_mc_summary_csv(summary: Dict[str, np.ndarray], output_path: str) -> None:
