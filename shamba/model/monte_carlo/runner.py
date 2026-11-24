@@ -23,6 +23,8 @@ class MCSummaries(NamedTuple):
     diff_yearly: Dict[str, np.ndarray]
     diff_total: Dict[str, np.ndarray]
     soil_stocks: Dict[str, np.ndarray]
+    tree_stocks: Dict[str, Dict[str, np.ndarray]]
+    tree_balance: Dict[str, Dict[str, np.ndarray]]
 
 class SampleArgs(NamedTuple):
     perturbed_intervention_input: Dict[str, Any]
@@ -301,6 +303,10 @@ _SOIL_MODEL_GETTERS = {
     "project": lambda r: r.project_forward_soil_data,
 }
 
+_TREE_MODEL_GETTERS = {
+    "tree_projects": lambda r: r.tree_projects
+}
+
 def _compute_summary(
     mc_results: List[Any],
     getters: Dict[str, Any],
@@ -324,6 +330,7 @@ def _compute_soil_stock_summary(
     summary = {}
     # If initialisation is in getters, check if all runs have the same number of years as the initialisation run. If not, we will need to handle this case separately.
     if "initialisation" in getters: # TODO: fix this with code design: inconsistent length among initialisations.
+        # NB Even equal-length runs can have different fractional Cy0Year values, so their rows do not represent identical times
         init_lengths = [len(getters["initialisation"](r).SOC) for r in mc_results]
         if len(set(init_lengths)) > 1:
             raise ValueError(f"Initialisation runs have different lengths of SOC arrays. There are {len(set(init_lengths))} unique lengths: {set(init_lengths)}.")    
@@ -350,6 +357,56 @@ def _compute_soil_stock_summary(
                 summary[f"{run}_{pool_name}_{label}"] = np.quantile(data, q, axis=0)
     return summary
 
+def _compute_tree_biomass_summary(
+        mc_results: List[Any], 
+        getters: Dict[str, Any], 
+        quantiles: Tuple[float, ...]
+        ) -> Tuple[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, np.ndarray]]]:
+    # Extract statistics per tree project, with summaries for each biomass pool (leaf, branch, stem, croot, froot) across all runs.
+    stock_summary = {}
+    balance_summary = {}
+    # extract number of tree projects (dependent on intervention, same for all runs)
+    n_projects = max(len(getters["tree_projects"](r)) for r in mc_results)
+    for project_index in range(n_projects):
+        project_models = [
+            getters["tree_projects"](r)[project_index] for r in mc_results
+        ]
+        project_stand_biomass_data = tuple(
+            np.asarray(project.stand_biomass) for project in project_models
+        )
+        project_balance_data = {
+            output_label: np.stack([
+                project.balance[source_key] for project in project_models
+            ])
+            for source_key, output_label in (
+                ("in_", "in"),
+                ("out", "out"),
+                ("acc", "accumulated"),
+                ("bal", "balance"),
+            )
+        }
+        project_stock_summary = {}
+        project_balance_summary = {}
+        for pool_index, pool_name in enumerate(["leaf", "branch", "stem", "croot", "froot"]):  # TODO: double check pool order
+            biomass_data = np.stack([
+                stand_biomass[..., pool_index]
+                for stand_biomass in project_stand_biomass_data
+            ])
+            project_stock_summary[f"{pool_name}_mean"] = np.nanmean(biomass_data, axis=0)
+            project_stock_summary[f"{pool_name}_std"] = np.nanstd(biomass_data, axis=0)
+            for q in quantiles:
+                label = f"q{int(round(q * 100)):02d}"
+                project_stock_summary[f"{pool_name}_{label}"] = np.nanquantile(biomass_data, q, axis=0)
+        stock_summary[f"tree_project_{project_index+1}_biomass_summary"] = project_stock_summary
+        for balance_label, balance_data in project_balance_data.items():
+            project_balance_summary[f"{balance_label}_mean"] = np.nanmean(balance_data, axis=0)
+            project_balance_summary[f"{balance_label}_std"] = np.nanstd(balance_data, axis=0)
+            for q in quantiles:
+                label = f"q{int(round(q * 100)):02d}"
+                project_balance_summary[f"{balance_label}_{label}"] = np.nanquantile(balance_data,q ,axis=0)
+        balance_summary[f"tree_project_{project_index+1}_balance_summary"] = project_balance_summary
+    return stock_summary, balance_summary
+
 def summarise_mc_results(
     mc_results: List[Any],
     quantiles: Tuple[float, ...] = _QUANTILES,
@@ -361,13 +418,18 @@ def summarise_mc_results(
     soil, tree, fire, litter, fertiliser, crop, emit. Values represent
     baseline emissions, project emissions, and their difference respectively.
     """
+    tree_stocks, tree_balance = _compute_tree_biomass_summary(
+        mc_results, _TREE_MODEL_GETTERS, quantiles
+    )
     return MCSummaries(
         base_yearly=_compute_summary(mc_results, _BASE_GETTERS, quantiles),
         project_yearly=_compute_summary(mc_results, _PROJ_GETTERS, quantiles),
         diff_yearly=_compute_summary(mc_results, _DIFF_GETTERS, quantiles),
         diff_total=_compute_summary(mc_results, _DIFF_TOTAL_GETTERS, quantiles),
         soil_stocks=_compute_soil_stock_summary(mc_results, _SOIL_MODEL_GETTERS, quantiles),
-        )
+        tree_stocks=tree_stocks,
+        tree_balance=tree_balance,
+    )
 
 
 def write_mc_summary_csv(summary: Dict[str, np.ndarray], output_path: str) -> None:

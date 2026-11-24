@@ -548,6 +548,28 @@ def get_inputs(
     
     return output, stand_biomass, mass_balance
 
+def plot_biomass_mc(tree_summary, save_name=None):
+    """Plot the biomass pool data for Monte Carlo runs."""
+
+    fig = plt.figure()
+    fig.suptitle("Biomass Pools")
+    ax = fig.add_subplot(1, 1, 1)
+    for pool in enumerate(_BIOMASS_POOLS): # TODO: change legend names
+        ax.plot(tree_summary[f"{pool[1]}_mean"], label=[f"{pool[1]}, 90% uncertainty interval"])
+        ax.fill_between(range(len(tree_summary[f"{pool[1]}_mean"])), 
+                        tree_summary[f"{pool[1]}_q05"], 
+                        tree_summary[f"{pool[1]}_q95"], 
+                        alpha=0.5)
+
+    ax.legend(loc="best")
+    ax.set_xlabel("Time (years)")
+    ax.set_ylabel("Pool biomass (t C ha^-1)")
+    ax.set_title("Biomass pools vs time")
+
+    if save_name is not None:
+        plt.savefig(os.path.join(configuration.OUTPUT_DIR, save_name))
+
+    plt.close()
 
 def plot_biomass(tree_model, save_name=None):
     """Plot the biomass pool data."""
@@ -570,6 +592,29 @@ def plot_biomass(tree_model, save_name=None):
 
     plt.close()
 
+
+def plot_balance_mc(tree_summary, save_name=None):
+    """Plot the mass balance data for Monte Carlo runs. """
+
+    fig = plt.figure()
+    fig.suptitle("Biomass Mass Balance")
+    ax = fig.add_subplot(1, 1, 1)
+    
+    for index, item in enumerate(["in","out","accumulated","balance"]):
+        ax.plot(tree_summary[f"{item}_mean"], label=[f"{item}, 90% uncertainty interval"])
+        ax.fill_between(range(len(tree_summary[f"{item}_mean"])), 
+                        tree_summary[f"{item}_q05"], 
+                        tree_summary[f"{item}_q95"], 
+                        alpha=0.5)
+    ax.legend(loc="best")
+    ax.set_xlabel("Time (years)")
+    ax.set_ylabel("Biomass (t C ha^-1)")
+    ax.set_title("Mass balance vs time")
+
+    if save_name is not None:
+        plt.savefig(os.path.join(configuration.OUTPUT_DIR, save_name))
+
+    plt.close()    
 
 def plot_balance(tree_model, save_name=None):
     """Plot the mass balance data."""

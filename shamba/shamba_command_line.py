@@ -211,9 +211,18 @@ def save_tree_projects(tree_projects, plot_name):
 
 
 def plot_tree_projects(tree_projects, plot_name):
-    for project in tree_projects:
-        TreeModel.plot_biomass(project, save_name=plot_name + "_biomassPools.png")
-        TreeModel.plot_balance(project, save_name=plot_name + "_massBalance.png")
+    for project_number, project in enumerate(tree_projects, start=1):
+        TreeModel.plot_biomass(project, save_name=plot_name + f"_biomassPools_{project_number}.png")
+        TreeModel.plot_balance(project, save_name=plot_name + f"_massBalance_{project_number}.png")
+
+def plot_tree_projects_mc(tree_stocks, tree_balance, plot_name):
+    for project_number, project in enumerate(tree_stocks.values(), start=1):
+        TreeModel.plot_biomass_mc(
+            project,
+            save_name=plot_name + f"_MC_biomassPools_{project_number}.png",
+        )
+    for project_number, project in enumerate(tree_balance.values(), start=1):
+       TreeModel.plot_balance_mc(project, save_name=plot_name + f"_MC_massBalance_{project_number}.png")
 
 
 def print_tree_growths(tree_growths):
@@ -625,7 +634,7 @@ def main(n, arguments):
 
         ## MC plots
 
-        # plot_tree_projects(intervention_emissions.tree_projects, plot_name)
+        plot_tree_projects_mc(mc_summary.tree_stocks, mc_summary.tree_balance, plot_name)
         
         # plt.close()
         
@@ -634,7 +643,7 @@ def main(n, arguments):
                              mc_summary.soil_stocks["initialisation_SOC_q05"],
                              mc_summary.soil_stocks["initialisation_SOC_q95"])),
             no_of_years=N_YEARS,
-            legend_string="initialisation, 90% CI",
+            legend_string="initialisation, 90% uncertainty interval",
         )
         
         ForwardSoilModule.plot_MC(
@@ -642,7 +651,7 @@ def main(n, arguments):
                              mc_summary.soil_stocks["base_SOC_q05"],
                              mc_summary.soil_stocks["base_SOC_q95"])),
             no_of_years=N_YEARS,
-            legend_string="baseline, 90% CI",
+            legend_string="baseline, 90% uncertainty interval",
         )
         
         ForwardSoilModule.plot_MC(
@@ -650,7 +659,7 @@ def main(n, arguments):
                              mc_summary.soil_stocks["project_SOC_q05"],
                              mc_summary.soil_stocks["project_SOC_q95"])),
             no_of_years=N_YEARS,
-            legend_string="project, 90% CI",
+            legend_string="project, 90% uncertainty interval",
             save_name=plot_name + "_soilModel_mc.png",
         )
         plt.close()
@@ -658,11 +667,11 @@ def main(n, arguments):
         Emit.plot(np.column_stack(( mc_summary.base_yearly["emit_mean"],
                                     mc_summary.base_yearly["emit_q05"],
                                     mc_summary.base_yearly["emit_q95"],)),
-                                    legend_string="baseline, 90% CI", monte_carlo=True)
+                                    legend_string="baseline, 90% uncertainty interval", monte_carlo=True)
         Emit.plot(np.column_stack(( mc_summary.project_yearly["emit_mean"],
                                     mc_summary.project_yearly["emit_q05"],
                                     mc_summary.project_yearly["emit_q95"],)),
-                                    legend_string="project, 90% CI", monte_carlo=True)
+                                    legend_string="project, 90% uncertainty interval", monte_carlo=True)
         
         plt.savefig(plot_name + "_emissions_mc.png")
         plt.close()
@@ -670,7 +679,7 @@ def main(n, arguments):
         Emit.plot(np.column_stack((mc_summary.diff_yearly["emit_mean"],
                                    mc_summary.diff_yearly["emit_q05"],
                                    mc_summary.diff_yearly["emit_q95"],)),
-                                   legend_string="difference, 90% CI", monte_carlo=True)
+                                   legend_string="difference, 90% uncertainty interval", monte_carlo=True)
         
         plt.savefig(plot_name + "_emissions_diff_mc.png")
         plt.close()
