@@ -625,17 +625,17 @@ def main(n, arguments):
         write_all_mc_summary_csv(mc_summary, n + st, mc_dir, n_samples)
         if convergence_samples > 0:
             convergence_summary = summarise_mc_results(mc_results)
-            convergence_threshold = 0.01
-            convergence_metrics = {key: np.abs((convergence_summary.diff_total[key] - mc_summary.diff_total[key])/mc_summary.diff_total[key]) for key in mc_summary.diff_total} # TODO: update maths
-            mean_convergence_result = convergence_metrics["emit_mean"]
-            std_convergence_result = convergence_metrics["emit_std"]
+            convergence_threshold = 0.01 
+            # IPCC 2006 Vol 1 Ch3: "when the estimate for the [95 percent] confidence range is determined to within ± 1%, then an adequately stable result has been found". We use 90% here. 
+            # IPCC designed for natoiional reporting, but is the basis for the uncertainty quantification approach we take. # TODO: _review
+            convergence_metrics = {key: np.abs((convergence_summary.diff_total[key] - mc_summary.diff_total[key])/mc_summary.diff_total[key]) for key in mc_summary.diff_total}
 
-            if mean_convergence_result > convergence_threshold or std_convergence_result > convergence_threshold:
+            if convergence_metrics["emit_q05"] > convergence_threshold or convergence_metrics["emit_q05"] > convergence_threshold:
                 convergence_status = f"Convergence threshold ({convergence_threshold}) exceeded."
             else: 
                 convergence_status = f"Convergence threshold ({convergence_threshold}) met."
-            convergence_status += (f"\n    mean changed by {round(std_convergence_result * 100,1)} % \n"
-                  f"    std changed by {round(std_convergence_result * 100,1)} % \n"
+            convergence_status += (f"\n    q05 changed by {round(convergence_metrics['emit_q05'] * 100,1)} % \n"
+                  f"    q95 changed by {round(convergence_metrics['emit_q95'] * 100,1)} % \n"
                   f"    when {convergence_samples} extra samples were run.")
             # TODO: consider whether this is correct and sufficient for convergence diagnostics and output
 
@@ -713,13 +713,7 @@ def main(n, arguments):
         )
 
         if convergence_samples > 0:
-            if mean_convergence_result > convergence_threshold or std_convergence_result > convergence_threshold:
-                print(f"Convergence threshold ({convergence_threshold}) exceeded:")
-            else:
-                print(f"Convergence threshold ({convergence_threshold}) met:")
-            print(f"    mean changed by {round(std_convergence_result * 100,1)} % \n"
-                  f"    std changed by {round(std_convergence_result * 100,1)} % \n"
-                  f"    when {convergence_samples} extra samples were run.")
+            print(convergence_status)
         
 
 
