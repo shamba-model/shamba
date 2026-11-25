@@ -555,7 +555,7 @@ def plot_biomass_mc(tree_summary, save_name=None):
     fig.suptitle("Biomass Pools")
     ax = fig.add_subplot(1, 1, 1)
     for pool in enumerate(_BIOMASS_POOLS): # TODO: change legend names
-        ax.plot(tree_summary[f"{pool[1]}_mean"], label=[f"{pool[1]}, 90% uncertainty interval"])
+        ax.plot(tree_summary[f"{pool[1]}_mean"], label=f"{pool[1]}, 90% uncertainty interval")
         ax.fill_between(range(len(tree_summary[f"{pool[1]}_mean"])), 
                         tree_summary[f"{pool[1]}_q05"], 
                         tree_summary[f"{pool[1]}_q95"], 
@@ -601,7 +601,7 @@ def plot_balance_mc(tree_summary, save_name=None):
     ax = fig.add_subplot(1, 1, 1)
     
     for index, item in enumerate(["in","out","accumulated","balance"]):
-        ax.plot(tree_summary[f"{item}_mean"], label=[f"{item}, 90% uncertainty interval"])
+        ax.plot(tree_summary[f"{item}_mean"], label=f"{item}, 90% uncertainty interval")
         ax.fill_between(range(len(tree_summary[f"{item}_mean"])), 
                         tree_summary[f"{item}_q05"], 
                         tree_summary[f"{item}_q95"], 

@@ -39,7 +39,13 @@ import model.soil_models.forward_soil_model as ForwardSoilModule
 import model.soil_models.inverse_soil_model as InverseSoilModule
 from model.soil_models.soil_model_types import SoilModelType
 from model.monte_carlo import distribution_handler
-from model.monte_carlo.runner import run_monte_carlo, summarise_mc_results, write_mc_summary_csv, write_mc_metadata
+from model.monte_carlo.runner import (
+    pad_mc_summary_to_longest,
+    run_monte_carlo,
+    summarise_mc_results,
+    write_mc_metadata,
+    write_all_mc_summary_csv,
+)
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(_dir))
@@ -219,10 +225,10 @@ def plot_tree_projects_mc(tree_stocks, tree_balance, plot_name):
     for project_number, project in enumerate(tree_stocks.values(), start=1):
         TreeModel.plot_biomass_mc(
             project,
-            save_name=plot_name + f"_MC_biomassPools_{project_number}.png",
+            save_name=plot_name + f"_biomassPools_{project_number}_mc.png",
         )
     for project_number, project in enumerate(tree_balance.values(), start=1):
-       TreeModel.plot_balance_mc(project, save_name=plot_name + f"_MC_massBalance_{project_number}.png")
+       TreeModel.plot_balance_mc(project, save_name=plot_name + f"_mc_massBalance_{project_number}.png")
 
 
 def print_tree_growths(tree_growths):
@@ -591,12 +597,15 @@ def main(n, arguments):
     
     if arguments["n-samples"]:
         n_samples = arguments["n-samples"]
+        convergence_samples = arguments["convergence-samples"]
+        mc_dir = dir / "monte_carlo"
+        mc_plot_name = str(mc_dir / f"plot_{n + st}")
         # mc_results contains a list of n-samples Monte Carlo run results, each with base/project emissions and other outputs.
         mc_results = run_monte_carlo(
             base_input_dict=vector_input_data,
             soil_params=soil_params,
             climate=climate,
-            n_samples=n_samples,
+            n_samples=n_samples+convergence_samples,
             create_forward_soil_model=ForwardSoilModel.create,
             create_inverse_soil_model=InverseSoilModel.create,
             n_proj_cohorts=N_PROJ_COHORTS,
@@ -611,17 +620,27 @@ def main(n, arguments):
             crop_species_data=crop_species_data,
             pool_species_data=pool_species_data,
         )
-        mc_summary = summarise_mc_results(mc_results)
-        for scenario, label in [
-            (mc_summary.base_yearly,    "baseline"),
-            (mc_summary.project_yearly, "project"),
-            (mc_summary.diff_yearly,    "diff"),
-            (mc_summary.diff_total,     "diff_total")
-        ]:
-            write_mc_summary_csv(scenario, str(dir / f"plot_{n + st}_mc_{label}.csv"))
+
+        mc_summary = summarise_mc_results(mc_results[:n_samples])
+        write_all_mc_summary_csv(mc_summary, n + st, mc_dir, n_samples)
+        if convergence_samples > 0:
+            convergence_summary = summarise_mc_results(mc_results)
+            convergence_threshold = 0.01
+            convergence_metrics = {key: np.abs((convergence_summary.diff_total[key] - mc_summary.diff_total[key])/mc_summary.diff_total[key]) for key in mc_summary.diff_total} # TODO: update maths
+            mean_convergence_result = convergence_metrics["emit_mean"]
+            std_convergence_result = convergence_metrics["emit_std"]
+
+            if mean_convergence_result > convergence_threshold or std_convergence_result > convergence_threshold:
+                convergence_status = f"Convergence threshold ({convergence_threshold}) exceeded."
+            else: 
+                convergence_status = f"Convergence threshold ({convergence_threshold}) met."
+            convergence_status += (f"\n    mean changed by {round(std_convergence_result * 100,1)} % \n"
+                  f"    std changed by {round(std_convergence_result * 100,1)} % \n"
+                  f"    when {convergence_samples} extra samples were run.")
+            # TODO: consider whether this is correct and sufficient for convergence diagnostics and output
 
         write_mc_metadata(
-            output_path=str(dir / "mc_run_metadata.txt"),
+            output_path=str(mc_dir / "mc_run_metadata.txt"),
             n_samples=n_samples,
             seed=arguments["seed"],
             soil_model_type=soil_model_type,
@@ -630,13 +649,14 @@ def main(n, arguments):
             distribution_dict=True if arguments["distribution-file-name"] else False,
             climate=climate,
             sample_emission_factors=arguments["sample-emission-factors"],
+            convergence_status=convergence_status if convergence_samples > 0 else "Convergence checks not run."
         )
 
         ## MC plots
 
-        plot_tree_projects_mc(mc_summary.tree_stocks, mc_summary.tree_balance, plot_name)
+        plot_tree_projects_mc(mc_summary.tree_stocks, mc_summary.tree_balance, mc_plot_name)
         
-        # plt.close()
+        plt.close()
         
         ForwardSoilModule.plot_MC(
             np.column_stack((mc_summary.soil_stocks["initialisation_SOC_mean"],
@@ -660,7 +680,7 @@ def main(n, arguments):
                              mc_summary.soil_stocks["project_SOC_q95"])),
             no_of_years=N_YEARS,
             legend_string="project, 90% uncertainty interval",
-            save_name=plot_name + "_soilModel_mc.png",
+            save_name=mc_plot_name + "_soilModel_mc.png",
         )
         plt.close()
         
@@ -673,7 +693,7 @@ def main(n, arguments):
                                     mc_summary.project_yearly["emit_q95"],)),
                                     legend_string="project, 90% uncertainty interval", monte_carlo=True)
         
-        plt.savefig(plot_name + "_emissions_mc.png")
+        plt.savefig(mc_plot_name + "_emissions_mc.png")
         plt.close()
 
         Emit.plot(np.column_stack((mc_summary.diff_yearly["emit_mean"],
@@ -681,27 +701,27 @@ def main(n, arguments):
                                    mc_summary.diff_yearly["emit_q95"],)),
                                    legend_string="difference, 90% uncertainty interval", monte_carlo=True)
         
-        plt.savefig(plot_name + "_emissions_diff_mc.png")
+        plt.savefig(mc_plot_name + "_emissions_diff_mc.png")
         plt.close()
 
-        # TODO: the MC path currently writes only the quantile summary CSV.  The
-        # deterministic path (below) also writes per-pool
-        # emissions CSVs, soil model CSVs, tree/crop data CSVs, and plots.  Decide
-        # which of those outputs are meaningful for an MC run and add them here.
-        # Candidates: soil/climate CSVs from the base run (representative inputs); 
-        # plots of the emission distribution (e.g. per-year credible interval fan chart).
-
-
-        emit_diffs = [
-            r.emit_project_emissions - r.emit_base_emissions for r in mc_results
-        ] # TODO could use diff_yearly
-        total_diffs = np.array([float(np.sum(d)) for d in emit_diffs]) # TODO could use diff_total
         print(
-            f"\nMonte Carlo complete: {len(mc_results)} samples\n"
-            f"  Summaries written to: {dir}\n"
-            f"  Total emission difference — mean: {total_diffs.mean():.4f} t CO2 ha^-1  "
-            f"  std: {total_diffs.std():.4f} t CO2 ha^-1"
+            f"\nMonte Carlo complete: {len(mc_results)} samples total, {convergence_samples} added to check convergence\n"
+            f"  Summaries written to: {mc_dir}\n"
+            f"  Total emission difference at {n_samples} samples:\n"
+            f"    mean: {mc_summary.diff_total['emit_mean']:.4f} t CO2 ha^-1\n"
+            f"    std: {mc_summary.diff_total['emit_std']:.4f} t CO2 ha^-1"
         )
+
+        if convergence_samples > 0:
+            if mean_convergence_result > convergence_threshold or std_convergence_result > convergence_threshold:
+                print(f"Convergence threshold ({convergence_threshold}) exceeded:")
+            else:
+                print(f"Convergence threshold ({convergence_threshold}) met:")
+            print(f"    mean changed by {round(std_convergence_result * 100,1)} % \n"
+                  f"    std changed by {round(std_convergence_result * 100,1)} % \n"
+                  f"    when {convergence_samples} extra samples were run.")
+        
+
 
     intervention_emissions = handle_intervention(
             intervention_input=vector_input_data,

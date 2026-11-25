@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, NamedTuple, Any, Callable, Optional, Tuple
 import csv
 import concurrent.futures
@@ -226,7 +227,7 @@ def run_monte_carlo(
     results = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for start in batch_starts:
-            stop = start + batch_size
+            stop = min(start + batch_size,n_samples)
             samples_batch = samples[start:stop]
             emission_factor_samples_batch = emission_factor_samples[start:stop]
             soil_samples_batch = soil_samples[start:stop]
@@ -450,6 +451,57 @@ def write_mc_summary_csv(summary: Dict[str, np.ndarray], output_path: str) -> No
                 writer.writerow([year] + [float(summary[col][year - 1]) for col in cols])
 
 
+def pad_mc_summary_to_longest(
+    summary: Dict[str, np.ndarray],
+) -> Dict[str, np.ndarray]:
+    """Return a copy with shorter yearly columns padded with trailing NaNs."""
+    if not summary:
+        return {}
+
+    n_years = max(len(values) for values in summary.values())
+    return {
+        column: np.pad(
+            np.asarray(values, dtype=float),
+            (0, n_years - len(values)),
+            constant_values=np.nan,
+        )
+        for column, values in summary.items()
+    }
+
+
+def write_all_mc_summary_csv(mc_summary, code, dir, n_samples):
+    output_dir = Path(dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for scenario, label in [
+        (mc_summary.base_yearly,    "baseline"),
+        (mc_summary.project_yearly, "project"),
+        (mc_summary.diff_yearly,    "diff"),
+        (mc_summary.diff_total,     "diff_total"),]:
+        write_mc_summary_csv(scenario, str(output_dir / f"plot_{code}_{n_samples}samples_{label}.csv"))
+
+    # The soil initialisation and forward runs can cover different numbers
+    # of years. Pad the shorter run(s) in an export-only copy so all CSV
+    # columns have the length of whichever run is longest.
+    soil_stocks_for_csv = pad_mc_summary_to_longest(mc_summary.soil_stocks)
+    write_mc_summary_csv(
+        soil_stocks_for_csv,
+        str(output_dir / f"plot_{code}_{n_samples}samples_soil_stocks.csv"),
+    )
+
+    # Tree summaries have one nested dictionary per tree project. Export
+    # each project separately so the CSV writer receives its expected
+    # flat mapping of column names to yearly arrays.
+    for project_summaries, label in [
+        (mc_summary.tree_balance, "tree_balance"),
+        (mc_summary.tree_stocks,  "tree_stocks"),
+    ]:
+        for project_number, scenario in enumerate(project_summaries.values(), start=1):
+            write_mc_summary_csv(
+                scenario,
+                str(output_dir / f"plot_{code}_{n_samples}samples_{label}_tree{project_number}.csv"),
+            )
+
 def write_mc_metadata(
     output_path: str,
     n_samples: int,
@@ -460,6 +512,7 @@ def write_mc_metadata(
     distribution_dict: bool,
     climate,
     sample_emission_factors: bool,
+    convergence_status: str,
 ) -> None:
     """Write a plain-text summary of what the Monte Carlo run sampled."""
     lines = []
@@ -508,6 +561,8 @@ def write_mc_metadata(
         lines.append("  None — no distributions file supplied.")
     else:
         lines.append("  Distributions supplied in input file.")
+    lines.append("")
+    lines.append(convergence_status) # TODO: confirm that we want this outcome in the metadata - otherwise it's focused on what informed the model run, not outputs.
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")

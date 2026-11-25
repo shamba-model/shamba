@@ -336,8 +336,10 @@ ________________________________________________________________________________
     monte_carlo = _ask(questionary.confirm("Do you want to run a Monte Carlo analysis?", default=False))
 
     if monte_carlo:
-        n_samples = _ask(questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000"))  # TODO: derive a sensible default through analysis
+        n_samples = _ask(questionary.text("Enter the number of Monte Carlo samples to run:", validate=validate_integer, default="1000")) 
         arguments["n-samples"] = int(n_samples)
+        convergence = _ask(questionary.text("To run a convergence check, enter a non-zero number of extra samples to run:", validate = validate_integer, default = "50"))
+        arguments["convergence-samples"] = int(convergence)
         distribution_filename = _ask(questionary.text(
             "If you want to use user-specified distributions, enter the name of your file:",
             default="",
